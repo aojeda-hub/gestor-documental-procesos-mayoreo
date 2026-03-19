@@ -14,16 +14,304 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      document_indicators: {
+        Row: {
+          document_id: string
+          id: string
+          indicator_id: string
+        }
+        Insert: {
+          document_id: string
+          id?: string
+          indicator_id: string
+        }
+        Update: {
+          document_id?: string
+          id?: string
+          indicator_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_indicators_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_indicators_indicator_id_fkey"
+            columns: ["indicator_id"]
+            isOneToOne: false
+            referencedRelation: "indicators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_versions: {
+        Row: {
+          approver: string | null
+          authors: string | null
+          created_at: string
+          description: string | null
+          document_id: string
+          id: string
+          is_current: boolean
+          url_pdf: string | null
+          url_word: string | null
+          version_number: number
+        }
+        Insert: {
+          approver?: string | null
+          authors?: string | null
+          created_at?: string
+          description?: string | null
+          document_id: string
+          id?: string
+          is_current?: boolean
+          url_pdf?: string | null
+          url_word?: string | null
+          version_number: number
+        }
+        Update: {
+          approver?: string | null
+          authors?: string | null
+          created_at?: string
+          description?: string | null
+          document_id?: string
+          id?: string
+          is_current?: boolean
+          url_pdf?: string | null
+          url_word?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_versions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          confidential: boolean
+          created_at: string
+          created_by: string | null
+          doc_type: Database["public"]["Enums"]["doc_type"]
+          id: string
+          silo: Database["public"]["Enums"]["silo_type"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          confidential?: boolean
+          created_at?: string
+          created_by?: string | null
+          doc_type: Database["public"]["Enums"]["doc_type"]
+          id?: string
+          silo: Database["public"]["Enums"]["silo_type"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          confidential?: boolean
+          created_at?: string
+          created_by?: string | null
+          doc_type?: Database["public"]["Enums"]["doc_type"]
+          id?: string
+          silo?: Database["public"]["Enums"]["silo_type"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      indicators: {
+        Row: {
+          action_plan: string | null
+          created_at: string
+          created_by: string | null
+          data_source: string | null
+          definition: string | null
+          formula: string | null
+          frequency: Database["public"]["Enums"]["frequency_type"]
+          goals: string | null
+          id: string
+          indicator_type: Database["public"]["Enums"]["indicator_type"]
+          name: string
+          related_process: string | null
+          responsible: string | null
+          silo: Database["public"]["Enums"]["silo_type"]
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          action_plan?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_source?: string | null
+          definition?: string | null
+          formula?: string | null
+          frequency: Database["public"]["Enums"]["frequency_type"]
+          goals?: string | null
+          id?: string
+          indicator_type: Database["public"]["Enums"]["indicator_type"]
+          name: string
+          related_process?: string | null
+          responsible?: string | null
+          silo: Database["public"]["Enums"]["silo_type"]
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action_plan?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_source?: string | null
+          definition?: string | null
+          formula?: string | null
+          frequency?: Database["public"]["Enums"]["frequency_type"]
+          goals?: string | null
+          id?: string
+          indicator_type?: Database["public"]["Enums"]["indicator_type"]
+          name?: string
+          related_process?: string | null
+          responsible?: string | null
+          silo?: Database["public"]["Enums"]["silo_type"]
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          silo: Database["public"]["Enums"]["silo_type"] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          silo?: Database["public"]["Enums"]["silo_type"] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          silo?: Database["public"]["Enums"]["silo_type"] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      review_alerts: {
+        Row: {
+          acknowledged: boolean
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          document_id: string
+          due_date: string
+          id: string
+        }
+        Insert: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          document_id: string
+          due_date: string
+          id?: string
+        }
+        Update: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          document_id?: string
+          due_date?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_alerts_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "editor" | "viewer"
+      doc_type:
+        | "norma"
+        | "manual"
+        | "procedimiento"
+        | "anexo"
+        | "formato"
+        | "diagrama"
+      frequency_type:
+        | "diario"
+        | "semanal"
+        | "quincenal"
+        | "mensual"
+        | "trimestral"
+        | "semestral"
+        | "anual"
+      indicator_type:
+        | "eficiencia"
+        | "eficacia"
+        | "efectividad"
+        | "calidad"
+        | "productividad"
+        | "cumplimiento"
+      silo_type:
+        | "compras"
+        | "logistica"
+        | "ventas"
+        | "personal"
+        | "control"
+        | "mercadeo"
+        | "sistemas"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +438,42 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "editor", "viewer"],
+      doc_type: [
+        "norma",
+        "manual",
+        "procedimiento",
+        "anexo",
+        "formato",
+        "diagrama",
+      ],
+      frequency_type: [
+        "diario",
+        "semanal",
+        "quincenal",
+        "mensual",
+        "trimestral",
+        "semestral",
+        "anual",
+      ],
+      indicator_type: [
+        "eficiencia",
+        "eficacia",
+        "efectividad",
+        "calidad",
+        "productividad",
+        "cumplimiento",
+      ],
+      silo_type: [
+        "compras",
+        "logistica",
+        "ventas",
+        "personal",
+        "control",
+        "mercadeo",
+        "sistemas",
+      ],
+    },
   },
 } as const
