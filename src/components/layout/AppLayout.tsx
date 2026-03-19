@@ -10,7 +10,7 @@ import { SILO_LABELS } from '@/types/database';
 import logo from '@/assets/logo.png';
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/', label: 'Inicio', icon: LayoutDashboard },
   { to: '/documentos', label: 'Documentos', icon: FileText },
   { to: '/indicadores', label: 'Indicadores', icon: BarChart3 },
 ];
