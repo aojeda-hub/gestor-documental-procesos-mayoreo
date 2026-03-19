@@ -43,7 +43,7 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <img src={logo} alt="SIGPI" className="h-16 w-auto" />
+          <img src={logo} alt="SIGPI" className="h-24 w-auto" />
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Sistema Integral de Gestión
           </h1>
