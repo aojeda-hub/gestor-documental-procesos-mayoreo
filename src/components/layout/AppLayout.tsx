@@ -28,7 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-4">
-          <img src={logo} alt="SIGPI" className="h-8 w-auto" />
+          <img src={logo} alt="SIGPI" className="h-12 w-auto" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-sidebar-primary-foreground">SIGPI</span>
             <span className="text-[10px] text-sidebar-foreground/60">Gestión Procesos</span>
