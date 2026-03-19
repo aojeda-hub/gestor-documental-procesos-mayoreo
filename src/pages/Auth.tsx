@@ -49,10 +49,7 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <div className="flex items-center gap-2 text-primary">
-            <FileText className="h-8 w-8" />
-            <BarChart3 className="h-8 w-8" />
-          </div>
+          <img src={logo} alt="SIGPI" className="h-16 w-auto" />
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Sistema Integral de Gestión
           </h1>
