@@ -8,10 +8,6 @@ import {
 } from 'lucide-react';
 import { SILO_LABELS } from '@/types/database';
 import logo from '@/assets/logo.png';
-import {
-  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, ChevronDown, User,
-} from 'lucide-react';
-import { SILO_LABELS } from '@/types/database';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
