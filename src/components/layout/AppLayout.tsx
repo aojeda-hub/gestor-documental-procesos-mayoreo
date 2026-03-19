@@ -4,6 +4,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
+  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X,
+} from 'lucide-react';
+import { SILO_LABELS } from '@/types/database';
+import logo from '@/assets/logo.png';
+import {
   LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, ChevronDown, User,
 } from 'lucide-react';
 import { SILO_LABELS } from '@/types/database';
