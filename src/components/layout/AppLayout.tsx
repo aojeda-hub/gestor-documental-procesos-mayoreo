@@ -4,9 +4,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, ChevronDown, User,
+  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X,
 } from 'lucide-react';
 import { SILO_LABELS } from '@/types/database';
+import logo from '@/assets/logo.png';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,7 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-4">
-          <FileText className="h-6 w-6 text-sidebar-primary" />
+          <img src={logo} alt="SIGPI" className="h-8 w-auto" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-sidebar-primary-foreground">SIGPI</span>
             <span className="text-[10px] text-sidebar-foreground/60">Gestión Procesos</span>

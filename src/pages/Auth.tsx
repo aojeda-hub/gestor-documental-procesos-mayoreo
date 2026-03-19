@@ -3,10 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, BarChart3 } from 'lucide-react';
+import logo from '@/assets/logo.png';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -43,10 +43,7 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <div className="flex items-center gap-2 text-primary">
-            <FileText className="h-8 w-8" />
-            <BarChart3 className="h-8 w-8" />
-          </div>
+          <img src={logo} alt="SIGPI" className="h-16 w-auto" />
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Sistema Integral de Gestión
           </h1>
