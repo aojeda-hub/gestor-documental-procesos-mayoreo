@@ -28,8 +28,6 @@ export interface UserRole {
   id: string;
   user_id: string;
   role: AppRole;
-  silo: SiloType | null;
-  department: string | null;
 }
 
 export interface Document {
