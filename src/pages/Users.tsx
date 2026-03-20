@@ -8,7 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
 import { Search, UserPlus, Filter } from 'lucide-react';
-import { Profile, UserRole } from '@/types/database';
+import { UserRole } from '@/types/database';
 import { useToast } from '@/components/ui/use-toast';
 
 interface UserWithRoles {
@@ -21,7 +21,35 @@ interface UserWithRoles {
   roles: UserRole[];
   email: string;
 }
-...
+
+export default function Users() {
+  const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*');
+
+      if (profilesError) throw profilesError;
+
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('*');
+
+      if (rolesError) throw rolesError;
+
+      const usersWithRoles: UserWithRoles[] = (profilesData || []).map(profile => ({
+        ...profile,
+        roles: (rolesData || []).filter(r => r.user_id === profile.user_id) as UserRole[],
         email: profile.full_name ? `${profile.full_name.toLowerCase().replace(/\s+/g, '.')}@mayoreo.biz` : 'sin-email@mayoreo.biz'
       }));
 
@@ -70,7 +98,6 @@ interface UserWithRoles {
       const { roles, ...profileData } = data;
       
       if (selectedUser) {
-        // Update profile
         const { error: profileError } = await supabase
           .from('profiles')
           .update(profileData)
@@ -78,7 +105,6 @@ interface UserWithRoles {
         
         if (profileError) throw profileError;
 
-        // Update roles (Delete and Re-insert for simplicity in MVP)
         await supabase.from('user_roles').delete().eq('user_id', selectedUser.user_id);
         
         if (roles && roles.length > 0) {
@@ -87,14 +113,10 @@ interface UserWithRoles {
             .insert(roles.map((r: any) => ({
               user_id: selectedUser.user_id,
               role: r.role,
-              silo: r.silo,
-              department: r.department
             })));
           if (rolesError) throw rolesError;
         }
       } else {
-        // Create user logic would involve auth.signUp which is complex for a dash 
-        // usually handled via a function or admin API.
         toast({ title: "Creación de usuarios no implementada en este demo" });
       }
 
@@ -114,15 +136,10 @@ interface UserWithRoles {
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
-      `${user.first_name} ${user.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-      user.username?.toLowerCase().includes(search.toLowerCase());
-    
-    const matchesStatus = 
-      statusFilter === 'all' || 
-      (statusFilter === 'active' && user.is_active) || 
-      (statusFilter === 'inactive' && !user.is_active);
+      user.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+      user.email?.toLowerCase().includes(search.toLowerCase());
 
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   return (
@@ -141,24 +158,11 @@ interface UserWithRoles {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Filtrar por nombre o usuario..." 
+            placeholder="Filtrar por nombre o email..." 
             className="pl-10" 
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-        </div>
-        <div className="flex items-center gap-2 w-full md:w-64">
-          <Filter className="h-4 w-4 text-muted-foreground mr-2" />
-          <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los estados</SelectItem>
-              <SelectItem value="active">Solo Activos</SelectItem>
-              <SelectItem value="inactive">Solo Inactivos</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
