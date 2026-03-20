@@ -32,7 +32,7 @@ export default function Indicators() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
 
-  const canEdit = hasRole('admin') || hasRole('editor');
+  const canEdit = hasRole('admin') || hasRole('metodos');
 
   const fetchIndicators = async () => {
     setLoading(true);

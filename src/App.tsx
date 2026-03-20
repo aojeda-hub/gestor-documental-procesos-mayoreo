@@ -9,6 +9,7 @@ import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
 import Indicators from "@/pages/Indicators";
+import Users from "@/pages/Users";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/documentos" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
             <Route path="/indicadores" element={<ProtectedRoute><Indicators /></ProtectedRoute>} />
+            <Route path="/usuarios" element={<ProtectedRoute><Users /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

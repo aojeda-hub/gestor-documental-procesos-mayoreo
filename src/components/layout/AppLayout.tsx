@@ -4,15 +4,16 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X,
+  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, Users as UsersIcon,
 } from 'lucide-react';
-import { SILO_LABELS } from '@/types/database';
+import { SILO_LABELS, ROLE_LABELS } from '@/types/database';
 import logo from '@/assets/logo.png';
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: LayoutDashboard },
   { to: '/documentos', label: 'Documentos', icon: FileText },
   { to: '/indicadores', label: 'Indicadores', icon: BarChart3 },
+  { to: '/usuarios', label: 'Usuarios', icon: UsersIcon, adminOnly: true },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -31,25 +32,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <img src={logo} alt="SIGPI" className="h-12 w-auto" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-sidebar-primary-foreground">SIGPI</span>
-            <span className="text-[10px] text-sidebar-foreground/60">Gestión Procesos</span>
+            <span className="text-[10px] text-sidebar-foreground">Gestión Procesos</span>
           </div>
           <Button variant="ghost" size="icon" className="ml-auto lg:hidden text-sidebar-foreground" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </Button>
         </div>
         <nav className="flex-1 space-y-1 p-3">
-          {navItems.map(item => (
-            <Link key={item.to} to={item.to} onClick={() => setSidebarOpen(false)}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-                location.pathname === item.to
-                  ? "bg-sidebar-accent text-sidebar-primary"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              )}>
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map(item => {
+            if (item.adminOnly && !roles.includes('admin')) return null;
+            return (
+              <Link key={item.to} to={item.to} onClick={() => setSidebarOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                  location.pathname === item.to
+                    ? "bg-sidebar-accent text-sidebar-primary"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                )}>
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
         <div className="border-t border-sidebar-border p-3">
           <div className="flex items-center gap-3 rounded-md px-3 py-2">
@@ -58,11 +62,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="flex-1 truncate">
               <p className="text-sm font-medium truncate">{profile?.full_name || 'Usuario'}</p>
-              <p className="text-[10px] text-sidebar-foreground/50">
-                {profile?.silo ? SILO_LABELS[profile.silo] : 'Sin silo'} · {roles[0] || 'viewer'}
+              <p className="text-[10px] text-sidebar-foreground">
+                {profile?.silo ? SILO_LABELS[profile.silo] : 'Sin silo'} · {roles[0] ? ROLE_LABELS[roles[0]] : 'Responsable Comercial'}
               </p>
             </div>
-            <Button variant="ghost" size="icon" onClick={signOut} className="text-sidebar-foreground/50 hover:text-sidebar-foreground">
+            <Button variant="ghost" size="icon" onClick={signOut} className="text-sidebar-foreground hover:text-sidebar-foreground">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
@@ -70,7 +74,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Overlay */}
-      {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="fixed inset-0 z-40 bg-black lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* Main */}
       <div className="flex flex-1 flex-col overflow-hidden">

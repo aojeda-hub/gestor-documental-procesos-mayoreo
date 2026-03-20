@@ -12,14 +12,14 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Upload, Eye, Lock, Unlock, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, FileText, Upload, Eye, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2 } from 'lucide-react';
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
 import { DOC_TYPE_LABELS, SILO_LABELS } from '@/types/database';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default function Documents() {
-  const { user, hasRole } = useAuth();
+  const { user, profile, hasRole } = useAuth();
   const { toast } = useToast();
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +37,7 @@ export default function Documents() {
   const [formType, setFormType] = useState<DocType>('procedimiento');
   const [formSilo, setFormSilo] = useState<SiloType>('compras');
   const [formConfidential, setFormConfidential] = useState(false);
+  const [formFile, setFormFile] = useState<File | null>(null);
 
   // Version form
   const [vDesc, setVDesc] = useState('');
@@ -44,8 +45,16 @@ export default function Documents() {
   const [vApprover, setVApprover] = useState('');
   const [wordFile, setWordFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [genericFile, setGenericFile] = useState<File | null>(null);
 
-  const canEdit = hasRole('admin') || hasRole('editor');
+  // Bulk Upload state
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
+  const [bulkSilo, setBulkSilo] = useState<SiloType>('compras');
+  const [bulkType, setBulkType] = useState<DocType>('procedimiento');
+  const [uploadingBulk, setUploadingBulk] = useState(false);
+
+  const canEdit = hasRole('admin') || hasRole('metodos');
 
   const fetchDocs = async () => {
     setLoading(true);
@@ -72,13 +81,29 @@ export default function Documents() {
   };
 
   const handleCreateDoc = async () => {
-    const { error } = await supabase.from('documents').insert({
+    const { data: doc, error } = await supabase.from('documents').insert({
       title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, created_by: user?.id,
-    } as any);
+    } as any).select().single();
+    
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    
+    if (formFile) {
+      try {
+        const url = await uploadFile(formFile, (doc as any).id, 'file');
+        await supabase.from('document_versions').insert({
+          document_id: (doc as any).id, version_number: 1,
+          description: 'Carga inicial', authors: profile?.full_name || user?.email || '', 
+          approver: '', url_file: url, is_current: true,
+        } as any);
+      } catch (err: any) {
+        toast({ title: 'Error al subir archivo', description: err.message, variant: 'destructive' });
+      }
+    }
+
     toast({ title: 'Documento creado' });
     setShowCreate(false);
     setFormTitle('');
+    setFormFile(null);
     fetchDocs();
   };
 
@@ -104,23 +129,66 @@ export default function Documents() {
 
       let urlWord = null;
       let urlPdf = null;
+      let urlFile = null;
       if (wordFile) urlWord = await uploadFile(wordFile, selectedDocId, 'word');
       if (pdfFile) urlPdf = await uploadFile(pdfFile, selectedDocId, 'pdf');
+      if (genericFile) urlFile = await uploadFile(genericFile, selectedDocId, 'file');
 
       const { error } = await supabase.from('document_versions').insert({
         document_id: selectedDocId, version_number: nextVersion,
         description: vDesc, authors: vAuthors, approver: vApprover,
-        url_word: urlWord, url_pdf: urlPdf, is_current: true,
+        url_word: urlWord, url_pdf: urlPdf, url_file: urlFile, is_current: true,
       } as any);
 
       if (error) throw error;
       toast({ title: `Versión ${nextVersion} creada` });
       setShowVersionDialog(false);
       setVDesc(''); setVAuthors(''); setVApprover('');
-      setWordFile(null); setPdfFile(null);
+      setWordFile(null); setPdfFile(null); setGenericFile(null);
       fetchVersions(selectedDocId);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleBulkUpload = async () => {
+    if (bulkFiles.length === 0) return;
+    setUploadingBulk(true);
+    let successCount = 0;
+    
+    try {
+      for (const file of bulkFiles) {
+        const title = file.name.split('.').slice(0, -1).join('.') || file.name;
+        
+        // 1. Create document
+        const { data: doc, error: docErr } = await supabase.from('documents').insert({
+          title, doc_type: bulkType, silo: bulkSilo, confidential: false, created_by: user?.id,
+        } as any).select().single();
+        
+        if (docErr) throw docErr;
+
+        // 2. Upload file
+        const url = await uploadFile(file, (doc as any).id, 'file');
+
+        // 3. Create version
+        const { error: verErr } = await supabase.from('document_versions').insert({
+          document_id: (doc as any).id, version_number: 1,
+          description: 'Carga inicial masiva', authors: profile?.full_name || user?.email || '', 
+          approver: '', url_file: url, is_current: true,
+        } as any);
+
+        if (verErr) throw verErr;
+        successCount++;
+      }
+      
+      toast({ title: 'Carga Masiva exitosa', description: `Se cargaron ${successCount} documentos.` });
+      setShowBulkUpload(false);
+      setBulkFiles([]);
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Error en carga masiva', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploadingBulk(false);
     }
   };
 
@@ -150,45 +218,104 @@ export default function Documents() {
           </SelectContent>
         </Select>
         {canEdit && (
-          <Dialog open={showCreate} onOpenChange={setShowCreate}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> Nuevo Documento</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Nuevo Documento</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Título</Label>
-                  <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+          <>
+            <Dialog open={showCreate} onOpenChange={setShowCreate}>
+              <DialogTrigger asChild>
+                <Button variant="outline"><Plus className="mr-2 h-4 w-4" /> Nuevo Documento</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Nuevo Documento</DialogTitle></DialogHeader>
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Tipo</Label>
-                    <Select value={formType} onValueChange={v => setFormType(v as DocType)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Label>Título</Label>
+                    <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tipo</Label>
+                      <Select value={formType} onValueChange={v => setFormType(v as DocType)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Silo</Label>
+                      <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
+                    <Label>Confidencial</Label>
                   </div>
                   <div className="space-y-2">
-                    <Label>Silo</Label>
-                    <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Label>Seleccionar Documento (Opcional)</Label>
+                    <Input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.ppt,.pptx" onChange={e => setFormFile(e.target.files?.[0] || null)} />
+                    <p className="text-[10px] text-muted-foreground">Formatos soportados: PDF, Word, Imágenes, PowerPoint</p>
                   </div>
+                  <Button className="w-full" onClick={handleCreateDoc} disabled={!formTitle}>Crear Documento</Button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
-                  <Label>Confidencial</Label>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={showBulkUpload} onOpenChange={setShowBulkUpload}>
+              <DialogTrigger asChild>
+                <Button><FileUp className="mr-2 h-4 w-4" /> Carga Masiva</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Carga Masiva de Documentos</DialogTitle></DialogHeader>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tipo para todos</Label>
+                      <Select value={bulkType} onValueChange={v => setBulkType(v as DocType)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Silo para todos</Label>
+                      <Select value={bulkSilo} onValueChange={v => setBulkSilo(v as SiloType)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Seleccionar Archivos</Label>
+                    <Input 
+                      type="file" 
+                      multiple 
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.ppt,.pptx" 
+                      onChange={e => setBulkFiles(Array.from(e.target.files || []))} 
+                    />
+                    {bulkFiles.length > 0 && (
+                      <div className="mt-2 max-h-32 overflow-y-auto rounded-md border p-2 text-xs">
+                        {bulkFiles.map((f, i) => <div key={i} className="py-1 border-b last:border-0">{f.name}</div>)}
+                      </div>
+                    )}
+                  </div>
+                  <Button 
+                    className="w-full" 
+                    onClick={handleBulkUpload} 
+                    disabled={bulkFiles.length === 0 || uploadingBulk}
+                  >
+                    {uploadingBulk ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Subiendo...</> : `Cargar ${bulkFiles.length} documentos`}
+                  </Button>
                 </div>
-                <Button className="w-full" onClick={handleCreateDoc} disabled={!formTitle}>Crear Documento</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </>
         )}
       </div>
 
@@ -232,7 +359,7 @@ export default function Documents() {
                   </TableRow>
                   {expandedDoc === doc.id && (
                     <TableRow key={`${doc.id}-versions`}>
-                      <TableCell colSpan={7} className="bg-muted/30 p-4">
+                      <TableCell colSpan={7} className="bg-muted p-4">
                         <p className="mb-2 text-sm font-semibold">Historial de Versiones</p>
                         {versions.length === 0 ? (
                           <p className="text-sm text-muted-foreground">Sin versiones.</p>
@@ -249,6 +376,7 @@ export default function Documents() {
                                   <span className="text-muted-foreground">{v.authors}</span>
                                   {v.url_pdf && <a href={v.url_pdf} target="_blank" className="text-primary hover:underline">PDF</a>}
                                   {v.url_word && <a href={v.url_word} target="_blank" className="text-primary hover:underline">Word</a>}
+                                  {v.url_file && <a href={v.url_file} target="_blank" className="text-primary hover:underline">Archivo</a>}
                                 </div>
                               </div>
                             ))}
@@ -283,14 +411,20 @@ export default function Documents() {
                 <Input value={vApprover} onChange={e => setVApprover(e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Archivo Word</Label>
-                <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
+            <div className="grid gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Archivo Word</Label>
+                  <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Archivo PDF</Label>
+                  <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label>Archivo PDF</Label>
-                <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                <Label>Otros Archivos (Imagen, PPT, etc.)</Label>
+                <Input type="file" accept=".jpg,.jpeg,.png,.ppt,.pptx" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
               </div>
             </div>
             <Button className="w-full" onClick={handleCreateVersion}>Guardar Versión</Button>
