@@ -12,7 +12,9 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Upload, Eye, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2 } from 'lucide-react';
+import { Plus, FileText, Upload, Eye, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
 import { DOC_TYPE_LABELS, SILO_LABELS } from '@/types/database';
 import { format } from 'date-fns';
@@ -53,6 +55,13 @@ export default function Documents() {
   const [bulkSilo, setBulkSilo] = useState<SiloType>('compras');
   const [bulkType, setBulkType] = useState<DocType>('procedimiento');
   const [uploadingBulk, setUploadingBulk] = useState(false);
+
+  // Edit/Delete state
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<Document | null>(null);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<Document | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const canEdit = hasRole('admin') || hasRole('editor');
 
@@ -105,6 +114,43 @@ export default function Documents() {
     setFormTitle('');
     setFormFile(null);
     fetchDocs();
+  };
+
+  const handleUpdateDoc = async () => {
+    if (!editingDoc) return;
+    const { error } = await supabase.from('documents').update({
+      title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential,
+    } as any).eq('id', editingDoc.id);
+
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+
+    toast({ title: 'Documento actualizado' });
+    setShowEditDialog(false);
+    setEditingDoc(null);
+    fetchDocs();
+  };
+
+  const handleDeleteDoc = async () => {
+    if (!docToDelete) return;
+    setIsDeleting(true);
+    try {
+      // First delete associated versions
+      const { error: verErr } = await supabase.from('document_versions').delete().eq('document_id', docToDelete.id);
+      if (verErr) throw verErr;
+
+      // Then delete the document
+      const { error: docErr } = await supabase.from('documents').delete().eq('id', docToDelete.id);
+      if (docErr) throw docErr;
+
+      toast({ title: 'Documento eliminado' });
+      setShowDeleteAlert(false);
+      setDocToDelete(null);
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Error al eliminar', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const uploadFile = async (file: File, docId: string, type: string) => {
@@ -330,7 +376,7 @@ export default function Documents() {
                 <TableHead>Silo</TableHead>
                 <TableHead>Confidencial</TableHead>
                 <TableHead>Actualizado</TableHead>
-                <TableHead></TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -349,12 +395,38 @@ export default function Documents() {
                     <TableCell>{SILO_LABELS[doc.silo]}</TableCell>
                     <TableCell>{doc.confidential ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{format(new Date(doc.updated_at), 'dd/MM/yyyy')}</TableCell>
-                    <TableCell>
-                      {canEdit && (
-                        <Button size="sm" variant="outline" onClick={e => { e.stopPropagation(); setSelectedDocId(doc.id); setShowVersionDialog(true); }}>
-                          <Upload className="mr-1 h-3 w-3" /> Versión
-                        </Button>
-                      )}
+                    <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => toggleExpand(doc.id)}>
+                            <Eye className="mr-2 h-4 w-4" /> Ver
+                          </DropdownMenuItem>
+                          {canEdit && (
+                            <>
+                              <DropdownMenuItem onClick={() => { setSelectedDocId(doc.id); setShowVersionDialog(true); }}>
+                                <Upload className="mr-2 h-4 w-4" /> Nueva Versión
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => { 
+                                setEditingDoc(doc);
+                                setFormTitle(doc.title);
+                                setFormType(doc.doc_type);
+                                setFormSilo(doc.silo);
+                                setFormConfidential(doc.confidential);
+                                setShowEditDialog(true);
+                              }}>
+                                <Edit className="mr-2 h-4 w-4" /> Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setDocToDelete(doc); setShowDeleteAlert(true); }}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                   {expandedDoc === doc.id && (
@@ -431,6 +503,66 @@ export default function Documents() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar Documento</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Título</Label>
+              <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select value={formType} onValueChange={v => setFormType(v as DocType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Silo</Label>
+                <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
+              <Label>Confidencial</Label>
+            </div>
+            <Button className="w-full" onClick={handleUpdateDoc} disabled={!formTitle}>Actualizar Documento</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Alert Dialog */}
+      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará el documento "{docToDelete?.title}" y todas sus versiones. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={e => { e.preventDefault(); handleDeleteDoc(); }} 
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit2 } from 'lucide-react';
+import { Plus, Edit2, Eye, Trash2 } from 'lucide-react';
+import { IndicatorSheet } from '@/components/indicators/IndicatorSheet';
 import type { Indicator, SiloType, IndicatorType, FrequencyType } from '@/types/database';
 import { SILO_LABELS, INDICATOR_TYPE_LABELS, FREQUENCY_LABELS } from '@/types/database';
 
@@ -30,6 +31,8 @@ export default function Indicators() {
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedIndicator, setSelectedIndicator] = useState<Indicator | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const canEdit = hasRole('admin') || hasRole('editor');
@@ -77,6 +80,19 @@ export default function Indicators() {
     fetchIndicators();
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('¿Estás seguro de eliminar este indicador?')) return;
+    const { error } = await supabase.from('indicators').delete().eq('id', id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Indicador eliminado' });
+    fetchIndicators();
+  };
+
+  const openView = (ind: Indicator) => {
+    setSelectedIndicator(ind);
+    setViewDialogOpen(true);
+  };
+
   const filtered = indicators.filter(i => {
     if (filterSilo !== 'all' && i.silo !== filterSilo) return false;
     if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -110,12 +126,12 @@ export default function Indicators() {
                 <TableHead>Frecuencia</TableHead>
                 <TableHead>Responsable</TableHead>
                 <TableHead>Metas</TableHead>
-                {canEdit && <TableHead></TableHead>}
+                <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No se encontraron indicadores.</TableCell></TableRow>
               ) : filtered.map(ind => (
@@ -131,13 +147,23 @@ export default function Indicators() {
                   <TableCell>{FREQUENCY_LABELS[ind.frequency]}</TableCell>
                   <TableCell>{ind.responsible}</TableCell>
                   <TableCell className="max-w-[120px] truncate">{ind.goals}</TableCell>
-                  {canEdit && (
-                    <TableCell>
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(ind)}>
-                        <Edit2 className="h-4 w-4" />
+                   <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => openView(ind)} title="Ver Ficha">
+                        <Eye className="h-4 w-4 text-blue-600" />
                       </Button>
-                    </TableCell>
-                  )}
+                      {canEdit && (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(ind)} title="Editar">
+                            <Edit2 className="h-4 w-4 text-slate-600" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleDelete(ind.id)} title="Eliminar">
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -218,6 +244,22 @@ export default function Indicators() {
               </div>
             </div>
             <Button className="w-full" onClick={handleSave} disabled={!form.name}>Guardar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Ficha Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-6 bg-slate-50">
+          <DialogHeader>
+            <DialogTitle className="text-[#1e6075] border-b pb-2">Ficha Técnica del Indicador</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            {selectedIndicator && <IndicatorSheet indicator={selectedIndicator} />}
+          </div>
+          <div className="mt-4 flex justify-end gap-2 print:hidden">
+            <Button variant="outline" onClick={() => window.print()}>Imprimir</Button>
+            <Button onClick={() => setViewDialogOpen(false)}>Cerrar</Button>
           </div>
         </DialogContent>
       </Dialog>
