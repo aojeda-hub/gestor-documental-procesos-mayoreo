@@ -1,14 +1,20 @@
-import { useState } from 'react';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Edit2, Trash2 } from 'lucide-react';
-import { Profile, UserRole, SILO_LABELS, ROLE_LABELS } from '@/types/database';
+import { UserRole, SILO_LABELS, ROLE_LABELS } from '@/types/database';
 
-interface UserWithRoles extends Profile {
+interface UserWithRoles {
+  id: string;
+  user_id: string;
+  full_name: string;
+  silo: string | null;
+  created_at: string;
+  updated_at: string;
   roles: UserRole[];
+  email: string;
 }
 
 interface UserTableProps {
@@ -25,8 +31,8 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
           <TableRow>
             <TableHead>Nombre</TableHead>
             <TableHead>Email</TableHead>
+            <TableHead>Silo</TableHead>
             <TableHead>Roles</TableHead>
-            <TableHead>Estado</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -34,33 +40,29 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
           {users.map((user) => (
             <TableRow key={user.id}>
               <TableCell>
-                <div className="flex flex-col">
-                  <span className="font-medium text-foreground">{user.first_name} {user.last_name}</span>
-                  <span className="text-xs text-muted-foreground">{user.username || user.email?.split('@')[0]}</span>
-                </div>
+                <span className="font-medium text-foreground">{user.full_name}</span>
               </TableCell>
               <TableCell className="text-muted-foreground">{user.email}</TableCell>
               <TableCell>
-                <div className="flex flex-col gap-1">
+                {user.silo ? (
+                  <Badge variant="outline" className="text-[10px]">
+                    {SILO_LABELS[user.silo as keyof typeof SILO_LABELS] || user.silo}
+                  </Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground italic">Sin silo</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-wrap gap-1">
                   {user.roles.map((ur) => (
-                    <div key={ur.id} className="flex flex-col">
-                      <Badge variant="secondary" className="w-fit text-[10px] px-1.5 py-0 h-4">
-                        {ROLE_LABELS[ur.role]}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground ml-0.5">
-                        {ur.silo ? SILO_LABELS[ur.silo] : 'Sin silo'} {ur.department ? ` - ${ur.department}` : ''}
-                      </span>
-                    </div>
+                    <Badge key={ur.id} variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                      {ROLE_LABELS[ur.role]}
+                    </Badge>
                   ))}
                   {user.roles.length === 0 && (
                     <span className="text-xs text-muted-foreground italic">Sin roles</span>
                   )}
                 </div>
-              </TableCell>
-              <TableCell>
-                <Badge variant={user.is_active ? "success" : "destructive"} className="px-2 py-0.5 text-[10px]">
-                  {user.is_active ? 'Activo' : 'Inactivo'}
-                </Badge>
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">

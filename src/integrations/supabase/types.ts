@@ -56,7 +56,6 @@ export type Database = {
           document_id: string
           id: string
           is_current: boolean
-          url_file: string | null
           url_pdf: string | null
           url_word: string | null
           version_number: number
@@ -69,7 +68,6 @@ export type Database = {
           document_id: string
           id?: string
           is_current?: boolean
-          url_file?: string | null
           url_pdf?: string | null
           url_word?: string | null
           version_number: number
@@ -82,7 +80,6 @@ export type Database = {
           document_id?: string
           id?: string
           is_current?: boolean
-          url_file?: string | null
           url_pdf?: string | null
           url_word?: string | null
           version_number?: number
@@ -190,39 +187,27 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
-          first_name: string
           full_name: string
           id: string
-          is_active: boolean
-          last_name: string
           silo: Database["public"]["Enums"]["silo_type"] | null
           updated_at: string
           user_id: string
-          username: string | null
         }
         Insert: {
           created_at?: string
-          first_name?: string
           full_name?: string
           id?: string
-          is_active?: boolean
-          last_name?: string
           silo?: Database["public"]["Enums"]["silo_type"] | null
           updated_at?: string
           user_id: string
-          username?: string | null
         }
         Update: {
           created_at?: string
-          first_name?: string
           full_name?: string
           id?: string
-          is_active?: boolean
-          last_name?: string
           silo?: Database["public"]["Enums"]["silo_type"] | null
           updated_at?: string
           user_id?: string
-          username?: string | null
         }
         Relationships: []
       }
@@ -266,24 +251,18 @@ export type Database = {
       }
       user_roles: {
         Row: {
-          department: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
-          silo: Database["public"]["Enums"]["silo_type"] | null
           user_id: string
         }
         Insert: {
-          department?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
-          silo?: Database["public"]["Enums"]["silo_type"] | null
           user_id: string
         }
         Update: {
-          department?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
-          silo?: Database["public"]["Enums"]["silo_type"] | null
           user_id?: string
         }
         Relationships: []
@@ -302,7 +281,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "metodos" | "comercial" | "colaborador"
+      app_role: "admin" | "editor" | "viewer"
       doc_type:
         | "norma"
         | "manual"
@@ -460,7 +439,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "metodos", "comercial", "colaborador"],
+      app_role: ["admin", "editor", "viewer"],
       doc_type: [
         "norma",
         "manual",

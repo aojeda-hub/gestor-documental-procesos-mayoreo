@@ -2,35 +2,27 @@ export type DocType = 'norma' | 'manual' | 'procedimiento' | 'anexo' | 'formato'
 export type SiloType = 'compras' | 'logistica' | 'ventas' | 'personal' | 'control' | 'mercadeo' | 'sistemas';
 export type IndicatorType = 'eficiencia' | 'eficacia' | 'efectividad' | 'calidad' | 'productividad' | 'cumplimiento';
 export type FrequencyType = 'diario' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'semestral' | 'anual';
-export type AppRole = 'admin' | 'metodos' | 'comercial' | 'colaborador';
+export type AppRole = 'admin' | 'editor' | 'viewer';
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   admin: 'Administrador',
-  metodos: 'Responsable de Métodos',
-  comercial: 'Responsable Comercial',
-  colaborador: 'Colaborador',
+  editor: 'Editor',
+  viewer: 'Visor',
 };
 
 export interface Profile {
   id: string;
   user_id: string;
-  first_name: string;
-  last_name: string;
   full_name: string;
-  username: string | null;
   silo: SiloType | null;
-  is_active: boolean;
   created_at: string;
   updated_at: string;
-  email?: string; // For joining with auth.users if needed
 }
 
 export interface UserRole {
   id: string;
   user_id: string;
   role: AppRole;
-  silo: SiloType | null;
-  department: string | null;
 }
 
 export interface Document {

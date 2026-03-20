@@ -17,7 +17,7 @@ const navItems = [
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { profile, signOut, roles } = useAuth();
+  const { user, profile, signOut, roles } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -28,53 +28,58 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-sidebar-background text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-4">
-          <img src={logo} alt="SIGPI" className="h-12 w-auto" />
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-sidebar-primary-foreground">SIGPI</span>
-            <span className="text-[10px] text-sidebar-foreground">Gestión Procesos</span>
-          </div>
+        {/* Header with logo */}
+        <div className="flex h-14 items-center gap-2 px-5 pt-2">
+          <img src={logo} alt="SIGPI" className="h-10 w-auto" />
           <Button variant="ghost" size="icon" className="ml-auto lg:hidden text-sidebar-foreground" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </Button>
         </div>
-        <nav className="flex-1 space-y-1 p-3">
+
+        {/* Section label */}
+        <div className="px-5 pb-2 pt-4">
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-sidebar-primary">
+            Gestión Procesos
+          </span>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 space-y-0.5 px-3">
           {navItems.map(item => {
             if (item.adminOnly && !roles.includes('admin')) return null;
+            const isActive = location.pathname === item.to;
             return (
               <Link key={item.to} to={item.to} onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-                  location.pathname === item.to
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                 )}>
-                <item.icon className="h-4 w-4" />
+                <item.icon className="h-[18px] w-[18px]" />
                 {item.label}
               </Link>
             );
           })}
         </nav>
-        <div className="border-t border-sidebar-border p-3">
-          <div className="flex items-center gap-3 rounded-md px-3 py-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">
-              {profile?.full_name?.[0]?.toUpperCase() || 'U'}
-            </div>
-            <div className="flex-1 truncate">
-              <p className="text-sm font-medium truncate">{profile?.full_name || 'Usuario'}</p>
-              <p className="text-[10px] text-sidebar-foreground">
-                {profile?.silo ? SILO_LABELS[profile.silo] : 'Sin silo'} · {roles[0] ? ROLE_LABELS[roles[0]] : 'Responsable Comercial'}
-              </p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={signOut} className="text-sidebar-foreground hover:text-sidebar-foreground">
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
+
+        {/* Footer */}
+        <div className="border-t border-sidebar-border px-5 py-4 space-y-3">
+          <p className="text-xs text-sidebar-foreground truncate">
+            {user?.email || 'usuario@correo.com'}
+          </p>
+          <button
+            onClick={signOut}
+            className="flex items-center gap-2 text-sm text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar Sesión
+          </button>
         </div>
       </aside>
 
       {/* Overlay */}
-      {sidebarOpen && <div className="fixed inset-0 z-40 bg-black lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* Main */}
       <div className="flex flex-1 flex-col overflow-hidden">
