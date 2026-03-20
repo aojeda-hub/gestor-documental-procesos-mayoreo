@@ -54,7 +54,7 @@ export default function Documents() {
   const [bulkType, setBulkType] = useState<DocType>('procedimiento');
   const [uploadingBulk, setUploadingBulk] = useState(false);
 
-  const canEdit = hasRole('admin') || hasRole('metodos');
+  const canEdit = hasRole('admin') || hasRole('editor');
 
   const fetchDocs = async () => {
     setLoading(true);
