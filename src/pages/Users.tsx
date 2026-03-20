@@ -11,47 +11,18 @@ import { Search, UserPlus, Filter } from 'lucide-react';
 import { Profile, UserRole } from '@/types/database';
 import { useToast } from '@/components/ui/use-toast';
 
-interface UserWithRoles extends Profile {
+interface UserWithRoles {
+  id: string;
+  user_id: string;
+  full_name: string;
+  silo: string | null;
+  created_at: string;
+  updated_at: string;
   roles: UserRole[];
+  email: string;
 }
-
-export default function Users() {
-  const [users, setUsers] = useState<UserWithRoles[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
-  const [saving, setSaving] = useState(false);
-  const { toast } = useToast();
-
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      // Fetch profiles with auth emails (requires service role or advanced RLS, 
-      // but here we assume profiles exist for users and we can join or fetch separately)
-      // Since we can't easily join auth.users from client without a function, 
-      // we'll fetch profiles and assume email is in meta or handled.
-      // Actually, in this project, we might have emails in the profile if we sync them.
-      
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*');
-
-      if (profilesError) throw profilesError;
-
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('*');
-
-      if (rolesError) throw rolesError;
-
-      // Temporary optimization: fetch emails if possible or use usernames
-      const usersWithRoles: UserWithRoles[] = (profilesData || []).map(profile => ({
-        ...profile,
-        roles: (rolesData || []).filter(r => r.user_id === profile.user_id) as UserRole[],
-        // In a real app, we'd fetch email from auth or a secure view
-        email: profile.username ? `${profile.username}@mayoreo.biz` : 'sin-email@mayoreo.biz'
+...
+        email: profile.full_name ? `${profile.full_name.toLowerCase().replace(/\s+/g, '.')}@mayoreo.biz` : 'sin-email@mayoreo.biz'
       }));
 
       setUsers(usersWithRoles);
