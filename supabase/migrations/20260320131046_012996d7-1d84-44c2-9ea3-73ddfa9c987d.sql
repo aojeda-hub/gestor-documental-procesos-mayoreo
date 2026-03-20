@@ -1,0 +1,1 @@
+UPDATE public.profiles SET email = 'aojeda@mayoreo.biz' WHERE user_id = 'e0a8ac11-596b-4018-8dc5-720acca9cf68';
