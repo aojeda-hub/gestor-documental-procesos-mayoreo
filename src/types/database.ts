@@ -13,15 +13,10 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 export interface Profile {
   id: string;
   user_id: string;
-  first_name: string;
-  last_name: string;
   full_name: string;
-  username: string | null;
   silo: SiloType | null;
-  is_active: boolean;
   created_at: string;
   updated_at: string;
-  email?: string; // For joining with auth.users if needed
 }
 
 export interface UserRole {
