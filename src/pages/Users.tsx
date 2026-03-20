@@ -50,7 +50,7 @@ export default function Users() {
       const usersWithRoles: UserWithRoles[] = (profilesData || []).map(profile => ({
         ...profile,
         roles: (rolesData || []).filter(r => r.user_id === profile.user_id) as UserRole[],
-        email: profile.full_name ? `${profile.full_name.toLowerCase().replace(/\s+/g, '.')}@mayoreo.biz` : 'sin-email@mayoreo.biz'
+        email: profile.email || (profile.full_name ? `${profile.full_name.toLowerCase().replace(/\s+/g, '.')}@mayoreo.biz` : 'sin-email@mayoreo.biz')
       }));
 
       setUsers(usersWithRoles);
