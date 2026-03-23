@@ -64,6 +64,10 @@ export default function Documents() {
   const [docToDelete, setDocToDelete] = useState<Document | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteAlert, setShowBulkDeleteAlert] = useState(false);
+
   // Google Drive edit confirmation state
   const [showConfirmEdit, setShowConfirmEdit] = useState(false);
   const [editingDocForConfirm, setEditingDocForConfirm] = useState<Document | null>(null);
