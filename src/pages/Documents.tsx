@@ -452,7 +452,7 @@ export default function Documents() {
                     <Input 
                       type="file" 
                       multiple 
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.ppt,.pptx" 
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.bmp,.svg,.ppt,.pptx,.xls,.xlsx,.vsd,.vsdx,.dwg,.ai,.eps,.tif,.tiff,.webp,.zip,.rar" 
                       onChange={e => setBulkFiles(Array.from(e.target.files || []))} 
                     />
                     {bulkFiles.length > 0 && (
