@@ -259,8 +259,14 @@ export default function Documents() {
       return;
     }
 
-    // Open in new tab
-    window.open(driveUrl, '_blank');
+    // Open in new tab using anchor element to bypass iframe restrictions
+    const a = document.createElement('a');
+    a.href = driveUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
     // Show confirm dialog
     setEditingDocForConfirm(doc);
