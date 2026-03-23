@@ -1,0 +1,1 @@
+ALTER TABLE public.document_versions ADD COLUMN IF NOT EXISTS url_file text DEFAULT NULL;
