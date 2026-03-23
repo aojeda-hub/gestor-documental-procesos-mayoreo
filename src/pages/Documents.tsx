@@ -47,7 +47,6 @@ export default function Documents() {
   const [vApprover, setVApprover] = useState('');
   const [wordFile, setWordFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [genericFile, setGenericFile] = useState<File | null>(null);
   const [vDriveUrl, setVDriveUrl] = useState('');
 
   // Bulk Upload state
