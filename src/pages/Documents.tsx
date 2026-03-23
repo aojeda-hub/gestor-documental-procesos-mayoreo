@@ -244,6 +244,79 @@ export default function Documents() {
     }
   };
 
+  const handleOpenInGoogleDrive = async (doc: Document) => {
+    // Get current version's url_word (Google Drive link)
+    const { data: currentVersions } = await supabase.from('document_versions')
+      .select('*')
+      .eq('document_id', doc.id)
+      .eq('is_current', true)
+      .limit(1);
+
+    const currentVersion = currentVersions?.[0] as unknown as DocumentVersion | undefined;
+    const driveUrl = currentVersion?.url_word;
+
+    if (!driveUrl) {
+      toast({ title: 'Sin enlace de edición', description: 'Este documento no tiene un enlace de Google Drive configurado. Agréguelo en el campo "Archivo Word" al crear una versión.', variant: 'destructive' });
+      return;
+    }
+
+    // Open in new tab
+    window.open(driveUrl, '_blank');
+
+    // Show confirm dialog
+    setEditingDocForConfirm(doc);
+    setConfirmDesc('');
+    setShowConfirmEdit(true);
+  };
+
+  const handleConfirmEdit = async () => {
+    if (!editingDocForConfirm) return;
+    setIsConfirming(true);
+    try {
+      // Get next version number
+      const { data: existing } = await supabase.from('document_versions')
+        .select('version_number, url_word, url_pdf, url_file')
+        .eq('document_id', editingDocForConfirm.id)
+        .order('version_number', { ascending: false }).limit(1);
+
+      const lastVersion = existing?.[0] as any;
+      const nextVersion = (lastVersion?.version_number || 0) + 1;
+
+      // Mark old versions as not current
+      await supabase.from('document_versions').update({ is_current: false } as any).eq('document_id', editingDocForConfirm.id);
+
+      // Create new version preserving the same URLs
+      const { error } = await supabase.from('document_versions').insert({
+        document_id: editingDocForConfirm.id,
+        version_number: nextVersion,
+        description: confirmDesc || 'Edición desde Google Drive',
+        authors: profile?.full_name || user?.email || '',
+        approver: '',
+        url_word: lastVersion?.url_word || null,
+        url_pdf: lastVersion?.url_pdf || null,
+        url_file: lastVersion?.url_file || null,
+        is_current: true,
+      } as any);
+
+      if (error) throw error;
+
+      // Update document's updated_at
+      await supabase.from('documents').update({ updated_at: new Date().toISOString() } as any).eq('id', editingDocForConfirm.id);
+
+      toast({ title: `Versión ${nextVersion} registrada`, description: 'La edición fue confirmada exitosamente.' });
+      setShowConfirmEdit(false);
+      setEditingDocForConfirm(null);
+      fetchDocs();
+      if (expandedDoc === editingDocForConfirm.id) {
+        fetchVersions(editingDocForConfirm.id);
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   const filtered = docs.filter(d => {
     if (filterSilo !== 'all' && d.silo !== filterSilo) return false;
     if (filterType !== 'all' && d.doc_type !== filterType) return false;
