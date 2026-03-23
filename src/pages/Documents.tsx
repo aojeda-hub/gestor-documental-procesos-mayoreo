@@ -184,6 +184,7 @@ export default function Documents() {
       let urlPdf = null;
       let urlFile = null;
       if (wordFile) urlWord = await uploadFile(wordFile, selectedDocId, 'word');
+      else if (vDriveUrl.trim()) urlWord = vDriveUrl.trim();
       if (pdfFile) urlPdf = await uploadFile(pdfFile, selectedDocId, 'pdf');
       if (genericFile) urlFile = await uploadFile(genericFile, selectedDocId, 'file');
 
