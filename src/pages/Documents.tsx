@@ -347,15 +347,19 @@ export default function Documents() {
                 <Button variant="outline"><Plus className="mr-2 h-4 w-4" /> Nuevo Documento</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Nuevo Documento</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Agregar Documento</DialogTitle></DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Título</Label>
-                    <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} />
+                    <Label>Título del documento</Label>
+                    <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Nombre del documento" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descripción</Label>
+                    <Textarea value={vDesc} onChange={e => setVDesc(e.target.value)} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Tipo</Label>
+                      <Label>Tipo de documento</Label>
                       <Select value={formType} onValueChange={v => setFormType(v as DocType)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -378,11 +382,24 @@ export default function Documents() {
                     <Label>Confidencial</Label>
                   </div>
                   <div className="space-y-2">
-                    <Label>Seleccionar Documento (Opcional)</Label>
-                    <Input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.ppt,.pptx" onChange={e => setFormFile(e.target.files?.[0] || null)} />
-                    <p className="text-[10px] text-muted-foreground">Formatos soportados: PDF, Word, Imágenes, PowerPoint</p>
+                    <Label>Enlace Google Drive (para edición en línea)</Label>
+                    <Input
+                      placeholder="https://docs.google.com/document/d/..."
+                      value={vDriveUrl}
+                      onChange={e => setVDriveUrl(e.target.value)}
+                    />
                   </div>
-                  <Button className="w-full" onClick={handleCreateDoc} disabled={!formTitle}>Crear Documento</Button>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Archivo Word (opcional)</Label>
+                      <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Archivo PDF (opcional)</Label>
+                      <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                    </div>
+                  </div>
+                  <Button className="w-full" onClick={handleCreateDoc} disabled={!formTitle}>Guardar</Button>
                 </div>
               </DialogContent>
             </Dialog>
