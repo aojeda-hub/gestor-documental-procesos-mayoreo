@@ -102,23 +102,23 @@ export default function Documents() {
     
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     
-    if (formFile) {
-      try {
-        const url = await uploadFile(formFile, (doc as any).id, 'file');
-        await supabase.from('document_versions').insert({
-          document_id: (doc as any).id, version_number: 1,
-          description: 'Carga inicial', authors: profile?.full_name || user?.email || '', 
-          approver: '', url_word: url, is_current: true,
-        } as any);
-      } catch (err: any) {
-        toast({ title: 'Error al subir archivo', description: err.message, variant: 'destructive' });
-      }
-    }
+    // Create initial version with Drive URL and/or uploaded files
+    let urlWord = null;
+    let urlPdf = null;
+    if (wordFile) urlWord = await uploadFile(wordFile, (doc as any).id, 'word').catch(() => null);
+    else if (vDriveUrl.trim()) urlWord = vDriveUrl.trim();
+    if (pdfFile) urlPdf = await uploadFile(pdfFile, (doc as any).id, 'pdf').catch(() => null);
+
+    await supabase.from('document_versions').insert({
+      document_id: (doc as any).id, version_number: 1,
+      description: vDesc || 'Carga inicial', authors: profile?.full_name || user?.email || '', 
+      approver: '', url_word: urlWord, url_pdf: urlPdf, is_current: true,
+    } as any);
 
     toast({ title: 'Documento creado' });
     setShowCreate(false);
-    setFormTitle('');
-    setFormFile(null);
+    setFormTitle(''); setVDesc(''); setVDriveUrl('');
+    setWordFile(null); setPdfFile(null); setFormFile(null);
     fetchDocs();
   };
 
