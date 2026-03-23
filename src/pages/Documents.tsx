@@ -355,9 +355,9 @@ export default function Documents() {
               <DialogTrigger asChild>
                 <Button variant="outline"><Plus className="mr-2 h-4 w-4" /> Nuevo Documento</Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Agregar Documento</DialogTitle></DialogHeader>
-                <div className="space-y-4">
+              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader><DialogTitle className="text-xl">Agregar Documento</DialogTitle></DialogHeader>
+                <div className="space-y-5 py-2">
                   <div className="space-y-2">
                     <Label>Título del documento</Label>
                     <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Nombre del documento" />
