@@ -195,7 +195,7 @@ export default function Documents() {
       toast({ title: `Versión ${nextVersion} creada` });
       setShowVersionDialog(false);
       setVDesc(''); setVAuthors(''); setVApprover('');
-      setWordFile(null); setPdfFile(null); setGenericFile(null); setVDriveUrl('');
+      setWordFile(null); setPdfFile(null); setVDriveUrl('');
       fetchVersions(selectedDocId);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
