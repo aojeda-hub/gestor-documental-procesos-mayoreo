@@ -526,6 +526,25 @@ export default function Documents() {
                             }}>
                               <FileText className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={async () => {
+                              const { data: vers } = await supabase
+                                .from('document_versions')
+                                .select('url_pdf')
+                                .eq('document_id', doc.id)
+                                .eq('is_current', true)
+                                .single();
+                              if (vers?.url_pdf) {
+                                const link = document.createElement('a');
+                                link.href = vers.url_pdf;
+                                link.download = `${doc.title}.pdf`;
+                                link.target = '_blank';
+                                link.click();
+                              } else {
+                                toast({ title: 'Sin PDF', description: 'Este documento no tiene un archivo PDF asociado.', variant: 'destructive' });
+                              }
+                            }}>
+                              <Download className="mr-2 h-4 w-4" /> Descargar PDF
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setDocToDelete(doc); setShowDeleteAlert(true); }}>
                               <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
