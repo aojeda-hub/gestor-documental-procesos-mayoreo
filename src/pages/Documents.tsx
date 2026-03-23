@@ -481,8 +481,13 @@ export default function Documents() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => toggleExpand(doc.id)}>
-                            <Eye className="mr-2 h-4 w-4" /> Ver
+                            <Eye className="mr-2 h-4 w-4" /> Ver Versiones
                           </DropdownMenuItem>
+                          {canEdit && (
+                            <DropdownMenuItem onClick={() => handleOpenInGoogleDrive(doc)}>
+                              <ExternalLink className="mr-2 h-4 w-4" /> Ver / Editar en Drive
+                            </DropdownMenuItem>
+                          )}
                           {canEdit && (
                             <>
                               <DropdownMenuItem onClick={() => { setSelectedDocId(doc.id); setShowVersionDialog(true); }}>
