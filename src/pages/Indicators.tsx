@@ -215,8 +215,16 @@ export default function Indicators() {
                 <Input value={form.formula} onChange={e => setField('formula', e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Unidad</Label>
-                <Input value={form.unit} onChange={e => setField('unit', e.target.value)} />
+              <Label>Unidad</Label>
+                <Select value={form.unit} onValueChange={v => setField('unit', v)}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar unidad" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="adimensional">Adimensional</SelectItem>
+                    <SelectItem value="moneda">Moneda</SelectItem>
+                    <SelectItem value="porcentaje">Porcentaje</SelectItem>
+                    <SelectItem value="unidad">Unidad</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Proceso relacionado</Label>
