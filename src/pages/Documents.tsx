@@ -556,8 +556,21 @@ export default function Documents() {
           <DialogHeader><DialogTitle>Agregar Documento</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Descripción del cambio</Label>
+              <Label>Título del documento</Label>
+              <Input value={vAuthors} onChange={e => setVAuthors(e.target.value)} placeholder="Nombre del documento" />
+            </div>
+            <div className="space-y-2">
+              <Label>Descripción</Label>
               <Textarea value={vDesc} onChange={e => setVDesc(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de documento</Label>
+              <Select value={vApprover || 'procedimiento'} onValueChange={v => setVApprover(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Enlace Google Drive (para edición en línea)</Label>
@@ -582,7 +595,7 @@ export default function Documents() {
               <Label>Otros Archivos (Imagen, PPT, etc.)</Label>
               <Input type="file" accept=".jpg,.jpeg,.png,.ppt,.pptx" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
             </div>
-            <Button className="w-full" onClick={handleCreateVersion}>Guardar Versión</Button>
+            <Button className="w-full" onClick={handleCreateVersion}>Guardar</Button>
           </div>
         </DialogContent>
       </Dialog>
