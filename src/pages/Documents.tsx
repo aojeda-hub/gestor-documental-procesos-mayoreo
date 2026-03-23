@@ -615,6 +615,66 @@ export default function Documents() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Document Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={(open) => { if (!open) { setShowEditDialog(false); setEditingDoc(null); } }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar Documento</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Título del documento</Label>
+              <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Nombre del documento" />
+            </div>
+            <div className="space-y-2">
+              <Label>Descripción</Label>
+              <Textarea value={vDesc} onChange={e => setVDesc(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo de documento</Label>
+                <Select value={formType} onValueChange={v => setFormType(v as DocType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Silo</Label>
+                <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
+              <Label>Confidencial</Label>
+            </div>
+            <div className="space-y-2">
+              <Label>Enlace Google Drive (para edición en línea)</Label>
+              <Input
+                placeholder="https://docs.google.com/document/d/..."
+                value={vDriveUrl}
+                onChange={e => setVDriveUrl(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Archivo Word (opcional)</Label>
+                <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Archivo PDF (opcional)</Label>
+                <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+              </div>
+            </div>
+            <Button className="w-full" onClick={handleUpdateDoc} disabled={!formTitle}>Guardar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
