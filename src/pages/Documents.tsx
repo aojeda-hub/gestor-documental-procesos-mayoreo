@@ -638,7 +638,7 @@ export default function Documents() {
                   </TableRow>
                   {expandedDoc === doc.id && (
                     <TableRow key={`${doc.id}-versions`}>
-                      <TableCell colSpan={7} className="bg-muted p-4">
+                      <TableCell colSpan={canEdit ? 8 : 7} className="bg-muted p-4">
                         <p className="mb-2 text-sm font-semibold">Historial de Versiones</p>
                         {versions.length === 0 ? (
                           <p className="text-sm text-muted-foreground">Sin versiones.</p>
