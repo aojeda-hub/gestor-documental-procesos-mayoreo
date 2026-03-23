@@ -398,14 +398,21 @@ export default function Documents() {
                       onChange={e => setVDriveUrl(e.target.value)}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Archivo Word (opcional)</Label>
-                      <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Archivo PDF (opcional)</Label>
-                      <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                  <div className="space-y-2">
+                    <Label>Archivos</Label>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Word (.doc, .docx)</span>
+                        <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">PDF</span>
+                        <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Otro archivo (PPT, Excel, Imagen, Diagrama, etc.)</span>
+                        <Input type="file" accept=".ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.bmp,.svg,.vsd,.vsdx,.dwg,.ai,.eps,.tif,.tiff,.webp,.zip,.rar" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
+                      </div>
                     </div>
                   </div>
                   <Button className="w-full" onClick={handleCreateDoc} disabled={!formTitle}>Guardar</Button>
