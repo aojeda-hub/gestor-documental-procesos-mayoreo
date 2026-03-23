@@ -531,7 +531,6 @@ export default function Documents() {
                                   <span className="text-muted-foreground">{v.authors}</span>
                                   {v.url_pdf && <a href={v.url_pdf} target="_blank" className="text-primary hover:underline">PDF</a>}
                                   {v.url_word && <a href={v.url_word} target="_blank" className="text-primary hover:underline">Word</a>}
-                                  {v.url_file && <a href={v.url_file} target="_blank" className="text-primary hover:underline">Archivo</a>}
                                 </div>
                               </div>
                             ))}
