@@ -109,7 +109,7 @@ export default function Documents() {
         await supabase.from('document_versions').insert({
           document_id: (doc as any).id, version_number: 1,
           description: 'Carga inicial', authors: profile?.full_name || user?.email || '', 
-          approver: '', url_file: url, is_current: true,
+          approver: '', url_word: url, is_current: true,
         } as any);
       } catch (err: any) {
         toast({ title: 'Error al subir archivo', description: err.message, variant: 'destructive' });
