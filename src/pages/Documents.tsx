@@ -294,7 +294,6 @@ export default function Documents() {
         approver: '',
         url_word: lastVersion?.url_word || null,
         url_pdf: lastVersion?.url_pdf || null,
-        url_file: lastVersion?.url_file || null,
         is_current: true,
       } as any);
 
