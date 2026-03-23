@@ -275,7 +275,7 @@ export default function Documents() {
     try {
       // Get next version number
       const { data: existing } = await supabase.from('document_versions')
-        .select('version_number, url_word, url_pdf, url_file')
+        .select('version_number, url_word, url_pdf')
         .eq('document_id', editingDocForConfirm.id)
         .order('version_number', { ascending: false }).limit(1);
 
