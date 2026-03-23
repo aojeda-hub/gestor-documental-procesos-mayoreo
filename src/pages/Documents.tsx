@@ -529,19 +529,42 @@ export default function Documents() {
                             <DropdownMenuItem onClick={async () => {
                               const { data: vers } = await supabase
                                 .from('document_versions')
-                                .select('url_pdf')
+                                .select('url_pdf, url_word')
                                 .eq('document_id', doc.id)
                                 .eq('is_current', true)
                                 .single();
+
+                              // 1. Si ya tiene PDF, descargar directamente
                               if (vers?.url_pdf) {
                                 const link = document.createElement('a');
                                 link.href = vers.url_pdf;
                                 link.download = `${doc.title}.pdf`;
                                 link.target = '_blank';
                                 link.click();
-                              } else {
-                                toast({ title: 'Sin PDF', description: 'Este documento no tiene un archivo PDF asociado.', variant: 'destructive' });
+                                return;
                               }
+
+                              // 2. Si tiene enlace de Google Drive, exportar como PDF
+                              const driveUrl = vers?.url_word || '';
+                              const driveIdMatch = driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                              if (driveIdMatch) {
+                                const fileId = driveIdMatch[1];
+                                let exportUrl = '';
+                                if (driveUrl.includes('docs.google.com/document')) {
+                                  exportUrl = `https://docs.google.com/document/d/${fileId}/export?format=pdf`;
+                                } else if (driveUrl.includes('docs.google.com/spreadsheets')) {
+                                  exportUrl = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=pdf`;
+                                } else if (driveUrl.includes('docs.google.com/presentation')) {
+                                  exportUrl = `https://docs.google.com/presentation/d/${fileId}/export/pdf`;
+                                } else {
+                                  // Enlace genérico de Drive
+                                  exportUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                                }
+                                window.open(exportUrl, '_blank');
+                                return;
+                              }
+
+                              toast({ title: 'Sin PDF disponible', description: 'Este documento no tiene un PDF ni un enlace de Google Drive para exportar.', variant: 'destructive' });
                             }}>
                               <Download className="mr-2 h-4 w-4" /> Descargar PDF
                             </DropdownMenuItem>
