@@ -12,8 +12,8 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Upload, Eye, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2, MoreVertical, Edit, Trash2, ExternalLink, CheckCircle } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Plus, FileText, Upload, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2, MoreVertical, Trash2, ExternalLink, CheckCircle } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
 import { DOC_TYPE_LABELS, SILO_LABELS } from '@/types/database';
@@ -102,23 +102,23 @@ export default function Documents() {
     
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     
-    if (formFile) {
-      try {
-        const url = await uploadFile(formFile, (doc as any).id, 'file');
-        await supabase.from('document_versions').insert({
-          document_id: (doc as any).id, version_number: 1,
-          description: 'Carga inicial', authors: profile?.full_name || user?.email || '', 
-          approver: '', url_word: url, is_current: true,
-        } as any);
-      } catch (err: any) {
-        toast({ title: 'Error al subir archivo', description: err.message, variant: 'destructive' });
-      }
-    }
+    // Create initial version with Drive URL and/or uploaded files
+    let urlWord = null;
+    let urlPdf = null;
+    if (wordFile) urlWord = await uploadFile(wordFile, (doc as any).id, 'word').catch(() => null);
+    else if (vDriveUrl.trim()) urlWord = vDriveUrl.trim();
+    if (pdfFile) urlPdf = await uploadFile(pdfFile, (doc as any).id, 'pdf').catch(() => null);
+
+    await supabase.from('document_versions').insert({
+      document_id: (doc as any).id, version_number: 1,
+      description: vDesc || 'Carga inicial', authors: profile?.full_name || user?.email || '', 
+      approver: '', url_word: urlWord, url_pdf: urlPdf, is_current: true,
+    } as any);
 
     toast({ title: 'Documento creado' });
     setShowCreate(false);
-    setFormTitle('');
-    setFormFile(null);
+    setFormTitle(''); setVDesc(''); setVDriveUrl('');
+    setWordFile(null); setPdfFile(null); setFormFile(null);
     fetchDocs();
   };
 
@@ -347,15 +347,19 @@ export default function Documents() {
                 <Button variant="outline"><Plus className="mr-2 h-4 w-4" /> Nuevo Documento</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Nuevo Documento</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Agregar Documento</DialogTitle></DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Título</Label>
-                    <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} />
+                    <Label>Título del documento</Label>
+                    <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Nombre del documento" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descripción</Label>
+                    <Textarea value={vDesc} onChange={e => setVDesc(e.target.value)} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Tipo</Label>
+                      <Label>Tipo de documento</Label>
                       <Select value={formType} onValueChange={v => setFormType(v as DocType)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -378,11 +382,24 @@ export default function Documents() {
                     <Label>Confidencial</Label>
                   </div>
                   <div className="space-y-2">
-                    <Label>Seleccionar Documento (Opcional)</Label>
-                    <Input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.ppt,.pptx" onChange={e => setFormFile(e.target.files?.[0] || null)} />
-                    <p className="text-[10px] text-muted-foreground">Formatos soportados: PDF, Word, Imágenes, PowerPoint</p>
+                    <Label>Enlace Google Drive (para edición en línea)</Label>
+                    <Input
+                      placeholder="https://docs.google.com/document/d/..."
+                      value={vDriveUrl}
+                      onChange={e => setVDriveUrl(e.target.value)}
+                    />
                   </div>
-                  <Button className="w-full" onClick={handleCreateDoc} disabled={!formTitle}>Crear Documento</Button>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Archivo Word (opcional)</Label>
+                      <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Archivo PDF (opcional)</Label>
+                      <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                    </div>
+                  </div>
+                  <Button className="w-full" onClick={handleCreateDoc} disabled={!formTitle}>Guardar</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -463,52 +480,28 @@ export default function Documents() {
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No se encontraron documentos.</TableCell></TableRow>
               ) : filtered.map(doc => (
                 <>
-                  <TableRow key={doc.id} className="cursor-pointer" onClick={() => toggleExpand(doc.id)}>
-                    <TableCell>
+                  <TableRow key={doc.id} className="cursor-pointer">
+                    <TableCell onClick={() => toggleExpand(doc.id)}>
                       {expandedDoc === doc.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </TableCell>
-                    <TableCell className="font-medium">{doc.title}</TableCell>
-                    <TableCell><Badge variant="secondary">{DOC_TYPE_LABELS[doc.doc_type]}</Badge></TableCell>
-                    <TableCell>{SILO_LABELS[doc.silo]}</TableCell>
-                    <TableCell>{doc.confidential ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{format(new Date(doc.updated_at), 'dd/MM/yyyy')}</TableCell>
+                    <TableCell className="font-medium text-primary hover:underline" onClick={() => handleOpenInGoogleDrive(doc)}>{doc.title}</TableCell>
+                    <TableCell onClick={() => toggleExpand(doc.id)}><Badge variant="secondary">{DOC_TYPE_LABELS[doc.doc_type]}</Badge></TableCell>
+                    <TableCell onClick={() => toggleExpand(doc.id)}>{SILO_LABELS[doc.silo]}</TableCell>
+                    <TableCell onClick={() => toggleExpand(doc.id)}>{doc.confidential ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                    <TableCell onClick={() => toggleExpand(doc.id)} className="text-sm text-muted-foreground">{format(new Date(doc.updated_at), 'dd/MM/yyyy')}</TableCell>
                     <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => toggleExpand(doc.id)}>
-                            <Eye className="mr-2 h-4 w-4" /> Ver Versiones
-                          </DropdownMenuItem>
-                          {canEdit && (
-                            <DropdownMenuItem onClick={() => handleOpenInGoogleDrive(doc)}>
-                              <ExternalLink className="mr-2 h-4 w-4" /> Ver / Editar en Drive
+                      {canEdit && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setDocToDelete(doc); setShowDeleteAlert(true); }}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
-                          )}
-                          {canEdit && (
-                            <>
-                              <DropdownMenuItem onClick={() => { setSelectedDocId(doc.id); setShowVersionDialog(true); }}>
-                                <Upload className="mr-2 h-4 w-4" /> Agregar Documento
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => { 
-                                setEditingDoc(doc);
-                                setFormTitle(doc.title);
-                                setFormType(doc.doc_type);
-                                setFormSilo(doc.silo);
-                                setFormConfidential(doc.confidential);
-                                setShowEditDialog(true);
-                              }}>
-                                <Edit className="mr-2 h-4 w-4" /> Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setDocToDelete(doc); setShowDeleteAlert(true); }}>
-                                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                   {expandedDoc === doc.id && (
@@ -545,89 +538,8 @@ export default function Documents() {
         </CardContent>
       </Card>
 
-      {/* Version Dialog */}
-      <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Agregar Documento</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Título del documento</Label>
-              <Input value={vAuthors} onChange={e => setVAuthors(e.target.value)} placeholder="Nombre del documento" />
-            </div>
-            <div className="space-y-2">
-              <Label>Descripción</Label>
-              <Textarea value={vDesc} onChange={e => setVDesc(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de documento</Label>
-              <Select value={vApprover || 'procedimiento'} onValueChange={v => setVApprover(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Enlace Google Drive (para edición en línea)</Label>
-              <Input
-                placeholder="https://docs.google.com/document/d/..."
-                value={vDriveUrl}
-                onChange={e => setVDriveUrl(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Pegue aquí el enlace de Google Drive del documento. Este enlace se usará para "Ver / Editar en Drive".</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Archivo Word (opcional)</Label>
-                <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Archivo PDF</Label>
-                <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
-              </div>
-            </div>
-            <Button className="w-full" onClick={handleCreateVersion}>Guardar</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Edit Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Editar Documento</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Título</Label>
-              <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select value={formType} onValueChange={v => setFormType(v as DocType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Silo</Label>
-                <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
-              <Label>Confidencial</Label>
-            </div>
-            <Button className="w-full" onClick={handleUpdateDoc} disabled={!formTitle}>Actualizar Documento</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+
 
       {/* Delete Alert Dialog */}
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
