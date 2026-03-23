@@ -696,7 +696,28 @@ export default function Documents() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirm Google Drive Edit Dialog */}
+      {/* Bulk Delete Alert Dialog */}
+      <AlertDialog open={showBulkDeleteAlert} onOpenChange={setShowBulkDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar {selectedIds.size} documento(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará los documentos seleccionados y todas sus versiones. No se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={e => { e.preventDefault(); handleBulkDelete(); }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Eliminando..." : `Eliminar ${selectedIds.size}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={showConfirmEdit} onOpenChange={(open) => {
         if (!open && !isConfirming) {
           setShowConfirmEdit(false);
