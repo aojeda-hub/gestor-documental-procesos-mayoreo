@@ -1,4 +1,4 @@
-export type DocType = 'norma' | 'manual' | 'procedimiento' | 'anexo' | 'formato' | 'diagrama';
+export type DocType = 'norma' | 'manual' | 'procedimiento' | 'anexo' | 'formato' | 'diagrama' | 'instructivo' | 'politica' | 'descripcion_cargo' | 'libro' | 'presentacion_clave' | 'presentacion' | 'gestion_beneficios';
 export type SiloType = 'compras' | 'logistica' | 'ventas' | 'personal' | 'control' | 'mercadeo' | 'sistemas';
 export type IndicatorType = 'eficiencia' | 'eficacia' | 'efectividad' | 'calidad' | 'productividad' | 'cumplimiento';
 export type FrequencyType = 'diario' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'semestral' | 'anual';
@@ -81,11 +81,18 @@ export interface ReviewAlert {
 }
 
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
-  norma: 'Norma',
-  manual: 'Manual',
-  procedimiento: 'Procedimiento',
   anexo: 'Anexo',
+  procedimiento: 'Procedimiento',
+  norma: 'Norma',
+  instructivo: 'Instructivo',
+  politica: 'Política',
+  descripcion_cargo: 'Descripción de Cargo',
+  manual: 'Manual',
+  libro: 'Libro',
+  presentacion_clave: 'Presentación Clave',
+  presentacion: 'Presentación',
   formato: 'Formato',
+  gestion_beneficios: 'Gestión de Beneficios',
   diagrama: 'Diagrama',
 };
 
