@@ -586,10 +586,6 @@ export default function Documents() {
                 <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Otros Archivos (Imagen, PPT, etc.)</Label>
-              <Input type="file" accept=".jpg,.jpeg,.png,.ppt,.pptx" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
-            </div>
             <Button className="w-full" onClick={handleCreateVersion}>Guardar</Button>
           </div>
         </DialogContent>
