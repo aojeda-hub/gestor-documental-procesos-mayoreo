@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Upload, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2, MoreVertical, Trash2, ExternalLink, CheckCircle, Download } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
@@ -64,6 +65,10 @@ export default function Documents() {
   const [docToDelete, setDocToDelete] = useState<Document | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteAlert, setShowBulkDeleteAlert] = useState(false);
+
   // Google Drive edit confirmation state
   const [showConfirmEdit, setShowConfirmEdit] = useState(false);
   const [editingDocForConfirm, setEditingDocForConfirm] = useState<Document | null>(null);
@@ -71,6 +76,40 @@ export default function Documents() {
   const [isConfirming, setIsConfirming] = useState(false);
 
   const canEdit = hasRole('admin') || hasRole('editor');
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(d => d.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setIsDeleting(true);
+    try {
+      for (const id of selectedIds) {
+        await supabase.from('document_versions').delete().eq('document_id', id);
+        await supabase.from('documents').delete().eq('id', id);
+      }
+      toast({ title: `${selectedIds.size} documento(s) eliminado(s)` });
+      setSelectedIds(new Set());
+      setShowBulkDeleteAlert(false);
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Error al eliminar', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const fetchDocs = async () => {
     setLoading(true);
@@ -473,6 +512,11 @@ export default function Documents() {
             </Dialog>
           </>
         )}
+        {canEdit && selectedIds.size > 0 && (
+          <Button variant="destructive" onClick={() => setShowBulkDeleteAlert(true)}>
+            <Trash2 className="mr-2 h-4 w-4" /> Eliminar ({selectedIds.size})
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -480,6 +524,14 @@ export default function Documents() {
           <Table>
             <TableHeader>
               <TableRow>
+                {canEdit && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                )}
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead>Tipo</TableHead>
@@ -491,12 +543,20 @@ export default function Documents() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canEdit ? 8 : 7} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No se encontraron documentos.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canEdit ? 8 : 7} className="text-center py-8 text-muted-foreground">No se encontraron documentos.</TableCell></TableRow>
               ) : filtered.map(doc => (
                 <>
                   <TableRow key={doc.id} className="cursor-pointer">
+                    {canEdit && (
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(doc.id)}
+                          onCheckedChange={() => toggleSelect(doc.id)}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell onClick={() => toggleExpand(doc.id)}>
                       {expandedDoc === doc.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </TableCell>
@@ -578,7 +638,7 @@ export default function Documents() {
                   </TableRow>
                   {expandedDoc === doc.id && (
                     <TableRow key={`${doc.id}-versions`}>
-                      <TableCell colSpan={7} className="bg-muted p-4">
+                      <TableCell colSpan={canEdit ? 8 : 7} className="bg-muted p-4">
                         <p className="mb-2 text-sm font-semibold">Historial de Versiones</p>
                         {versions.length === 0 ? (
                           <p className="text-sm text-muted-foreground">Sin versiones.</p>
@@ -636,7 +696,28 @@ export default function Documents() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirm Google Drive Edit Dialog */}
+      {/* Bulk Delete Alert Dialog */}
+      <AlertDialog open={showBulkDeleteAlert} onOpenChange={setShowBulkDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar {selectedIds.size} documento(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará los documentos seleccionados y todas sus versiones. No se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={e => { e.preventDefault(); handleBulkDelete(); }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Eliminando..." : `Eliminar ${selectedIds.size}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={showConfirmEdit} onOpenChange={(open) => {
         if (!open && !isConfirming) {
           setShowConfirmEdit(false);
