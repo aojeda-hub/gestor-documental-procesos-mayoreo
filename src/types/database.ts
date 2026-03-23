@@ -45,6 +45,7 @@ export interface DocumentVersion {
   approver: string | null;
   url_word: string | null;
   url_pdf: string | null;
+  url_file: string | null;
   is_current: boolean;
   created_at: string;
 }
