@@ -182,16 +182,14 @@ export default function Documents() {
 
       let urlWord = null;
       let urlPdf = null;
-      let urlFile = null;
       if (wordFile) urlWord = await uploadFile(wordFile, selectedDocId, 'word');
       else if (vDriveUrl.trim()) urlWord = vDriveUrl.trim();
       if (pdfFile) urlPdf = await uploadFile(pdfFile, selectedDocId, 'pdf');
-      if (genericFile) urlFile = await uploadFile(genericFile, selectedDocId, 'file');
 
       const { error } = await supabase.from('document_versions').insert({
         document_id: selectedDocId, version_number: nextVersion,
         description: vDesc, authors: vAuthors, approver: vApprover,
-        url_word: urlWord, url_pdf: urlPdf, url_file: urlFile, is_current: true,
+        url_word: urlWord, url_pdf: urlPdf, is_current: true,
       } as any);
 
       if (error) throw error;
