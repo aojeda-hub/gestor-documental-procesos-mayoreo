@@ -226,7 +226,7 @@ export default function Documents() {
         const { error: verErr } = await supabase.from('document_versions').insert({
           document_id: (doc as any).id, version_number: 1,
           description: 'Carga inicial masiva', authors: profile?.full_name || user?.email || '', 
-          approver: '', url_file: url, is_current: true,
+          approver: '', url_word: url, is_current: true,
         } as any);
 
         if (verErr) throw verErr;
