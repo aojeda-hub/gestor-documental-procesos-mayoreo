@@ -524,6 +524,14 @@ export default function Documents() {
           <Table>
             <TableHeader>
               <TableRow>
+                {canEdit && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                )}
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead>Tipo</TableHead>
