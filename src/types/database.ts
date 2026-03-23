@@ -81,11 +81,18 @@ export interface ReviewAlert {
 }
 
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
-  norma: 'Norma',
-  manual: 'Manual',
-  procedimiento: 'Procedimiento',
   anexo: 'Anexo',
+  procedimiento: 'Procedimiento',
+  norma: 'Norma',
+  instructivo: 'Instructivo',
+  politica: 'Política',
+  descripcion_cargo: 'Descripción de Cargo',
+  manual: 'Manual',
+  libro: 'Libro',
+  presentacion_clave: 'Presentación Clave',
+  presentacion: 'Presentación',
   formato: 'Formato',
+  gestion_beneficios: 'Gestión de Beneficios',
   diagrama: 'Diagrama',
 };
 

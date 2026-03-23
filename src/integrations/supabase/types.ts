@@ -295,6 +295,13 @@ export type Database = {
         | "anexo"
         | "formato"
         | "diagrama"
+        | "instructivo"
+        | "politica"
+        | "descripcion_cargo"
+        | "libro"
+        | "presentacion_clave"
+        | "presentacion"
+        | "gestion_beneficios"
       frequency_type:
         | "diario"
         | "semanal"
@@ -453,6 +460,13 @@ export const Constants = {
         "anexo",
         "formato",
         "diagrama",
+        "instructivo",
+        "politica",
+        "descripcion_cargo",
+        "libro",
+        "presentacion_clave",
+        "presentacion",
+        "gestion_beneficios",
       ],
       frequency_type: [
         "diario",
