@@ -512,6 +512,11 @@ export default function Documents() {
             </Dialog>
           </>
         )}
+        {canEdit && selectedIds.size > 0 && (
+          <Button variant="destructive" onClick={() => setShowBulkDeleteAlert(true)}>
+            <Trash2 className="mr-2 h-4 w-4" /> Eliminar ({selectedIds.size})
+          </Button>
+        )}
       </div>
 
       <Card>
