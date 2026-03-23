@@ -76,6 +76,40 @@ export default function Documents() {
 
   const canEdit = hasRole('admin') || hasRole('editor');
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(d => d.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setIsDeleting(true);
+    try {
+      for (const id of selectedIds) {
+        await supabase.from('document_versions').delete().eq('document_id', id);
+        await supabase.from('documents').delete().eq('id', id);
+      }
+      toast({ title: `${selectedIds.size} documento(s) eliminado(s)` });
+      setSelectedIds(new Set());
+      setShowBulkDeleteAlert(false);
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Error al eliminar', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const fetchDocs = async () => {
     setLoading(true);
     const { data } = await supabase.from('documents').select('*').order('updated_at', { ascending: false });
