@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Upload, Eye, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { Plus, FileText, Upload, Eye, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2, MoreVertical, Edit, Trash2, ExternalLink, CheckCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
