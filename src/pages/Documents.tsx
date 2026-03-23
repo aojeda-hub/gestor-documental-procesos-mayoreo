@@ -47,7 +47,6 @@ export default function Documents() {
   const [vApprover, setVApprover] = useState('');
   const [wordFile, setWordFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [genericFile, setGenericFile] = useState<File | null>(null);
   const [vDriveUrl, setVDriveUrl] = useState('');
 
   // Bulk Upload state
@@ -109,7 +108,7 @@ export default function Documents() {
         await supabase.from('document_versions').insert({
           document_id: (doc as any).id, version_number: 1,
           description: 'Carga inicial', authors: profile?.full_name || user?.email || '', 
-          approver: '', url_file: url, is_current: true,
+          approver: '', url_word: url, is_current: true,
         } as any);
       } catch (err: any) {
         toast({ title: 'Error al subir archivo', description: err.message, variant: 'destructive' });
@@ -182,23 +181,21 @@ export default function Documents() {
 
       let urlWord = null;
       let urlPdf = null;
-      let urlFile = null;
       if (wordFile) urlWord = await uploadFile(wordFile, selectedDocId, 'word');
       else if (vDriveUrl.trim()) urlWord = vDriveUrl.trim();
       if (pdfFile) urlPdf = await uploadFile(pdfFile, selectedDocId, 'pdf');
-      if (genericFile) urlFile = await uploadFile(genericFile, selectedDocId, 'file');
 
       const { error } = await supabase.from('document_versions').insert({
         document_id: selectedDocId, version_number: nextVersion,
         description: vDesc, authors: vAuthors, approver: vApprover,
-        url_word: urlWord, url_pdf: urlPdf, url_file: urlFile, is_current: true,
+        url_word: urlWord, url_pdf: urlPdf, is_current: true,
       } as any);
 
       if (error) throw error;
       toast({ title: `Versión ${nextVersion} creada` });
       setShowVersionDialog(false);
       setVDesc(''); setVAuthors(''); setVApprover('');
-      setWordFile(null); setPdfFile(null); setGenericFile(null); setVDriveUrl('');
+      setWordFile(null); setPdfFile(null); setVDriveUrl('');
       fetchVersions(selectedDocId);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -228,7 +225,7 @@ export default function Documents() {
         const { error: verErr } = await supabase.from('document_versions').insert({
           document_id: (doc as any).id, version_number: 1,
           description: 'Carga inicial masiva', authors: profile?.full_name || user?.email || '', 
-          approver: '', url_file: url, is_current: true,
+          approver: '', url_word: url, is_current: true,
         } as any);
 
         if (verErr) throw verErr;
@@ -277,7 +274,7 @@ export default function Documents() {
     try {
       // Get next version number
       const { data: existing } = await supabase.from('document_versions')
-        .select('version_number, url_word, url_pdf, url_file')
+        .select('version_number, url_word, url_pdf')
         .eq('document_id', editingDocForConfirm.id)
         .order('version_number', { ascending: false }).limit(1);
 
@@ -296,7 +293,6 @@ export default function Documents() {
         approver: '',
         url_word: lastVersion?.url_word || null,
         url_pdf: lastVersion?.url_pdf || null,
-        url_file: lastVersion?.url_file || null,
         is_current: true,
       } as any);
 
@@ -534,7 +530,6 @@ export default function Documents() {
                                   <span className="text-muted-foreground">{v.authors}</span>
                                   {v.url_pdf && <a href={v.url_pdf} target="_blank" className="text-primary hover:underline">PDF</a>}
                                   {v.url_word && <a href={v.url_word} target="_blank" className="text-primary hover:underline">Word</a>}
-                                  {v.url_file && <a href={v.url_file} target="_blank" className="text-primary hover:underline">Archivo</a>}
                                 </div>
                               </div>
                             ))}
@@ -590,10 +585,6 @@ export default function Documents() {
                 <Label>Archivo PDF</Label>
                 <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Otros Archivos (Imagen, PPT, etc.)</Label>
-              <Input type="file" accept=".jpg,.jpeg,.png,.ppt,.pptx" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
             </div>
             <Button className="w-full" onClick={handleCreateVersion}>Guardar</Button>
           </div>
