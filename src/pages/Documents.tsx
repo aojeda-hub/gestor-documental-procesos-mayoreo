@@ -106,20 +106,22 @@ export default function Documents() {
     // Create initial version with Drive URL and/or uploaded files
     let urlWord = null;
     let urlPdf = null;
+    let urlFile = null;
     if (wordFile) urlWord = await uploadFile(wordFile, (doc as any).id, 'word').catch(() => null);
     else if (vDriveUrl.trim()) urlWord = vDriveUrl.trim();
     if (pdfFile) urlPdf = await uploadFile(pdfFile, (doc as any).id, 'pdf').catch(() => null);
+    if (genericFile) urlFile = await uploadFile(genericFile, (doc as any).id, 'file').catch(() => null);
 
     await supabase.from('document_versions').insert({
       document_id: (doc as any).id, version_number: 1,
       description: vDesc || 'Carga inicial', authors: profile?.full_name || user?.email || '', 
-      approver: '', url_word: urlWord, url_pdf: urlPdf, is_current: true,
+      approver: '', url_word: urlWord, url_pdf: urlPdf, url_file: urlFile, is_current: true,
     } as any);
 
     toast({ title: 'Documento creado' });
     setShowCreate(false);
     setFormTitle(''); setVDesc(''); setVDriveUrl('');
-    setWordFile(null); setPdfFile(null); setFormFile(null);
+    setWordFile(null); setPdfFile(null); setGenericFile(null); setFormFile(null);
     fetchDocs();
   };
 
