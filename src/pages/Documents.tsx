@@ -647,6 +647,45 @@ export default function Documents() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Confirm Google Drive Edit Dialog */}
+      <Dialog open={showConfirmEdit} onOpenChange={(open) => {
+        if (!open && !isConfirming) {
+          setShowConfirmEdit(false);
+          setEditingDocForConfirm(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-primary" />
+              Confirmar Edición
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              El documento <strong>"{editingDocForConfirm?.title}"</strong> se abrió en Google Drive.
+              Cuando termines de editar, confirma aquí para registrar una nueva versión.
+            </p>
+            <div className="space-y-2">
+              <Label>Descripción del cambio (opcional)</Label>
+              <Textarea 
+                value={confirmDesc} 
+                onChange={e => setConfirmDesc(e.target.value)} 
+                placeholder="Ej: Actualización de procedimiento sección 3.2"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setShowConfirmEdit(false); setEditingDocForConfirm(null); }} disabled={isConfirming}>
+                Cancelar
+              </Button>
+              <Button className="flex-1" onClick={handleConfirmEdit} disabled={isConfirming}>
+                {isConfirming ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Registrando...</> : 'Confirmar y Registrar Versión'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
