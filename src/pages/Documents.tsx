@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Upload, Eye, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { Plus, FileText, Upload, Eye, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2, MoreVertical, Edit, Trash2, ExternalLink, CheckCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
@@ -62,6 +62,12 @@ export default function Documents() {
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [docToDelete, setDocToDelete] = useState<Document | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Google Drive edit confirmation state
+  const [showConfirmEdit, setShowConfirmEdit] = useState(false);
+  const [editingDocForConfirm, setEditingDocForConfirm] = useState<Document | null>(null);
+  const [confirmDesc, setConfirmDesc] = useState('');
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const canEdit = hasRole('admin') || hasRole('editor');
 
@@ -238,6 +244,79 @@ export default function Documents() {
     }
   };
 
+  const handleOpenInGoogleDrive = async (doc: Document) => {
+    // Get current version's url_word (Google Drive link)
+    const { data: currentVersions } = await supabase.from('document_versions')
+      .select('*')
+      .eq('document_id', doc.id)
+      .eq('is_current', true)
+      .limit(1);
+
+    const currentVersion = currentVersions?.[0] as unknown as DocumentVersion | undefined;
+    const driveUrl = currentVersion?.url_word;
+
+    if (!driveUrl) {
+      toast({ title: 'Sin enlace de edición', description: 'Este documento no tiene un enlace de Google Drive configurado. Agréguelo en el campo "Archivo Word" al crear una versión.', variant: 'destructive' });
+      return;
+    }
+
+    // Open in new tab
+    window.open(driveUrl, '_blank');
+
+    // Show confirm dialog
+    setEditingDocForConfirm(doc);
+    setConfirmDesc('');
+    setShowConfirmEdit(true);
+  };
+
+  const handleConfirmEdit = async () => {
+    if (!editingDocForConfirm) return;
+    setIsConfirming(true);
+    try {
+      // Get next version number
+      const { data: existing } = await supabase.from('document_versions')
+        .select('version_number, url_word, url_pdf, url_file')
+        .eq('document_id', editingDocForConfirm.id)
+        .order('version_number', { ascending: false }).limit(1);
+
+      const lastVersion = existing?.[0] as any;
+      const nextVersion = (lastVersion?.version_number || 0) + 1;
+
+      // Mark old versions as not current
+      await supabase.from('document_versions').update({ is_current: false } as any).eq('document_id', editingDocForConfirm.id);
+
+      // Create new version preserving the same URLs
+      const { error } = await supabase.from('document_versions').insert({
+        document_id: editingDocForConfirm.id,
+        version_number: nextVersion,
+        description: confirmDesc || 'Edición desde Google Drive',
+        authors: profile?.full_name || user?.email || '',
+        approver: '',
+        url_word: lastVersion?.url_word || null,
+        url_pdf: lastVersion?.url_pdf || null,
+        url_file: lastVersion?.url_file || null,
+        is_current: true,
+      } as any);
+
+      if (error) throw error;
+
+      // Update document's updated_at
+      await supabase.from('documents').update({ updated_at: new Date().toISOString() } as any).eq('id', editingDocForConfirm.id);
+
+      toast({ title: `Versión ${nextVersion} registrada`, description: 'La edición fue confirmada exitosamente.' });
+      setShowConfirmEdit(false);
+      setEditingDocForConfirm(null);
+      fetchDocs();
+      if (expandedDoc === editingDocForConfirm.id) {
+        fetchVersions(editingDocForConfirm.id);
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   const filtered = docs.filter(d => {
     if (filterSilo !== 'all' && d.silo !== filterSilo) return false;
     if (filterType !== 'all' && d.doc_type !== filterType) return false;
@@ -402,8 +481,13 @@ export default function Documents() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => toggleExpand(doc.id)}>
-                            <Eye className="mr-2 h-4 w-4" /> Ver
+                            <Eye className="mr-2 h-4 w-4" /> Ver Versiones
                           </DropdownMenuItem>
+                          {canEdit && (
+                            <DropdownMenuItem onClick={() => handleOpenInGoogleDrive(doc)}>
+                              <ExternalLink className="mr-2 h-4 w-4" /> Ver / Editar en Drive
+                            </DropdownMenuItem>
+                          )}
                           {canEdit && (
                             <>
                               <DropdownMenuItem onClick={() => { setSelectedDocId(doc.id); setShowVersionDialog(true); }}>
@@ -563,6 +647,45 @@ export default function Documents() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Confirm Google Drive Edit Dialog */}
+      <Dialog open={showConfirmEdit} onOpenChange={(open) => {
+        if (!open && !isConfirming) {
+          setShowConfirmEdit(false);
+          setEditingDocForConfirm(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-primary" />
+              Confirmar Edición
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              El documento <strong>"{editingDocForConfirm?.title}"</strong> se abrió en Google Drive.
+              Cuando termines de editar, confirma aquí para registrar una nueva versión.
+            </p>
+            <div className="space-y-2">
+              <Label>Descripción del cambio (opcional)</Label>
+              <Textarea 
+                value={confirmDesc} 
+                onChange={e => setConfirmDesc(e.target.value)} 
+                placeholder="Ej: Actualización de procedimiento sección 3.2"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setShowConfirmEdit(false); setEditingDocForConfirm(null); }} disabled={isConfirming}>
+                Cancelar
+              </Button>
+              <Button className="flex-1" onClick={handleConfirmEdit} disabled={isConfirming}>
+                {isConfirming ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Registrando...</> : 'Confirmar y Registrar Versión'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
