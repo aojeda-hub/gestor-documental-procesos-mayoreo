@@ -553,46 +553,34 @@ export default function Documents() {
       {/* Version Dialog */}
       <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Nueva Versión</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Agregar Documento</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Descripción del cambio</Label>
               <Textarea value={vDesc} onChange={e => setVDesc(e.target.value)} />
             </div>
+            <div className="space-y-2">
+              <Label>Enlace Google Drive (para edición en línea)</Label>
+              <Input
+                placeholder="https://docs.google.com/document/d/..."
+                value={vDriveUrl}
+                onChange={e => setVDriveUrl(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Pegue aquí el enlace de Google Drive del documento. Este enlace se usará para "Ver / Editar en Drive".</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Autores</Label>
-                <Input value={vAuthors} onChange={e => setVAuthors(e.target.value)} />
+                <Label>Archivo Word (opcional)</Label>
+                <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
               </div>
               <div className="space-y-2">
-                <Label>Aprobador</Label>
-                <Input value={vApprover} onChange={e => setVApprover(e.target.value)} />
+                <Label>Archivo PDF</Label>
+                <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
               </div>
             </div>
-            <div className="grid gap-4">
-              <div className="space-y-2">
-                <Label>Enlace Google Drive (para edición en línea)</Label>
-                <Input
-                  placeholder="https://docs.google.com/document/d/..."
-                  value={vDriveUrl}
-                  onChange={e => setVDriveUrl(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Pegue aquí el enlace de Google Drive del documento. Este enlace se usará para "Ver / Editar en Drive".</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Archivo Word (opcional)</Label>
-                  <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Archivo PDF</Label>
-                  <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Otros Archivos (Imagen, PPT, etc.)</Label>
-                <Input type="file" accept=".jpg,.jpeg,.png,.ppt,.pptx" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
-              </div>
+            <div className="space-y-2">
+              <Label>Otros Archivos (Imagen, PPT, etc.)</Label>
+              <Input type="file" accept=".jpg,.jpeg,.png,.ppt,.pptx" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
             </div>
             <Button className="w-full" onClick={handleCreateVersion}>Guardar Versión</Button>
           </div>
