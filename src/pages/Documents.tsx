@@ -570,9 +570,18 @@ export default function Documents() {
               </div>
             </div>
             <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label>Enlace Google Drive (para edición en línea)</Label>
+                <Input
+                  placeholder="https://docs.google.com/document/d/..."
+                  value={vDriveUrl}
+                  onChange={e => setVDriveUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Pegue aquí el enlace de Google Drive del documento. Este enlace se usará para "Ver / Editar en Drive".</p>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Archivo Word</Label>
+                  <Label>Archivo Word (opcional)</Label>
                   <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
                 </div>
                 <div className="space-y-2">
