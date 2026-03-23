@@ -495,7 +495,21 @@ export default function Documents() {
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => {
+                              setEditingDoc(doc);
+                              setFormTitle(doc.title);
+                              setFormType(doc.doc_type);
+                              setFormSilo(doc.silo);
+                              setFormConfidential(doc.confidential);
+                              setVDesc('');
+                              setVDriveUrl('');
+                              setWordFile(null);
+                              setPdfFile(null);
+                              setShowEditDialog(true);
+                            }}>
+                              <FileText className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setDocToDelete(doc); setShowDeleteAlert(true); }}>
                               <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
