@@ -56,6 +56,7 @@ export type Database = {
           document_id: string
           id: string
           is_current: boolean
+          url_file: string | null
           url_pdf: string | null
           url_word: string | null
           version_number: number
@@ -68,6 +69,7 @@ export type Database = {
           document_id: string
           id?: string
           is_current?: boolean
+          url_file?: string | null
           url_pdf?: string | null
           url_word?: string | null
           version_number: number
@@ -80,6 +82,7 @@ export type Database = {
           document_id?: string
           id?: string
           is_current?: boolean
+          url_file?: string | null
           url_pdf?: string | null
           url_word?: string | null
           version_number?: number

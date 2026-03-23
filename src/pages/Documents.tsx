@@ -47,6 +47,7 @@ export default function Documents() {
   const [vApprover, setVApprover] = useState('');
   const [wordFile, setWordFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [genericFile, setGenericFile] = useState<File | null>(null);
   const [vDriveUrl, setVDriveUrl] = useState('');
 
   // Bulk Upload state
@@ -105,20 +106,22 @@ export default function Documents() {
     // Create initial version with Drive URL and/or uploaded files
     let urlWord = null;
     let urlPdf = null;
+    let urlFile = null;
     if (wordFile) urlWord = await uploadFile(wordFile, (doc as any).id, 'word').catch(() => null);
     else if (vDriveUrl.trim()) urlWord = vDriveUrl.trim();
     if (pdfFile) urlPdf = await uploadFile(pdfFile, (doc as any).id, 'pdf').catch(() => null);
+    if (genericFile) urlFile = await uploadFile(genericFile, (doc as any).id, 'file').catch(() => null);
 
     await supabase.from('document_versions').insert({
       document_id: (doc as any).id, version_number: 1,
       description: vDesc || 'Carga inicial', authors: profile?.full_name || user?.email || '', 
-      approver: '', url_word: urlWord, url_pdf: urlPdf, is_current: true,
+      approver: '', url_word: urlWord, url_pdf: urlPdf, url_file: urlFile, is_current: true,
     } as any);
 
     toast({ title: 'Documento creado' });
     setShowCreate(false);
     setFormTitle(''); setVDesc(''); setVDriveUrl('');
-    setWordFile(null); setPdfFile(null); setFormFile(null);
+    setWordFile(null); setPdfFile(null); setGenericFile(null); setFormFile(null);
     fetchDocs();
   };
 
@@ -395,14 +398,21 @@ export default function Documents() {
                       onChange={e => setVDriveUrl(e.target.value)}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Archivo Word (opcional)</Label>
-                      <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Archivo PDF (opcional)</Label>
-                      <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                  <div className="space-y-2">
+                    <Label>Archivos</Label>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Word (.doc, .docx)</span>
+                        <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">PDF</span>
+                        <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Otro archivo (PPT, Excel, Imagen, Diagrama, etc.)</span>
+                        <Input type="file" accept=".ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.bmp,.svg,.vsd,.vsdx,.dwg,.ai,.eps,.tif,.tiff,.webp,.zip,.rar" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
+                      </div>
                     </div>
                   </div>
                   <Button className="w-full" onClick={handleCreateDoc} disabled={!formTitle}>Guardar</Button>
@@ -442,7 +452,7 @@ export default function Documents() {
                     <Input 
                       type="file" 
                       multiple 
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.ppt,.pptx" 
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.bmp,.svg,.ppt,.pptx,.xls,.xlsx,.vsd,.vsdx,.dwg,.ai,.eps,.tif,.tiff,.webp,.zip,.rar" 
                       onChange={e => setBulkFiles(Array.from(e.target.files || []))} 
                     />
                     {bulkFiles.length > 0 && (
@@ -541,8 +551,9 @@ export default function Documents() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-muted-foreground">{v.authors}</span>
-                                  {v.url_pdf && <a href={v.url_pdf} target="_blank" className="text-primary hover:underline">PDF</a>}
-                                  {v.url_word && <a href={v.url_word} target="_blank" className="text-primary hover:underline">Word</a>}
+                                  {v.url_pdf && <a href={v.url_pdf} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">PDF</a>}
+                                  {v.url_word && <a href={v.url_word} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Word/Drive</a>}
+                                  {v.url_file && <a href={v.url_file} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Archivo</a>}
                                 </div>
                               </div>
                             ))}
@@ -667,14 +678,21 @@ export default function Documents() {
                 onChange={e => setVDriveUrl(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Archivo Word (opcional)</Label>
-                <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Archivo PDF (opcional)</Label>
-                <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+            <div className="space-y-2">
+              <Label>Archivos</Label>
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <span className="text-xs text-muted-foreground">Word (.doc, .docx)</span>
+                  <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">PDF</span>
+                  <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Otro archivo (PPT, Excel, Imagen, Diagrama, etc.)</span>
+                  <Input type="file" accept=".ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.bmp,.svg,.vsd,.vsdx,.dwg,.ai,.eps,.tif,.tiff,.webp,.zip,.rar" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
+                </div>
               </div>
             </div>
             <Button className="w-full" onClick={handleUpdateDoc} disabled={!formTitle}>Guardar</Button>
