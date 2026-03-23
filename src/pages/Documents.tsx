@@ -63,6 +63,12 @@ export default function Documents() {
   const [docToDelete, setDocToDelete] = useState<Document | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Google Drive edit confirmation state
+  const [showConfirmEdit, setShowConfirmEdit] = useState(false);
+  const [editingDocForConfirm, setEditingDocForConfirm] = useState<Document | null>(null);
+  const [confirmDesc, setConfirmDesc] = useState('');
+  const [isConfirming, setIsConfirming] = useState(false);
+
   const canEdit = hasRole('admin') || hasRole('editor');
 
   const fetchDocs = async () => {
