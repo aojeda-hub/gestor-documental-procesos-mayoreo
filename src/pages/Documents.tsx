@@ -493,7 +493,7 @@ export default function Documents() {
                           {canEdit && (
                             <>
                               <DropdownMenuItem onClick={() => { setSelectedDocId(doc.id); setShowVersionDialog(true); }}>
-                                <Upload className="mr-2 h-4 w-4" /> Nueva Versión
+                                <Upload className="mr-2 h-4 w-4" /> Agregar Documento
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => { 
