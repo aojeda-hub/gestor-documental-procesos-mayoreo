@@ -480,52 +480,28 @@ export default function Documents() {
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No se encontraron documentos.</TableCell></TableRow>
               ) : filtered.map(doc => (
                 <>
-                  <TableRow key={doc.id} className="cursor-pointer" onClick={() => toggleExpand(doc.id)}>
-                    <TableCell>
+                  <TableRow key={doc.id} className="cursor-pointer">
+                    <TableCell onClick={() => toggleExpand(doc.id)}>
                       {expandedDoc === doc.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </TableCell>
-                    <TableCell className="font-medium">{doc.title}</TableCell>
-                    <TableCell><Badge variant="secondary">{DOC_TYPE_LABELS[doc.doc_type]}</Badge></TableCell>
-                    <TableCell>{SILO_LABELS[doc.silo]}</TableCell>
-                    <TableCell>{doc.confidential ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{format(new Date(doc.updated_at), 'dd/MM/yyyy')}</TableCell>
+                    <TableCell className="font-medium text-primary hover:underline" onClick={() => handleOpenInGoogleDrive(doc)}>{doc.title}</TableCell>
+                    <TableCell onClick={() => toggleExpand(doc.id)}><Badge variant="secondary">{DOC_TYPE_LABELS[doc.doc_type]}</Badge></TableCell>
+                    <TableCell onClick={() => toggleExpand(doc.id)}>{SILO_LABELS[doc.silo]}</TableCell>
+                    <TableCell onClick={() => toggleExpand(doc.id)}>{doc.confidential ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                    <TableCell onClick={() => toggleExpand(doc.id)} className="text-sm text-muted-foreground">{format(new Date(doc.updated_at), 'dd/MM/yyyy')}</TableCell>
                     <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => toggleExpand(doc.id)}>
-                            <Eye className="mr-2 h-4 w-4" /> Ver Versiones
-                          </DropdownMenuItem>
-                          {canEdit && (
-                            <DropdownMenuItem onClick={() => handleOpenInGoogleDrive(doc)}>
-                              <ExternalLink className="mr-2 h-4 w-4" /> Ver / Editar en Drive
+                      {canEdit && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setDocToDelete(doc); setShowDeleteAlert(true); }}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
-                          )}
-                          {canEdit && (
-                            <>
-                              <DropdownMenuItem onClick={() => { setSelectedDocId(doc.id); setShowVersionDialog(true); }}>
-                                <Upload className="mr-2 h-4 w-4" /> Agregar Documento
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => { 
-                                setEditingDoc(doc);
-                                setFormTitle(doc.title);
-                                setFormType(doc.doc_type);
-                                setFormSilo(doc.silo);
-                                setFormConfidential(doc.confidential);
-                                setShowEditDialog(true);
-                              }}>
-                                <Edit className="mr-2 h-4 w-4" /> Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setDocToDelete(doc); setShowDeleteAlert(true); }}>
-                                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                   {expandedDoc === doc.id && (
