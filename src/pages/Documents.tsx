@@ -12,9 +12,9 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Upload, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2, MoreVertical, Trash2, ExternalLink, CheckCircle, Download } from 'lucide-react';
+import { Plus, FileText, Upload, Lock, Unlock, ChevronDown, ChevronRight, FileUp, Loader2, MoreVertical, Trash2, ExternalLink, CheckCircle, Download, Eye, Edit } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
 import { DOC_TYPE_LABELS, SILO_LABELS } from '@/types/database';
@@ -58,9 +58,11 @@ export default function Documents() {
   const [bulkType, setBulkType] = useState<DocType>('procedimiento');
   const [uploadingBulk, setUploadingBulk] = useState(false);
 
-  // Edit/Delete state
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [editingDoc, setEditingDoc] = useState<Document | null>(null);
+  // Details (View/Edit) state
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+  const [currentVersion, setCurrentVersion] = useState<DocumentVersion | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [docToDelete, setDocToDelete] = useState<Document | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -113,8 +115,19 @@ export default function Documents() {
 
   const fetchDocs = async () => {
     setLoading(true);
-    const { data } = await supabase.from('documents').select('*').order('updated_at', { ascending: false });
-    setDocs((data || []) as unknown as Document[]);
+    // Fetch docs with their related current versions to get the Word URL directly
+    const { data } = await supabase
+      .from('documents')
+      .select('*, document_versions(url_word, is_current)')
+      .order('updated_at', { ascending: false });
+    
+    // Map the documents to include a top-level url_word for convenience
+    const docsWithWord = (data || []).map((doc: any) => ({
+      ...doc,
+      url_word: doc.document_versions?.find((v: any) => v.is_current)?.url_word
+    }));
+
+    setDocs(docsWithWord as Document[]);
     setLoading(false);
   };
 
@@ -165,17 +178,72 @@ export default function Documents() {
   };
 
   const handleUpdateDoc = async () => {
-    if (!editingDoc) return;
-    const { error } = await supabase.from('documents').update({
-      title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential,
-    } as any).eq('id', editingDoc.id);
+    if (!selectedDoc) return;
+    setIsUpdating(true);
+    try {
+      // 1. Update document metadata
+      const { error: docError } = await supabase.from('documents').update({
+        title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential,
+      } as any).eq('id', selectedDoc.id);
 
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+      if (docError) throw docError;
 
-    toast({ title: 'Documento actualizado' });
-    setShowEditDialog(false);
-    setEditingDoc(null);
-    fetchDocs();
+      // 2. Update current version metadata if available
+      if (currentVersion) {
+        let urlWord = currentVersion.url_word;
+        let urlPdf = currentVersion.url_pdf;
+        let urlFile = currentVersion.url_file;
+
+        if (wordFile) urlWord = await uploadFile(wordFile, selectedDoc.id, 'word');
+        if (pdfFile) urlPdf = await uploadFile(pdfFile, selectedDoc.id, 'pdf');
+        if (genericFile) urlFile = await uploadFile(genericFile, selectedDoc.id, 'file');
+
+        const { error: verError } = await supabase.from('document_versions').update({
+          description: vDesc, authors: vAuthors, approver: vApprover,
+          url_word: urlWord, url_pdf: urlPdf, url_file: urlFile,
+        } as any).eq('id', currentVersion.id);
+
+        if (verError) throw verError;
+      }
+
+      toast({ title: 'Cambios guardados exitosamente' });
+      setShowDetailsDialog(false);
+      setSelectedDoc(null);
+      setCurrentVersion(null);
+      setWordFile(null); setPdfFile(null); setGenericFile(null);
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Error al actualizar', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const openDetails = async (doc: Document) => {
+    setSelectedDoc(doc);
+    setFormTitle(doc.title);
+    setFormType(doc.doc_type);
+    setFormSilo(doc.silo);
+    setFormConfidential(doc.confidential);
+    setShowDetailsDialog(true);
+    
+    // Fetch and identify current version
+    const { data } = await supabase.from('document_versions').select('*')
+      .eq('document_id', doc.id).order('version_number', { ascending: false });
+    
+    const vers = (data || []) as unknown as DocumentVersion[];
+    setVersions(vers);
+    
+    const current = vers.find(v => v.is_current) || (vers.length > 0 ? vers[0] : null);
+    setCurrentVersion(current);
+    if (current) {
+      setVDesc(current.description || '');
+      setVAuthors(current.authors || '');
+      setVApprover(current.approver || '');
+    } else {
+      setVDesc(''); setVAuthors(''); setVApprover('');
+    }
+    setWordFile(null); setPdfFile(null); setGenericFile(null);
   };
 
   const handleDeleteDoc = async () => {
@@ -548,7 +616,7 @@ export default function Documents() {
                 <TableRow><TableCell colSpan={canEdit ? 8 : 7} className="text-center py-8 text-muted-foreground">No se encontraron documentos.</TableCell></TableRow>
               ) : filtered.map(doc => (
                 <>
-                  <TableRow key={doc.id} className="cursor-pointer">
+                  <TableRow key={doc.id} className="cursor-pointer" onClick={() => openDetails(doc)}>
                     {canEdit && (
                       <TableCell onClick={e => e.stopPropagation()}>
                         <Checkbox
@@ -557,83 +625,84 @@ export default function Documents() {
                         />
                       </TableCell>
                     )}
-                    <TableCell onClick={() => toggleExpand(doc.id)}>
+                    <TableCell onClick={(e) => { e.stopPropagation(); toggleExpand(doc.id); }}>
                       {expandedDoc === doc.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </TableCell>
-                    <TableCell className="font-medium text-primary hover:underline" onClick={() => handleOpenInGoogleDrive(doc)}>{doc.title}</TableCell>
-                    <TableCell onClick={() => toggleExpand(doc.id)}><Badge variant="secondary">{DOC_TYPE_LABELS[doc.doc_type]}</Badge></TableCell>
-                    <TableCell onClick={() => toggleExpand(doc.id)}>{SILO_LABELS[doc.silo]}</TableCell>
-                    <TableCell onClick={() => toggleExpand(doc.id)}>{doc.confidential ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}</TableCell>
-                    <TableCell onClick={() => toggleExpand(doc.id)} className="text-sm text-muted-foreground">{format(new Date(doc.updated_at), 'dd/MM/yyyy')}</TableCell>
-                    <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-                      {canEdit && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
-                          </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => {
-                              setEditingDoc(doc);
-                              setFormTitle(doc.title);
-                              setFormType(doc.doc_type);
-                              setFormSilo(doc.silo);
-                              setFormConfidential(doc.confidential);
-                              setVDesc('');
-                              setVDriveUrl('');
-                              setWordFile(null);
-                              setPdfFile(null);
-                              setShowEditDialog(true);
-                            }}>
-                              <FileText className="mr-2 h-4 w-4" /> Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={async () => {
-                              const { data: vers } = await supabase
-                                .from('document_versions')
-                                .select('url_pdf, url_word')
-                                .eq('document_id', doc.id)
-                                .eq('is_current', true)
-                                .single();
-
-                              // 1. Si ya tiene PDF, descargar directamente
-                              if (vers?.url_pdf) {
-                                const link = document.createElement('a');
-                                link.href = vers.url_pdf;
-                                link.download = `${doc.title}.pdf`;
-                                link.target = '_blank';
-                                link.click();
-                                return;
-                              }
-
-                              // 2. Si tiene enlace de Google Drive, exportar como PDF
-                              const driveUrl = vers?.url_word || '';
-                              const driveIdMatch = driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-                              if (driveIdMatch) {
-                                const fileId = driveIdMatch[1];
-                                let exportUrl = '';
-                                if (driveUrl.includes('docs.google.com/document')) {
-                                  exportUrl = `https://docs.google.com/document/d/${fileId}/export?format=pdf`;
-                                } else if (driveUrl.includes('docs.google.com/spreadsheets')) {
-                                  exportUrl = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=pdf`;
-                                } else if (driveUrl.includes('docs.google.com/presentation')) {
-                                  exportUrl = `https://docs.google.com/presentation/d/${fileId}/export/pdf`;
-                                } else {
-                                  // Enlace genérico de Drive
-                                  exportUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-                                }
-                                window.open(exportUrl, '_blank');
-                                return;
-                              }
-
-                              toast({ title: 'Sin PDF disponible', description: 'Este documento no tiene un PDF ni un enlace de Google Drive para exportar.', variant: 'destructive' });
-                            }}>
-                              <Download className="mr-2 h-4 w-4" /> Descargar PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setDocToDelete(doc); setShowDeleteAlert(true); }}>
-                              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                    <TableCell className="font-medium text-primary hover:underline" onClick={(e) => { e.stopPropagation(); handleOpenInGoogleDrive(doc); }}>{doc.title}</TableCell>
+                    <TableCell><Badge variant="secondary">{DOC_TYPE_LABELS[doc.doc_type]}</Badge></TableCell>
+                    <TableCell>{SILO_LABELS[doc.silo]}</TableCell>
+                    <TableCell>{doc.confidential ? <Lock className="h-4 w-4 text-destructive" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{format(new Date(doc.updated_at), 'dd/MM/yyyy')}</TableCell>
+                    <TableCell className="text-right flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                      {(doc as any).url_word && (
+                        <Button variant="ghost" size="icon" asChild title="Abrir en Word">
+                          <a href={(doc as any).url_word} target="_blank" rel="noopener noreferrer">
+                             <FileText className="h-4 w-4 text-primary" />
+                          </a>
+                        </Button>
                       )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDetails(doc); }}>
+                            <Eye className="mr-2 h-4 w-4" /> Ver / Editar
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem onClick={async (e) => {
+                            e.stopPropagation();
+                            const { data: vers } = await supabase
+                              .from('document_versions')
+                              .select('url_pdf, url_word')
+                              .eq('document_id', doc.id)
+                              .eq('is_current', true)
+                              .single();
+
+                            // 1. Si ya tiene PDF, descargar directamente
+                            if (vers?.url_pdf) {
+                              const link = document.createElement('a');
+                              link.href = vers.url_pdf;
+                              link.download = `${doc.title}.pdf`;
+                              link.target = '_blank';
+                              link.click();
+                              return;
+                            }
+
+                            // 2. Si tiene enlace de Google Drive, exportar como PDF
+                            const driveUrl = vers?.url_word || '';
+                            const driveIdMatch = driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                            if (driveIdMatch) {
+                              const fileId = driveIdMatch[1];
+                              let exportUrl = '';
+                              if (driveUrl.includes('docs.google.com/document')) {
+                                exportUrl = `https://docs.google.com/document/d/${fileId}/export?format=pdf`;
+                              } else if (driveUrl.includes('docs.google.com/spreadsheets')) {
+                                exportUrl = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=pdf`;
+                              } else if (driveUrl.includes('docs.google.com/presentation')) {
+                                exportUrl = `https://docs.google.com/presentation/d/${fileId}/export/pdf`;
+                              } else {
+                                exportUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                              }
+                              window.open(exportUrl, '_blank');
+                              return;
+                            }
+
+                            toast({ title: 'Sin PDF disponible', description: 'Este documento no tiene un PDF ni un enlace de Google Drive para exportar.', variant: 'destructive' });
+                          }}>
+                            <Download className="mr-2 h-4 w-4" /> Descargar PDF
+                          </DropdownMenuItem>
+
+                          {canEdit && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={(e) => { e.stopPropagation(); setDocToDelete(doc); setShowDeleteAlert(true); }}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                   {expandedDoc === doc.id && (
@@ -670,9 +739,152 @@ export default function Documents() {
           </Table>
         </CardContent>
       </Card>
+      {/* Details Dialog (View/Edit) */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
+            <DialogTitle>Detalles del Documento</DialogTitle>
+            {currentVersion && (currentVersion.url_word || currentVersion.url_pdf || currentVersion.url_file) && (
+              <Button asChild variant="default" size="sm" className="bg-primary hover:bg-primary/90 mr-8">
+                <a href={currentVersion.url_word || currentVersion.url_pdf || currentVersion.url_file || '#'} target="_blank" className="flex items-center gap-2">
+                  <Eye className="h-4 w-4" /> {currentVersion.url_word ? 'Abrir en Word' : 'Ver Documento Actual'}
+                </a>
+              </Button>
+            )}
+          </DialogHeader>
 
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Título</Label>
+                  <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} disabled={!canEdit} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Tipo</Label>
+                    <Select value={formType} onValueChange={v => setFormType(v as DocType)} disabled={!canEdit}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Silo</Label>
+                    <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)} disabled={!canEdit}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pb-2">
+                  <Switch checked={formConfidential} onCheckedChange={setFormConfidential} disabled={!canEdit} />
+                  <Label>Confidencial</Label>
+                </div>
 
+                {currentVersion && (
+                   <div className="border-y py-4 space-y-4">
+                     <h3 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                       <Upload className="h-4 w-4" /> Datos de la Versión Actual (v{currentVersion.version_number})
+                     </h3>
+                     <div className="space-y-2">
+                       <Label>Descripción del cambio</Label>
+                       <Textarea value={vDesc} onChange={e => setVDesc(e.target.value)} placeholder="Ej: Nueva norma aprobada..." disabled={!canEdit} />
+                     </div>
+                     <div className="grid grid-cols-2 gap-4">
+                       <div className="space-y-2">
+                         <Label>Autores</Label>
+                         <Input value={vAuthors} onChange={e => setVAuthors(e.target.value)} disabled={!canEdit} />
+                       </div>
+                       <div className="space-y-2">
+                         <Label>Aprobador</Label>
+                         <Input value={vApprover} onChange={e => setVApprover(e.target.value)} disabled={!canEdit} />
+                       </div>
+                     </div>
+                     {canEdit && (
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <Label className="text-[10px]">Actualizar Word</Label>
+                            <Input type="file" accept=".doc,.docx" className="h-8 text-[10px]" onChange={e => setWordFile(e.target.files?.[0] || null)} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px]">Actualizar PDF</Label>
+                            <Input type="file" accept=".pdf" className="h-8 text-[10px]" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
+                          </div>
+                          <div className="space-y-1 col-span-2">
+                            <Label className="text-[10px]">Otros Archivos (Imagen, PPT, etc.)</Label>
+                            <Input type="file" accept=".jpg,.jpeg,.png,.ppt,.pptx" className="h-8 text-[10px]" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
+                          </div>
+                       </div>
+                     )}
+                   </div>
+                )}
 
+                {canEdit && (
+                  <Button className="w-full" onClick={handleUpdateDoc} disabled={!formTitle || isUpdating}>
+                    {isUpdating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</> : 'Guardar Todos los Cambios'}
+                  </Button>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="mb-4 text-sm font-semibold flex items-center gap-2">
+                  <FileText className="h-4 w-4" /> Historial de Versiones
+                </h3>
+                {versions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic text-center py-4">Sin versiones cargadas.</p>
+                ) : (
+                  <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+                    {versions.map(v => (
+                      <div key={v.id} className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4 text-xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold">v{v.version_number}</span>
+                            {v.is_current && <Badge variant="default" className="text-[10px] h-4">Actual</Badge>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {v.url_pdf && <a href={v.url_pdf} target="_blank" className="text-blue-600 hover:underline">PDF</a>}
+                            {v.url_word && <a href={v.url_word} target="_blank" className="text-blue-600 hover:underline">Word</a>}
+                            {v.url_file && <a href={v.url_file} target="_blank" className="text-blue-600 hover:underline">Ver</a>}
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground italic truncate">"{v.description}"</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="hidden lg:flex flex-col border rounded-lg bg-slate-50 min-h-[400px]">
+              <div className="p-3 border-b bg-white flex items-center justify-between rounded-t-lg">
+                <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Previsualización</span>
+                {currentVersion?.url_pdf && <span className="text-[10px] text-muted-foreground">PDF Detectado</span>}
+              </div>
+              <div className="flex-1 flex items-center justify-center p-4">
+                {currentVersion?.url_pdf ? (
+                  <iframe src={currentVersion.url_pdf} className="w-full h-full rounded border shadow-sm bg-white" title="Preview" />
+                ) : currentVersion?.url_file && (currentVersion.url_file.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
+                  <img src={currentVersion.url_file} className="max-w-full max-h-full object-contain shadow-sm" alt="Preview" />
+                ) : (
+                  <div className="text-center space-y-2">
+                    <FileText className="h-12 w-12 text-slate-300 mx-auto" />
+                    <p className="text-sm text-slate-400">Previsualización no disponible para este formato</p>
+                    {(currentVersion?.url_word || currentVersion?.url_file) && (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={currentVersion.url_word || currentVersion.url_file || '#'} target="_blank">Descargar Archivo</a>
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Alert Dialog */}
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
@@ -756,72 +968,7 @@ export default function Documents() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Document Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={(open) => { if (!open) { setShowEditDialog(false); setEditingDoc(null); } }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="text-xl">Editar Documento</DialogTitle></DialogHeader>
-          <div className="space-y-5 py-2">
-            <div className="space-y-2">
-              <Label>Título del documento</Label>
-              <Input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Nombre del documento" />
-            </div>
-            <div className="space-y-2">
-              <Label>Descripción</Label>
-              <Textarea value={vDesc} onChange={e => setVDesc(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tipo de documento</Label>
-                <Select value={formType} onValueChange={v => setFormType(v as DocType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Silo</Label>
-                <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
-              <Label>Confidencial</Label>
-            </div>
-            <div className="space-y-2">
-              <Label>Enlace Google Drive (para edición en línea)</Label>
-              <Input
-                placeholder="https://docs.google.com/document/d/..."
-                value={vDriveUrl}
-                onChange={e => setVDriveUrl(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Archivos</Label>
-              <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <span className="text-xs text-muted-foreground">Word (.doc, .docx)</span>
-                  <Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} />
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">PDF</span>
-                  <Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} />
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Otro archivo (PPT, Excel, Imagen, Diagrama, etc.)</span>
-                  <Input type="file" accept=".ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.bmp,.svg,.vsd,.vsdx,.dwg,.ai,.eps,.tif,.tiff,.webp,.zip,.rar" onChange={e => setGenericFile(e.target.files?.[0] || null)} />
-                </div>
-              </div>
-            </div>
-            <Button className="w-full" onClick={handleUpdateDoc} disabled={!formTitle}>Guardar</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 }
