@@ -30,7 +30,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}>
         {/* Header with logo */}
         <div className="flex h-14 items-center gap-2 px-5 pt-2">
-          <img src={logo} alt="Nexus procesos Mayoreo" className="h-10 w-auto" />
+          <img src={logo} alt="Procesos Mayoreo" className="h-10 w-auto" />
           <Button variant="ghost" size="icon" className="ml-auto lg:hidden text-sidebar-foreground" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </Button>

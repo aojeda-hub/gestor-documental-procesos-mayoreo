@@ -97,6 +97,45 @@ export type Database = {
           },
         ]
       }
+      documentos_metadata: {
+        Row: {
+          carpeta: string | null
+          created_at: string | null
+          id: string
+          nombre_almacenado: string
+          nombre_original: string
+          ruta_storage: string
+          tamano_bytes: number
+          tipo_mime: string
+          updated_at: string | null
+          usuario_id: string
+        }
+        Insert: {
+          carpeta?: string | null
+          created_at?: string | null
+          id?: string
+          nombre_almacenado: string
+          nombre_original: string
+          ruta_storage: string
+          tamano_bytes: number
+          tipo_mime: string
+          updated_at?: string | null
+          usuario_id: string
+        }
+        Update: {
+          carpeta?: string | null
+          created_at?: string | null
+          id?: string
+          nombre_almacenado?: string
+          nombre_original?: string
+          ruta_storage?: string
+          tamano_bytes?: number
+          tipo_mime?: string
+          updated_at?: string | null
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           confidential: boolean
