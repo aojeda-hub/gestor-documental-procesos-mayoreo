@@ -269,12 +269,59 @@ export default function Documents() {
     }
   };
 
+  const handleOpenUrl = async (url: string, label = 'documento') => {
+    // For Google Drive / external URLs, open directly
+    if (!url.includes('supabase')) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    // For Supabase Storage URLs, verify they are accessible before opening
+    try {
+      const res = await fetch(url, { method: 'HEAD' });
+      if (!res.ok) {
+        const body = await fetch(url).then(r => r.json()).catch(() => ({}));
+        const msg = body?.message || `Estado HTTP ${res.status}`;
+        if (res.status === 404 && (msg.includes('Bucket') || msg.includes('bucket'))) {
+          toast({
+            title: 'Bucket de almacenamiento no encontrado',
+            description: 'El bucket "documents" no existe en Supabase Storage. Créalo desde el dashboard de Supabase antes de subir archivos.',
+            variant: 'destructive',
+          });
+        } else if (res.status === 400 || msg.toLowerCase().includes('expired')) {
+          toast({
+            title: 'Enlace expirado',
+            description: 'La URL de acceso al archivo ha expirado. Edita el documento y vuelve a subir el archivo para regenerar el enlace.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: `No se pudo abrir el ${label}`,
+            description: msg,
+            variant: 'destructive',
+          });
+        }
+        return;
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      toast({
+        title: `No se pudo abrir el ${label}`,
+        description: 'Error de red al intentar acceder al archivo. Verifica tu conexión.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const uploadFile = async (file: File, docId: string, type: string) => {
     const path = `${docId}/${Date.now()}_${type}_${file.name}`;
     const { error } = await supabase.storage.from('documents').upload(path, file);
     if (error) throw error;
-    const { data } = supabase.storage.from('documents').getPublicUrl(path);
-    return data.publicUrl;
+    // Use signed URL (valid 1 year) since the bucket is private
+    const { data, error: signError } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(path, 60 * 60 * 24 * 365);
+    if (signError) throw signError;
+    return data.signedUrl;
   };
 
   const handleCreateVersion = async () => {
@@ -635,10 +682,8 @@ export default function Documents() {
                     <TableCell className="text-sm text-muted-foreground">{format(new Date(doc.updated_at), 'dd/MM/yyyy')}</TableCell>
                     <TableCell className="text-right flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                       {(doc as any).url_word && (
-                        <Button variant="ghost" size="icon" asChild title="Abrir en Word">
-                          <a href={(doc as any).url_word} target="_blank" rel="noopener noreferrer">
-                             <FileText className="h-4 w-4 text-primary" />
-                          </a>
+                        <Button variant="ghost" size="icon" title="Abrir documento" onClick={() => handleOpenUrl((doc as any).url_word, 'archivo')}>
+                          <FileText className="h-4 w-4 text-primary" />
                         </Button>
                       )}
                       <DropdownMenu>
@@ -722,9 +767,9 @@ export default function Documents() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-muted-foreground">{v.authors}</span>
-                                  {v.url_pdf && <a href={v.url_pdf} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">PDF</a>}
-                                  {v.url_word && <a href={v.url_word} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Word/Drive</a>}
-                                  {v.url_file && <a href={v.url_file} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Archivo</a>}
+                                  {v.url_pdf && <button onClick={() => handleOpenUrl(v.url_pdf!, 'PDF')} className="text-primary hover:underline text-sm">PDF</button>}
+                                  {v.url_word && <button onClick={() => handleOpenUrl(v.url_word!, 'Word/Drive')} className="text-primary hover:underline text-sm">Word/Drive</button>}
+                                  {v.url_file && <button onClick={() => handleOpenUrl(v.url_file!, 'archivo')} className="text-primary hover:underline text-sm">Archivo</button>}
                                 </div>
                               </div>
                             ))}
@@ -745,10 +790,17 @@ export default function Documents() {
           <DialogHeader className="flex flex-row items-center justify-between space-y-0">
             <DialogTitle>Detalles del Documento</DialogTitle>
             {currentVersion && (currentVersion.url_word || currentVersion.url_pdf || currentVersion.url_file) && (
-              <Button asChild variant="default" size="sm" className="bg-primary hover:bg-primary/90 mr-8">
-                <a href={currentVersion.url_word || currentVersion.url_pdf || currentVersion.url_file || '#'} target="_blank" className="flex items-center gap-2">
-                  <Eye className="h-4 w-4" /> {currentVersion.url_word ? 'Abrir en Word' : 'Ver Documento Actual'}
-                </a>
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-primary hover:bg-primary/90 mr-8"
+                onClick={() => handleOpenUrl(
+                  currentVersion.url_word || currentVersion.url_pdf || currentVersion.url_file || '',
+                  'documento'
+                )}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                {currentVersion.url_word ? 'Abrir en Word' : 'Ver Documento Actual'}
               </Button>
             )}
           </DialogHeader>
