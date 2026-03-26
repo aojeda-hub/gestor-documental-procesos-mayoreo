@@ -1,31 +1,26 @@
-import React from 'react';
-import { DocumentManager } from '../components/DocumentManager';
+import StatsCards from '@/components/StatsCards';
+import ActivityChart from '@/components/ActivityChart';
+import ProcessTable from '@/components/ProcessTable';
 
-const Documents = () => {
-    return (
-        <div className="p-6">
-            <DocumentManager />
-        </div>
-    );
-};
-
-export default Documents;
-
-import React from 'react';
-import { DocumentManager } from '../components/DocumentManager';
-
-// Si ya tenías otros imports, consérvalos
-
-const Documents = () => {
-    // Si ya tenías lógica existente, consérvala
-    // y agrega el DocumentManager donde quieras que aparezca
-
-    return (
+export default function Index() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-            {/* Tu contenido existente */}
-            <DocumentManager />
+          <h1 className="text-2xl font-bold tracking-tight">Panel de Procesos</h1>
+          <p className="text-sm text-muted-foreground">Monitoreo en tiempo real</p>
         </div>
-    );
-};
-
-export default Documents;
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+          </span>
+          Sistema operativo
+        </div>
+      </div>
+      <StatsCards />
+      <ActivityChart />
+      <ProcessTable />
+    </div>
+  );
+}
