@@ -97,6 +97,63 @@ export type Database = {
           },
         ]
       }
+      documentos: {
+        Row: {
+          drive_id_original: string | null
+          eliminado: boolean | null
+          fecha_actualizacion: string | null
+          fecha_eliminacion: string | null
+          fecha_ingesta: string | null
+          hash_sha256: string | null
+          id: string
+          metadata_original: Json | null
+          nombre: string
+          origen_ingesta: string | null
+          propietario_sistema: boolean | null
+          storage_bucket: string
+          storage_path: string | null
+          tamano_bytes: number | null
+          tipo_mime: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          drive_id_original?: string | null
+          eliminado?: boolean | null
+          fecha_actualizacion?: string | null
+          fecha_eliminacion?: string | null
+          fecha_ingesta?: string | null
+          hash_sha256?: string | null
+          id?: string
+          metadata_original?: Json | null
+          nombre: string
+          origen_ingesta?: string | null
+          propietario_sistema?: boolean | null
+          storage_bucket?: string
+          storage_path?: string | null
+          tamano_bytes?: number | null
+          tipo_mime?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          drive_id_original?: string | null
+          eliminado?: boolean | null
+          fecha_actualizacion?: string | null
+          fecha_eliminacion?: string | null
+          fecha_ingesta?: string | null
+          hash_sha256?: string | null
+          id?: string
+          metadata_original?: Json | null
+          nombre?: string
+          origen_ingesta?: string | null
+          propietario_sistema?: boolean | null
+          storage_bucket?: string
+          storage_path?: string | null
+          tamano_bytes?: number | null
+          tipo_mime?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
       documentos_metadata: {
         Row: {
           carpeta: string | null
@@ -314,7 +371,63 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      documentos_activos: {
+        Row: {
+          drive_id_original: string | null
+          eliminado: boolean | null
+          fecha_actualizacion: string | null
+          fecha_eliminacion: string | null
+          fecha_ingesta: string | null
+          hash_sha256: string | null
+          id: string | null
+          metadata_original: Json | null
+          nombre: string | null
+          origen_ingesta: string | null
+          propietario_sistema: boolean | null
+          storage_bucket: string | null
+          storage_path: string | null
+          tamano_bytes: number | null
+          tipo_mime: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          drive_id_original?: string | null
+          eliminado?: boolean | null
+          fecha_actualizacion?: string | null
+          fecha_eliminacion?: string | null
+          fecha_ingesta?: string | null
+          hash_sha256?: string | null
+          id?: string | null
+          metadata_original?: Json | null
+          nombre?: string | null
+          origen_ingesta?: string | null
+          propietario_sistema?: boolean | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+          tamano_bytes?: number | null
+          tipo_mime?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          drive_id_original?: string | null
+          eliminado?: boolean | null
+          fecha_actualizacion?: string | null
+          fecha_eliminacion?: string | null
+          fecha_ingesta?: string | null
+          hash_sha256?: string | null
+          id?: string | null
+          metadata_original?: Json | null
+          nombre?: string | null
+          origen_ingesta?: string | null
+          propietario_sistema?: boolean | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+          tamano_bytes?: number | null
+          tipo_mime?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
@@ -324,6 +437,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      soft_delete_documento: { Args: { doc_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "editor" | "viewer"
