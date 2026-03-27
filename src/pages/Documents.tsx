@@ -15,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
 import { DOC_TYPE_LABELS, SILO_LABELS } from '@/types/database';
 import SiloCard from '@/components/documents/SiloCard';
+import SiloDetailDialog from '@/components/documents/SiloDetailDialog';
 
 export default function Documents() {
   const { user, profile, hasRole } = useAuth();
