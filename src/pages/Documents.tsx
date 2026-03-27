@@ -304,7 +304,17 @@ export default function Documents() {
           siloLabel={SILO_LABELS[activeSilo]}
           docs={groupedBySilo[activeSilo]}
           canEdit={canEdit}
-          onOpenDoc={openDetails}
+          onViewDoc={openDetails}
+          onEditDoc={openDetails}
+          onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
+          onDownload={async (doc, fmt) => {
+            const { data } = await supabase.from('document_versions').select('*')
+              .eq('document_id', doc.id).eq('is_current', true).single();
+            const version = data as any;
+            const url = fmt === 'pdf' ? version?.url_pdf : version?.url_word;
+            if (url) window.open(url, '_blank');
+            else toast({ title: 'Sin archivo', description: `No hay archivo ${fmt === 'pdf' ? 'PDF' : 'Word'} disponible.`, variant: 'destructive' });
+          }}
           onCreateDoc={onCreateFromCard}
         />
       )}
