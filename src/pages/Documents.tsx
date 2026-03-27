@@ -18,6 +18,7 @@ import SiloCard from '@/components/documents/SiloCard';
 import SiloDetailDialog from '@/components/documents/SiloDetailDialog';
 
 export default function Documents() {
+  const [activeSilo, setActiveSilo] = useState<SiloType | null>(null);
   const { user, profile, hasRole } = useAuth();
   const { toast } = useToast();
   const [docs, setDocs] = useState<Document[]>([]);
