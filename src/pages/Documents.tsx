@@ -15,8 +15,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
 import { DOC_TYPE_LABELS, SILO_LABELS } from '@/types/database';
 import SiloCard from '@/components/documents/SiloCard';
+import SiloDetailDialog from '@/components/documents/SiloDetailDialog';
 
 export default function Documents() {
+  const [activeSilo, setActiveSilo] = useState<SiloType | null>(null);
   const { user, profile, hasRole } = useAuth();
   const { toast } = useToast();
   const [docs, setDocs] = useState<Document[]>([]);
@@ -251,13 +253,10 @@ export default function Documents() {
     setShowCreate(true);
   };
 
-  // Filter
-  const filtered = docs.filter(d => !search || d.title.toLowerCase().includes(search.toLowerCase()));
-
   // Group by silo
   const silos = Object.entries(SILO_LABELS) as [SiloType, string][];
   const groupedBySilo = silos.reduce<Record<SiloType, Document[]>>((acc, [key]) => {
-    acc[key] = filtered.filter(d => d.silo === key);
+    acc[key] = docs.filter(d => d.silo === key);
     return acc;
   }, {} as any);
 
@@ -265,7 +264,6 @@ export default function Documents() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
-        <Input placeholder="Buscar documentos..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" />
         {canEdit && (
           <>
             <Button variant="outline" onClick={() => { resetForm(); setShowCreate(true); }}>
@@ -290,13 +288,25 @@ export default function Documents() {
               key={key}
               silo={key}
               siloLabel={label}
-              docs={groupedBySilo[key]}
-              canEdit={canEdit}
-              onOpenDoc={openDetails}
-              onCreateDoc={onCreateFromCard}
+              docCount={groupedBySilo[key].length}
+              onClick={() => setActiveSilo(key)}
             />
           ))}
         </div>
+      )}
+
+      {/* Silo Detail Dialog */}
+      {activeSilo && (
+        <SiloDetailDialog
+          open={!!activeSilo}
+          onOpenChange={(open) => !open && setActiveSilo(null)}
+          silo={activeSilo}
+          siloLabel={SILO_LABELS[activeSilo]}
+          docs={groupedBySilo[activeSilo]}
+          canEdit={canEdit}
+          onOpenDoc={openDetails}
+          onCreateDoc={onCreateFromCard}
+        />
       )}
 
       {/* Create Dialog */}
