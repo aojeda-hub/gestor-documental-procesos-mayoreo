@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
 import { DOC_TYPE_LABELS, SILO_LABELS } from '@/types/database';
 import SiloCard from '@/components/documents/SiloCard';
-import SiloDetailDialog from '@/components/documents/SiloDetailDialog';
+import SiloUniverse from '@/components/documents/SiloUniverse';
 
 export default function Documents() {
   const [activeSilo, setActiveSilo] = useState<SiloType | null>(null);
@@ -262,48 +262,14 @@ export default function Documents() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center gap-3">
-        {canEdit && (
-          <>
-            <Button variant="outline" onClick={() => { resetForm(); setShowCreate(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Documento
-            </Button>
-            <Button onClick={() => setShowBulkUpload(true)}>
-              <FileUp className="mr-2 h-4 w-4" /> Carga Masiva
-            </Button>
-          </>
-        )}
-      </div>
-
-      {/* Silo Cards Grid */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {silos.map(([key, label]) => (
-            <SiloCard
-              key={key}
-              silo={key}
-              siloLabel={label}
-              docCount={groupedBySilo[key].length}
-              onClick={() => setActiveSilo(key)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Silo Detail Dialog */}
-      {activeSilo && (
-        <SiloDetailDialog
-          open={!!activeSilo}
-          onOpenChange={(open) => !open && setActiveSilo(null)}
+      {/* Full-screen Silo Universe View */}
+      {activeSilo ? (
+        <SiloUniverse
           silo={activeSilo}
           siloLabel={SILO_LABELS[activeSilo]}
           docs={groupedBySilo[activeSilo]}
           canEdit={canEdit}
+          onBack={() => setActiveSilo(null)}
           onViewDoc={openDetails}
           onEditDoc={openDetails}
           onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
@@ -317,6 +283,41 @@ export default function Documents() {
           }}
           onCreateDoc={onCreateFromCard}
         />
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex flex-wrap items-center gap-3">
+            {canEdit && (
+              <>
+                <Button variant="outline" onClick={() => { resetForm(); setShowCreate(true); }}>
+                  <Plus className="mr-2 h-4 w-4" /> Nuevo Documento
+                </Button>
+                <Button onClick={() => setShowBulkUpload(true)}>
+                  <FileUp className="mr-2 h-4 w-4" /> Carga Masiva
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Silo Cards Grid */}
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {silos.map(([key, label]) => (
+                <SiloCard
+                  key={key}
+                  silo={key}
+                  siloLabel={label}
+                  docCount={groupedBySilo[key].length}
+                  onClick={() => setActiveSilo(key)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Create Dialog */}
