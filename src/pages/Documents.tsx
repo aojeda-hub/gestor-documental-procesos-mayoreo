@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
 import { DOC_TYPE_LABELS, SILO_LABELS } from '@/types/database';
 import SiloCard from '@/components/documents/SiloCard';
-import SiloDetailDialog from '@/components/documents/SiloDetailDialog';
+import SiloUniverse from '@/components/documents/SiloUniverse';
 
 export default function Documents() {
   const [activeSilo, setActiveSilo] = useState<SiloType | null>(null);
