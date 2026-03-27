@@ -1,0 +1,241 @@
+import { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
+  MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
+  ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor,
+} from 'lucide-react';
+import { DOC_TYPE_LABELS } from '@/types/database';
+import type { Document, DocType, SiloType } from '@/types/database';
+import { format } from 'date-fns';
+
+const SILO_ICONS: Record<SiloType, typeof ShoppingCart> = {
+  compras: ShoppingCart,
+  logistica: Truck,
+  ventas: DollarSign,
+  personal: Users,
+  control: BarChart3,
+  mercadeo: Megaphone,
+  sistemas: Monitor,
+};
+
+interface SiloUniverseProps {
+  silo: SiloType;
+  siloLabel: string;
+  docs: Document[];
+  canEdit: boolean;
+  onBack: () => void;
+  onViewDoc: (doc: Document) => void;
+  onEditDoc: (doc: Document) => void;
+  onDeleteDoc: (doc: Document) => void;
+  onDownload: (doc: Document, format: 'pdf' | 'word') => void;
+  onCreateDoc: (silo: SiloType, docType: DocType) => void;
+}
+
+export default function SiloUniverse({
+  silo, siloLabel, docs, canEdit, onBack,
+  onViewDoc, onEditDoc, onDeleteDoc, onDownload, onCreateDoc,
+}: SiloUniverseProps) {
+  const [search, setSearch] = useState('');
+  const [expandedType, setExpandedType] = useState<DocType | null>(null);
+
+  const Icon = SILO_ICONS[silo];
+
+  const grouped = useMemo(() => {
+    const allTypes = Object.keys(DOC_TYPE_LABELS) as DocType[];
+    const filtered = search
+      ? docs.filter(d => d.title.toLowerCase().includes(search.toLowerCase()))
+      : docs;
+
+    const map: { type: DocType; label: string; docs: Document[] }[] = [];
+    for (const dt of allTypes) {
+      const typeDocs = filtered.filter(d => d.doc_type === dt);
+      if (typeDocs.length > 0 || docs.some(d => d.doc_type === dt)) {
+        map.push({ type: dt, label: DOC_TYPE_LABELS[dt], docs: typeDocs });
+      }
+    }
+    return map;
+  }, [docs, search]);
+
+  const toggleType = (dt: DocType) => {
+    setExpandedType(prev => (prev === dt ? null : dt));
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className="space-y-6"
+    >
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <Icon className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold text-foreground truncate">{siloLabel}</h1>
+            <p className="text-sm text-muted-foreground">{docs.length} documento{docs.length !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+        {canEdit && (
+          <Button size="sm" onClick={() => onCreateDoc(silo, 'procedimiento')}>
+            <Plus className="h-4 w-4 mr-1.5" /> Nuevo
+          </Button>
+        )}
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar documentos..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Doc type cards */}
+      <div className="space-y-2">
+        {grouped.length === 0 ? (
+          <div className="text-center py-16">
+            <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">No hay documentos en este silo</p>
+          </div>
+        ) : (
+          grouped.map(({ type, label, docs: typeDocs }) => {
+            const isExpanded = expandedType === type;
+            const totalForType = docs.filter(d => d.doc_type === type).length;
+
+            return (
+              <div key={type} className="rounded-lg border border-border/60 bg-card overflow-hidden">
+                {/* Type header - clickable */}
+                <button
+                  onClick={() => toggleType(type)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-accent/30 transition-colors"
+                >
+                  <motion.div
+                    animate={{ rotate: isExpanded ? 90 : 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </motion.div>
+                  <FileText className="h-4 w-4 text-primary/70" />
+                  <span className="font-medium text-sm text-foreground flex-1">{label}</span>
+                  <Badge variant="secondary" className="text-xs font-normal">
+                    {totalForType}
+                  </Badge>
+                </button>
+
+                {/* Expanded document list */}
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="border-t border-border/40 bg-muted/20">
+                        {typeDocs.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-6">
+                            {search ? 'Sin resultados para esta búsqueda' : 'Sin documentos de este tipo'}
+                          </p>
+                        ) : (
+                          <div className="divide-y divide-border/30">
+                            {typeDocs.map(doc => (
+                              <div
+                                key={doc.id}
+                                className="flex items-center gap-3 px-5 py-2.5 text-sm hover:bg-accent/20 transition-colors group"
+                              >
+                                <div
+                                  className="flex-1 min-w-0 cursor-pointer"
+                                  onClick={() => onViewDoc(doc)}
+                                >
+                                  <span className="block truncate font-medium text-foreground group-hover:text-primary transition-colors">
+                                    {doc.title}
+                                  </span>
+                                </div>
+                                {doc.confidential && (
+                                  <Lock className="h-3.5 w-3.5 text-destructive/70 shrink-0" />
+                                )}
+                                <span className="text-xs text-muted-foreground shrink-0">
+                                  {format(new Date(doc.updated_at), 'dd/MM/yy')}
+                                </span>
+
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-44">
+                                    <DropdownMenuItem onClick={() => onViewDoc(doc)}>
+                                      <Eye className="h-4 w-4 mr-2" /> Ver
+                                    </DropdownMenuItem>
+                                    {canEdit && (
+                                      <DropdownMenuItem onClick={() => onEditDoc(doc)}>
+                                        <Pencil className="h-4 w-4 mr-2" /> Editar
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => onDownload(doc, 'pdf')}>
+                                      <FileDown className="h-4 w-4 mr-2" /> Descargar PDF
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onDownload(doc, 'word')}>
+                                      <FileType2 className="h-4 w-4 mr-2" /> Descargar Word
+                                    </DropdownMenuItem>
+                                    {canEdit && (
+                                      <DropdownMenuItem
+                                        onClick={() => onDeleteDoc(doc)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" /> Eliminar
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Add doc of this type */}
+                        {canEdit && (
+                          <div className="px-5 py-2 border-t border-border/30">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full text-xs text-muted-foreground hover:text-primary"
+                              onClick={() => onCreateDoc(silo, type)}
+                            >
+                              <Plus className="h-3.5 w-3.5 mr-1.5" /> Agregar {label}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </motion.div>
+  );
+}
