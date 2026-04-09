@@ -199,6 +199,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           doc_type: Database["public"]["Enums"]["doc_type"]
+          drive_link: string | null
           id: string
           silo: Database["public"]["Enums"]["silo_type"]
           title: string
@@ -209,6 +210,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           doc_type: Database["public"]["Enums"]["doc_type"]
+          drive_link?: string | null
           id?: string
           silo: Database["public"]["Enums"]["silo_type"]
           title: string
@@ -219,6 +221,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           doc_type?: Database["public"]["Enums"]["doc_type"]
+          drive_link?: string | null
           id?: string
           silo?: Database["public"]["Enums"]["silo_type"]
           title?: string
