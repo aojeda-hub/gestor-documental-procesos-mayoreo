@@ -34,6 +34,10 @@ export interface Document {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  drive_link?: string | null;
+  url_word?: string | null;
+  url_pdf?: string | null;
+  url_file?: string | null;
 }
 
 export interface DocumentVersion {
