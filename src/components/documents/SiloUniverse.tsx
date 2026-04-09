@@ -8,6 +8,7 @@ import {
   ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
   MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
   ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor,
+  ExternalLink,
 } from 'lucide-react';
 import { DOC_TYPE_LABELS } from '@/types/database';
 import type { Document, DocType, SiloType } from '@/types/database';
@@ -166,6 +167,53 @@ export default function SiloUniverse({
                                   <span className="block truncate font-medium text-foreground group-hover:text-primary transition-colors">
                                     {doc.title}
                                   </span>
+                                </div>
+                                {/* File links */}
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {doc.url_word && (
+                                    <a
+                                      href={doc.url_word}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={e => e.stopPropagation()}
+                                      className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline px-1.5 py-0.5 rounded bg-primary/5 hover:bg-primary/10 transition-colors"
+                                    >
+                                      <ExternalLink className="h-3 w-3" /> Word
+                                    </a>
+                                  )}
+                                  {doc.url_pdf && (
+                                    <a
+                                      href={doc.url_pdf}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={e => e.stopPropagation()}
+                                      className="inline-flex items-center gap-1 text-[10px] font-medium text-destructive hover:underline px-1.5 py-0.5 rounded bg-destructive/5 hover:bg-destructive/10 transition-colors"
+                                    >
+                                      <ExternalLink className="h-3 w-3" /> PDF
+                                    </a>
+                                  )}
+                                  {doc.url_file && !doc.url_word && !doc.url_pdf && (
+                                    <a
+                                      href={doc.url_file}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={e => e.stopPropagation()}
+                                      className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:underline px-1.5 py-0.5 rounded bg-muted/50 hover:bg-muted transition-colors"
+                                    >
+                                      <ExternalLink className="h-3 w-3" /> Archivo
+                                    </a>
+                                  )}
+                                  {doc.drive_link && (
+                                    <a
+                                      href={doc.drive_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={e => e.stopPropagation()}
+                                      className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600 hover:underline px-1.5 py-0.5 rounded bg-green-500/5 hover:bg-green-500/10 transition-colors"
+                                    >
+                                      <ExternalLink className="h-3 w-3" /> Drive
+                                    </a>
+                                  )}
                                 </div>
                                 {doc.confidential && (
                                   <Lock className="h-3.5 w-3.5 text-destructive/70 shrink-0" />

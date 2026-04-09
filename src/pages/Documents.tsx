@@ -69,13 +69,18 @@ export default function Documents() {
     setLoading(true);
     const { data } = await supabase
       .from('documents')
-      .select('*, document_versions(url_word, is_current)')
+      .select('*, document_versions(url_word, url_pdf, url_file, is_current)')
       .order('updated_at', { ascending: false });
-    const docsWithWord = (data || []).map((doc: any) => ({
-      ...doc,
-      url_word: doc.document_versions?.find((v: any) => v.is_current)?.url_word,
-    }));
-    setDocs(docsWithWord as Document[]);
+    const docsWithUrls = (data || []).map((doc: any) => {
+      const cv = doc.document_versions?.find((v: any) => v.is_current);
+      return {
+        ...doc,
+        url_word: cv?.url_word || null,
+        url_pdf: cv?.url_pdf || null,
+        url_file: cv?.url_file || null,
+      };
+    });
+    setDocs(docsWithUrls as Document[]);
     setLoading(false);
   };
 
