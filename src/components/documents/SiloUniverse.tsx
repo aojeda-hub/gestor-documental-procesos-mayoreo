@@ -116,10 +116,10 @@ export default function SiloUniverse({
           </div>
           <div className="min-w-0">
             <h1 className="text-xl font-semibold text-foreground truncate">{siloLabel}</h1>
-            <p className="text-sm text-muted-foreground">{docs.length} documento{docs.length !== 1 ? 's' : ''}</p>
+            {!customContent && <p className="text-sm text-muted-foreground">{docs.length} documento{docs.length !== 1 ? 's' : ''}</p>}
           </div>
         </div>
-        {canEdit && !selectMode && (
+        {!customContent && canEdit && !selectMode && (
           <div className="flex gap-2 shrink-0">
             <Button size="sm" variant="outline" onClick={() => setSelectMode(true)}>
               <CheckSquare className="h-4 w-4 mr-1.5" /> Seleccionar
@@ -141,6 +141,11 @@ export default function SiloUniverse({
           </div>
         )}
       </div>
+
+      {customContent ? (
+        <div>{customContent}</div>
+      ) : (
+      <>
 
       {/* Search */}
       <div className="relative max-w-md">
