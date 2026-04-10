@@ -25,7 +25,7 @@ const SILO_ICONS: Record<SiloType, typeof ShoppingCart> = {
   sistemas: Monitor,
 };
 
-interface SiloUniverseProps {
+export interface SiloUniverseProps {
   silo: SiloType;
   siloLabel: string;
   docs: Document[];
@@ -37,11 +37,12 @@ interface SiloUniverseProps {
   onBulkDelete?: (docs: Document[]) => void;
   onDownload: (doc: Document, format: 'pdf' | 'word') => void;
   onCreateDoc: (silo: SiloType, docType: DocType) => void;
+  customContent?: React.ReactNode;
 }
 
 export default function SiloUniverse({
   silo, siloLabel, docs, canEdit, onBack,
-  onViewDoc, onEditDoc, onDeleteDoc, onBulkDelete, onDownload, onCreateDoc,
+  onViewDoc, onEditDoc, onDeleteDoc, onBulkDelete, onDownload, onCreateDoc, customContent,
 }: SiloUniverseProps) {
   const [search, setSearch] = useState('');
   const [expandedType, setExpandedType] = useState<DocType | null>(null);
