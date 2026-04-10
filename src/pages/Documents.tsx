@@ -310,13 +310,20 @@ export default function Documents() {
 
       {/* Full-screen Silo Universe View */}
       {activeSilo === 'procesos' as any ? (
-        <div className="space-y-4">
-          <Button variant="ghost" size="sm" onClick={() => setActiveSilo(null)}>
-            ← Volver
-          </Button>
-          <h2 className="text-xl font-semibold flex items-center gap-2"><Cog className="h-5 w-5" /> Procesos</h2>
-          <ProcessTable />
-        </div>
+        <SiloUniverse
+          silo={'compras' as SiloType}
+          siloLabel="Procesos"
+          docs={[]}
+          canEdit={false}
+          onBack={() => setActiveSilo(null)}
+          onViewDoc={() => {}}
+          onEditDoc={() => {}}
+          onDeleteDoc={() => {}}
+          onBulkDelete={() => {}}
+          onDownload={async () => {}}
+          onCreateDoc={() => {}}
+          customContent={<ProcessTable />}
+        />
       ) : activeSilo ? (
         <SiloUniverse
           silo={activeSilo}
@@ -360,7 +367,6 @@ export default function Documents() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            /* Silo Cards Grid */
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {silos.map(([key, label]) => (
                 <SiloCard
@@ -371,16 +377,14 @@ export default function Documents() {
                   onClick={() => setActiveSilo(key)}
                 />
               ))}
-              {/* Procesos Card */}
               {activeEmpresa === 'mayoreo' && (
-                <div
+                <SiloCard
+                  siloLabel="Procesos"
+                  customIcon={Cog}
+                  customDescription="Gestión y mapeo de procesos operativos de la organización."
+                  badge="Mayoreo"
                   onClick={() => setActiveSilo('procesos' as any)}
-                  className="group cursor-pointer rounded-xl border bg-card p-6 text-center space-y-3 transition-all hover:shadow-lg hover:border-primary/40"
-                >
-                  <Cog className="h-10 w-10 mx-auto text-primary/60 group-hover:text-primary transition-colors" />
-                  <h3 className="font-semibold text-lg">Procesos</h3>
-                  <p className="text-xs text-muted-foreground">Gestión de procesos</p>
-                </div>
+                />
               )}
             </div>
           )}

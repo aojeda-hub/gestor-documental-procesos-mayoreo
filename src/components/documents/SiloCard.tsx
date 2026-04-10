@@ -1,9 +1,9 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor } from 'lucide-react';
+import { ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog, type LucideIcon } from 'lucide-react';
 import type { SiloType } from '@/types/database';
 
-const SILO_CONFIG: Record<SiloType, { icon: typeof ShoppingCart; description: string }> = {
+const SILO_CONFIG: Record<SiloType, { icon: LucideIcon; description: string }> = {
   compras: { icon: ShoppingCart, description: 'Gestione documentos de adquisiciones, órdenes de compra y proveedores.' },
   logistica: { icon: Truck, description: 'Documentación de transporte, almacén e inventarios.' },
   ventas: { icon: DollarSign, description: 'Procesos comerciales, cotizaciones y facturación.' },
@@ -14,15 +14,19 @@ const SILO_CONFIG: Record<SiloType, { icon: typeof ShoppingCart; description: st
 };
 
 interface SiloCardProps {
-  silo: SiloType;
+  silo?: SiloType;
   siloLabel: string;
-  docCount: number;
+  docCount?: number;
   onClick: () => void;
+  customIcon?: LucideIcon;
+  customDescription?: string;
+  badge?: string;
 }
 
-export default function SiloCard({ silo, siloLabel, docCount, onClick }: SiloCardProps) {
-  const config = SILO_CONFIG[silo];
-  const Icon = config.icon;
+export default function SiloCard({ silo, siloLabel, docCount, onClick, customIcon, customDescription, badge }: SiloCardProps) {
+  const config = silo ? SILO_CONFIG[silo] : null;
+  const Icon = customIcon || config?.icon || Cog;
+  const description = customDescription || config?.description || '';
 
   return (
     <Card
@@ -34,10 +38,12 @@ export default function SiloCard({ silo, siloLabel, docCount, onClick }: SiloCar
           <Icon className="h-8 w-8 text-primary" />
         </div>
         <h3 className="text-lg font-semibold text-foreground">{siloLabel}</h3>
-        <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{config.description}</p>
-        {docCount > 0 && (
+        <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{description}</p>
+        {badge ? (
+          <Badge variant="secondary" className="mt-3 text-xs">{badge}</Badge>
+        ) : docCount != null && docCount > 0 ? (
           <Badge variant="secondary" className="mt-3 text-xs">{docCount} documento{docCount !== 1 ? 's' : ''}</Badge>
-        )}
+        ) : null}
       </div>
     </Card>
   );
