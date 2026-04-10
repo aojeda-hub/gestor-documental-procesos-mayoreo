@@ -167,10 +167,17 @@ export default function SiloUniverse({
             return (
               <div key={type} className="rounded-lg border border-border/60 bg-card overflow-hidden">
                 {/* Type header - clickable */}
-                <button
+                <div
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-accent/30 transition-colors cursor-pointer"
                   onClick={() => toggleType(type)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-accent/30 transition-colors"
                 >
+                  {selectMode && typeDocs.length > 0 && (
+                    <Checkbox
+                      checked={typeDocs.length > 0 && typeDocs.every(d => selected.has(d.id))}
+                      onCheckedChange={() => toggleSelectAll(typeDocs)}
+                      onClick={e => e.stopPropagation()}
+                    />
+                  )}
                   <motion.div
                     animate={{ rotate: isExpanded ? 90 : 0 }}
                     transition={{ duration: 0.2 }}
@@ -182,7 +189,7 @@ export default function SiloUniverse({
                   <Badge variant="secondary" className="text-xs font-normal">
                     {totalForType}
                   </Badge>
-                </button>
+                </div>
 
                 {/* Expanded document list */}
                 <AnimatePresence initial={false}>
