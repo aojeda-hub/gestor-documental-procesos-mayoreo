@@ -118,10 +118,26 @@ export default function SiloUniverse({
             <p className="text-sm text-muted-foreground">{docs.length} documento{docs.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
-        {canEdit && (
-          <Button size="sm" onClick={() => onCreateDoc(silo, 'procedimiento')}>
-            <Plus className="h-4 w-4 mr-1.5" /> Nuevo
-          </Button>
+        {canEdit && !selectMode && (
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" variant="outline" onClick={() => setSelectMode(true)}>
+              <CheckSquare className="h-4 w-4 mr-1.5" /> Seleccionar
+            </Button>
+            <Button size="sm" onClick={() => onCreateDoc(silo, 'procedimiento')}>
+              <Plus className="h-4 w-4 mr-1.5" /> Nuevo
+            </Button>
+          </div>
+        )}
+        {selectMode && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge variant="secondary">{selected.size} seleccionado{selected.size !== 1 ? 's' : ''}</Badge>
+            <Button size="sm" variant="destructive" disabled={selected.size === 0} onClick={handleBulkDelete}>
+              <Trash2 className="h-4 w-4 mr-1.5" /> Eliminar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={exitSelectMode}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </div>
 
