@@ -200,6 +200,7 @@ export type Database = {
           created_by: string | null
           doc_type: Database["public"]["Enums"]["doc_type"]
           drive_link: string | null
+          empresa: Database["public"]["Enums"]["empresa_type"]
           id: string
           silo: Database["public"]["Enums"]["silo_type"]
           title: string
@@ -211,6 +212,7 @@ export type Database = {
           created_by?: string | null
           doc_type: Database["public"]["Enums"]["doc_type"]
           drive_link?: string | null
+          empresa?: Database["public"]["Enums"]["empresa_type"]
           id?: string
           silo: Database["public"]["Enums"]["silo_type"]
           title: string
@@ -222,6 +224,7 @@ export type Database = {
           created_by?: string | null
           doc_type?: Database["public"]["Enums"]["doc_type"]
           drive_link?: string | null
+          empresa?: Database["public"]["Enums"]["empresa_type"]
           id?: string
           silo?: Database["public"]["Enums"]["silo_type"]
           title?: string
@@ -458,6 +461,7 @@ export type Database = {
         | "presentacion_clave"
         | "presentacion"
         | "gestion_beneficios"
+      empresa_type: "mayoreo" | "beconsult" | "epa"
       frequency_type:
         | "diario"
         | "semanal"
@@ -624,6 +628,7 @@ export const Constants = {
         "presentacion",
         "gestion_beneficios",
       ],
+      empresa_type: ["mayoreo", "beconsult", "epa"],
       frequency_type: [
         "diario",
         "semanal",

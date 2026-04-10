@@ -1,5 +1,6 @@
 export type DocType = 'norma' | 'manual' | 'procedimiento' | 'anexo' | 'formato' | 'diagrama' | 'instructivo' | 'politica' | 'descripcion_cargo' | 'libro' | 'presentacion_clave' | 'presentacion' | 'gestion_beneficios';
 export type SiloType = 'compras' | 'logistica' | 'ventas' | 'personal' | 'control' | 'mercadeo' | 'sistemas';
+export type EmpresaType = 'mayoreo' | 'beconsult' | 'epa';
 export type IndicatorType = 'eficiencia' | 'eficacia' | 'efectividad' | 'calidad' | 'productividad' | 'cumplimiento';
 export type FrequencyType = 'diario' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'semestral' | 'anual';
 export type AppRole = 'admin' | 'editor' | 'viewer';
@@ -30,6 +31,7 @@ export interface Document {
   title: string;
   doc_type: DocType;
   silo: SiloType;
+  empresa: EmpresaType;
   confidential: boolean;
   created_by: string | null;
   created_at: string;
@@ -127,4 +129,10 @@ export const FREQUENCY_LABELS: Record<FrequencyType, string> = {
   trimestral: 'Trimestral',
   semestral: 'Semestral',
   anual: 'Anual',
+};
+
+export const EMPRESA_LABELS: Record<EmpresaType, string> = {
+  mayoreo: 'MAYOREO',
+  beconsult: 'BECONSULT',
+  epa: 'EPA',
 };

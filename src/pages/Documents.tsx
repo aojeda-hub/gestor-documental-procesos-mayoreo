@@ -9,16 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Upload, Loader2, FileUp, CheckCircle, Eye } from 'lucide-react';
+import { Plus, FileText, Upload, Loader2, FileUp, CheckCircle, Eye, Cog } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import type { Document, DocumentVersion, DocType, SiloType } from '@/types/database';
-import { DOC_TYPE_LABELS, SILO_LABELS } from '@/types/database';
+import type { Document, DocumentVersion, DocType, SiloType, EmpresaType } from '@/types/database';
+import { DOC_TYPE_LABELS, SILO_LABELS, EMPRESA_LABELS } from '@/types/database';
 import SiloCard from '@/components/documents/SiloCard';
 import SiloUniverse from '@/components/documents/SiloUniverse';
 
 export default function Documents() {
+  const [activeEmpresa, setActiveEmpresa] = useState<EmpresaType>('mayoreo');
   const [activeSilo, setActiveSilo] = useState<SiloType | null>(null);
+  const [activeSection, setActiveSection] = useState<'documentos' | 'procesos'>('documentos');
   const { user, profile, hasRole } = useAuth();
   const { toast } = useToast();
   const [docs, setDocs] = useState<Document[]>([]);
@@ -75,6 +78,7 @@ export default function Documents() {
       const cv = doc.document_versions?.find((v: any) => v.is_current);
       return {
         ...doc,
+        empresa: doc.empresa || 'mayoreo',
         url_word: cv?.url_word || null,
         url_pdf: cv?.url_pdf || null,
         url_file: cv?.url_file || null,
@@ -85,6 +89,9 @@ export default function Documents() {
   };
 
   useEffect(() => { fetchDocs(); }, []);
+
+  // Filter docs by active empresa
+  const empresaDocs = docs.filter(d => d.empresa === activeEmpresa);
 
   const uploadFile = async (file: File, docId: string, type: string) => {
     const path = `${docId}/${Date.now()}_${type}_${file.name}`;
@@ -97,7 +104,7 @@ export default function Documents() {
 
   const handleCreateDoc = async () => {
     const { data: doc, error } = await supabase.from('documents').insert({
-      title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, created_by: user?.id,
+      title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, created_by: user?.id, empresa: activeEmpresa,
     } as any).select().single();
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
 
@@ -185,7 +192,6 @@ export default function Documents() {
   };
 
   const handleOpenUrl = (url: string) => {
-    if (!url.includes('supabase')) { window.open(url, '_blank', 'noopener,noreferrer'); return; }
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -232,7 +238,7 @@ export default function Documents() {
       for (const file of bulkFiles) {
         const title = file.name.split('.').slice(0, -1).join('.') || file.name;
         const { data: doc, error: docErr } = await supabase.from('documents').insert({
-          title, doc_type: bulkType, silo: bulkSilo, confidential: false, created_by: user?.id,
+          title, doc_type: bulkType, silo: bulkSilo, confidential: false, created_by: user?.id, empresa: activeEmpresa,
         } as any).select().single();
         if (docErr) throw docErr;
         const url = await uploadFile(file, (doc as any).id, 'file');
@@ -261,12 +267,28 @@ export default function Documents() {
   // Group by silo
   const silos = Object.entries(SILO_LABELS) as [SiloType, string][];
   const groupedBySilo = silos.reduce<Record<SiloType, Document[]>>((acc, [key]) => {
-    acc[key] = docs.filter(d => d.silo === key);
+    acc[key] = empresaDocs.filter(d => d.silo === key);
     return acc;
   }, {} as any);
 
+  const empresas = Object.entries(EMPRESA_LABELS) as [EmpresaType, string][];
+
   return (
     <div className="space-y-6">
+      {/* Page Title */}
+      <h1 className="text-2xl font-bold">Documentos</h1>
+
+      {/* Empresa Tabs */}
+      <Tabs value={activeEmpresa} onValueChange={(v) => { setActiveEmpresa(v as EmpresaType); setActiveSilo(null); setActiveSection('documentos'); }}>
+        <TabsList className="w-full justify-start">
+          {empresas.map(([key, label]) => (
+            <TabsTrigger key={key} value={key} className="flex-1 font-semibold tracking-wide">
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
       {/* Full-screen Silo Universe View */}
       {activeSilo ? (
         <SiloUniverse
@@ -290,26 +312,67 @@ export default function Documents() {
         />
       ) : (
         <>
-          {/* Header */}
-          <div className="flex flex-wrap items-center gap-3">
-            {canEdit && (
-              <>
-                <Button variant="outline" onClick={() => { resetForm(); setShowCreate(true); }}>
-                  <Plus className="mr-2 h-4 w-4" /> Nuevo Documento
-                </Button>
-                <Button onClick={() => setShowBulkUpload(true)}>
-                  <FileUp className="mr-2 h-4 w-4" /> Carga Masiva
-                </Button>
-              </>
-            )}
-          </div>
+          {/* Section toggle for Mayoreo */}
+          {activeEmpresa === 'mayoreo' && (
+            <div className="flex gap-2">
+              <Button
+                variant={activeSection === 'documentos' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveSection('documentos')}
+              >
+                <FileText className="mr-2 h-4 w-4" /> Documentos
+              </Button>
+              <Button
+                variant={activeSection === 'procesos' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveSection('procesos')}
+              >
+                <Cog className="mr-2 h-4 w-4" /> Procesos
+              </Button>
+            </div>
+          )}
 
-          {/* Silo Cards Grid */}
+          {/* Action Buttons */}
+          {activeSection === 'documentos' && (
+            <div className="flex flex-wrap items-center gap-3">
+              {canEdit && (
+                <>
+                  <Button variant="outline" onClick={() => { resetForm(); setShowCreate(true); }}>
+                    <Plus className="mr-2 h-4 w-4" /> Nuevo Documento
+                  </Button>
+                  <Button onClick={() => setShowBulkUpload(true)}>
+                    <FileUp className="mr-2 h-4 w-4" /> Carga Masiva
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Content */}
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
+          ) : activeSection === 'procesos' && activeEmpresa === 'mayoreo' ? (
+            /* Procesos Section */
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Vista de procesos de Mayoreo — próximamente.</p>
+              {/* Placeholder grid for processes */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {silos.map(([key, label]) => {
+                  const count = groupedBySilo[key].length;
+                  return (
+                    <div key={key} className="rounded-lg border bg-card p-6 text-center space-y-2">
+                      <Cog className="h-8 w-8 mx-auto text-primary/60" />
+                      <h3 className="font-semibold">{label}</h3>
+                      <p className="text-xs text-muted-foreground">{count} documento{count !== 1 ? 's' : ''} asociados</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           ) : (
+            /* Silo Cards Grid */
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {silos.map(([key, label]) => (
                 <SiloCard
