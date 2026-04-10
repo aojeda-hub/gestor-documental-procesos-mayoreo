@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
   MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
   ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor,
-  ExternalLink,
+  ExternalLink, CheckSquare, X,
 } from 'lucide-react';
 import { DOC_TYPE_LABELS } from '@/types/database';
 import type { Document, DocType, SiloType } from '@/types/database';
@@ -33,16 +34,19 @@ interface SiloUniverseProps {
   onViewDoc: (doc: Document) => void;
   onEditDoc: (doc: Document) => void;
   onDeleteDoc: (doc: Document) => void;
+  onBulkDelete?: (docs: Document[]) => void;
   onDownload: (doc: Document, format: 'pdf' | 'word') => void;
   onCreateDoc: (silo: SiloType, docType: DocType) => void;
 }
 
 export default function SiloUniverse({
   silo, siloLabel, docs, canEdit, onBack,
-  onViewDoc, onEditDoc, onDeleteDoc, onDownload, onCreateDoc,
+  onViewDoc, onEditDoc, onDeleteDoc, onBulkDelete, onDownload, onCreateDoc,
 }: SiloUniverseProps) {
   const [search, setSearch] = useState('');
   const [expandedType, setExpandedType] = useState<DocType | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const Icon = SILO_ICONS[silo];
 
@@ -64,6 +68,32 @@ export default function SiloUniverse({
 
   const toggleType = (dt: DocType) => {
     setExpandedType(prev => (prev === dt ? null : dt));
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (typeDocs: Document[]) => {
+    const allSelected = typeDocs.every(d => selected.has(d.id));
+    setSelected(prev => {
+      const next = new Set(prev);
+      typeDocs.forEach(d => allSelected ? next.delete(d.id) : next.add(d.id));
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); };
+
+  const handleBulkDelete = () => {
+    if (onBulkDelete && selected.size > 0) {
+      const selectedDocs = docs.filter(d => selected.has(d.id));
+      onBulkDelete(selectedDocs);
+    }
   };
 
   return (
@@ -88,10 +118,26 @@ export default function SiloUniverse({
             <p className="text-sm text-muted-foreground">{docs.length} documento{docs.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
-        {canEdit && (
-          <Button size="sm" onClick={() => onCreateDoc(silo, 'procedimiento')}>
-            <Plus className="h-4 w-4 mr-1.5" /> Nuevo
-          </Button>
+        {canEdit && !selectMode && (
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" variant="outline" onClick={() => setSelectMode(true)}>
+              <CheckSquare className="h-4 w-4 mr-1.5" /> Seleccionar
+            </Button>
+            <Button size="sm" onClick={() => onCreateDoc(silo, 'procedimiento')}>
+              <Plus className="h-4 w-4 mr-1.5" /> Nuevo
+            </Button>
+          </div>
+        )}
+        {selectMode && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge variant="secondary">{selected.size} seleccionado{selected.size !== 1 ? 's' : ''}</Badge>
+            <Button size="sm" variant="destructive" disabled={selected.size === 0} onClick={handleBulkDelete}>
+              <Trash2 className="h-4 w-4 mr-1.5" /> Eliminar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={exitSelectMode}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </div>
 
@@ -121,10 +167,17 @@ export default function SiloUniverse({
             return (
               <div key={type} className="rounded-lg border border-border/60 bg-card overflow-hidden">
                 {/* Type header - clickable */}
-                <button
+                <div
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-accent/30 transition-colors cursor-pointer"
                   onClick={() => toggleType(type)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-accent/30 transition-colors"
                 >
+                  {selectMode && typeDocs.length > 0 && (
+                    <Checkbox
+                      checked={typeDocs.length > 0 && typeDocs.every(d => selected.has(d.id))}
+                      onCheckedChange={() => toggleSelectAll(typeDocs)}
+                      onClick={e => e.stopPropagation()}
+                    />
+                  )}
                   <motion.div
                     animate={{ rotate: isExpanded ? 90 : 0 }}
                     transition={{ duration: 0.2 }}
@@ -136,7 +189,7 @@ export default function SiloUniverse({
                   <Badge variant="secondary" className="text-xs font-normal">
                     {totalForType}
                   </Badge>
-                </button>
+                </div>
 
                 {/* Expanded document list */}
                 <AnimatePresence initial={false}>
@@ -158,8 +211,14 @@ export default function SiloUniverse({
                             {typeDocs.map(doc => (
                               <div
                                 key={doc.id}
-                                className="flex items-center gap-3 px-5 py-2.5 text-sm hover:bg-accent/20 transition-colors group"
+                                className={`flex items-center gap-3 px-5 py-2.5 text-sm hover:bg-accent/20 transition-colors group ${selected.has(doc.id) ? 'bg-primary/5' : ''}`}
                               >
+                                {selectMode && (
+                                  <Checkbox
+                                    checked={selected.has(doc.id)}
+                                    onCheckedChange={() => toggleSelect(doc.id)}
+                                  />
+                                )}
                                 <div
                                   className="flex-1 min-w-0 cursor-pointer"
                                   onClick={() => onViewDoc(doc)}

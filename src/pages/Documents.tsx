@@ -52,6 +52,8 @@ export default function Documents() {
   // Delete
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [bulkDeleteDocs, setBulkDeleteDocs] = useState<Document[]>([]);
+  const [showBulkDeleteAlert, setShowBulkDeleteAlert] = useState(false);
 
   // Confirm edit
   const [showConfirmEdit, setShowConfirmEdit] = useState(false);
@@ -191,6 +193,22 @@ export default function Documents() {
     } finally { setIsDeleting(false); }
   };
 
+  const handleBulkDeleteDocs = async () => {
+    if (bulkDeleteDocs.length === 0) return;
+    setIsDeleting(true);
+    try {
+      const ids = bulkDeleteDocs.map(d => d.id);
+      await supabase.from('document_versions').delete().in('document_id', ids);
+      await supabase.from('documents').delete().in('id', ids);
+      toast({ title: `${ids.length} documento${ids.length !== 1 ? 's' : ''} eliminado${ids.length !== 1 ? 's' : ''}` });
+      setShowBulkDeleteAlert(false);
+      setBulkDeleteDocs([]);
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally { setIsDeleting(false); }
+  };
+
   const handleOpenUrl = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
@@ -300,6 +318,7 @@ export default function Documents() {
           onViewDoc={openDetails}
           onEditDoc={openDetails}
           onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
+          onBulkDelete={(selectedDocs) => { setBulkDeleteDocs(selectedDocs); setShowBulkDeleteAlert(true); }}
           onDownload={async (doc, fmt) => {
             const { data } = await supabase.from('document_versions').select('*')
               .eq('document_id', doc.id).eq('is_current', true).single();
@@ -595,6 +614,27 @@ export default function Documents() {
             <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={e => { e.preventDefault(); handleDeleteDoc(); }} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {isDeleting ? 'Eliminando...' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Alert */}
+      <AlertDialog open={showBulkDeleteAlert} onOpenChange={setShowBulkDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar {bulkDeleteDocs.length} documento{bulkDeleteDocs.length !== 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminarán los siguientes documentos y todas sus versiones:
+              <ul className="mt-2 list-disc pl-4 max-h-40 overflow-y-auto text-sm">
+                {bulkDeleteDocs.map(d => <li key={d.id}>{d.title}</li>)}
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={e => { e.preventDefault(); handleBulkDeleteDocs(); }} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeleting ? 'Eliminando...' : `Eliminar ${bulkDeleteDocs.length}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
