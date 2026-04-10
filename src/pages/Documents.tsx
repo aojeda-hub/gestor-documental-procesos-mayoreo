@@ -193,6 +193,22 @@ export default function Documents() {
     } finally { setIsDeleting(false); }
   };
 
+  const handleBulkDeleteDocs = async () => {
+    if (bulkDeleteDocs.length === 0) return;
+    setIsDeleting(true);
+    try {
+      const ids = bulkDeleteDocs.map(d => d.id);
+      await supabase.from('document_versions').delete().in('document_id', ids);
+      await supabase.from('documents').delete().in('id', ids);
+      toast({ title: `${ids.length} documento${ids.length !== 1 ? 's' : ''} eliminado${ids.length !== 1 ? 's' : ''}` });
+      setShowBulkDeleteAlert(false);
+      setBulkDeleteDocs([]);
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally { setIsDeleting(false); }
+  };
+
   const handleOpenUrl = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
