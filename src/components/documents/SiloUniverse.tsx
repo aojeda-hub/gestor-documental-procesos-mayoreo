@@ -349,6 +349,7 @@ export default function SiloUniverse({
           })
         )}
       </div>
+      )}
     </motion.div>
   );
 }
