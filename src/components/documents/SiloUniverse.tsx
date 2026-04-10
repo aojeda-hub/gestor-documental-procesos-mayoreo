@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import {
   ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
   MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
-  ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor,
+  ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog,
   ExternalLink, CheckSquare, X,
 } from 'lucide-react';
 import { DOC_TYPE_LABELS } from '@/types/database';
@@ -25,7 +25,7 @@ const SILO_ICONS: Record<SiloType, typeof ShoppingCart> = {
   sistemas: Monitor,
 };
 
-interface SiloUniverseProps {
+export interface SiloUniverseProps {
   silo: SiloType;
   siloLabel: string;
   docs: Document[];
@@ -37,18 +37,19 @@ interface SiloUniverseProps {
   onBulkDelete?: (docs: Document[]) => void;
   onDownload: (doc: Document, format: 'pdf' | 'word') => void;
   onCreateDoc: (silo: SiloType, docType: DocType) => void;
+  customContent?: React.ReactNode;
 }
 
 export default function SiloUniverse({
   silo, siloLabel, docs, canEdit, onBack,
-  onViewDoc, onEditDoc, onDeleteDoc, onBulkDelete, onDownload, onCreateDoc,
+  onViewDoc, onEditDoc, onDeleteDoc, onBulkDelete, onDownload, onCreateDoc, customContent,
 }: SiloUniverseProps) {
   const [search, setSearch] = useState('');
   const [expandedType, setExpandedType] = useState<DocType | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const Icon = SILO_ICONS[silo];
+  const Icon = SILO_ICONS[silo] || Cog;
 
   const grouped = useMemo(() => {
     const allTypes = Object.keys(DOC_TYPE_LABELS) as DocType[];
@@ -115,10 +116,10 @@ export default function SiloUniverse({
           </div>
           <div className="min-w-0">
             <h1 className="text-xl font-semibold text-foreground truncate">{siloLabel}</h1>
-            <p className="text-sm text-muted-foreground">{docs.length} documento{docs.length !== 1 ? 's' : ''}</p>
+            {!customContent && <p className="text-sm text-muted-foreground">{docs.length} documento{docs.length !== 1 ? 's' : ''}</p>}
           </div>
         </div>
-        {canEdit && !selectMode && (
+        {!customContent && canEdit && !selectMode && (
           <div className="flex gap-2 shrink-0">
             <Button size="sm" variant="outline" onClick={() => setSelectMode(true)}>
               <CheckSquare className="h-4 w-4 mr-1.5" /> Seleccionar
@@ -140,6 +141,11 @@ export default function SiloUniverse({
           </div>
         )}
       </div>
+
+      {customContent ? (
+        <div>{customContent}</div>
+      ) : (
+      <>
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -343,6 +349,8 @@ export default function SiloUniverse({
           })
         )}
       </div>
+      </>
+      )}
     </motion.div>
   );
 }
