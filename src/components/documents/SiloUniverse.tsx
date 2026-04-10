@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
   MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
   ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor,
-  ExternalLink,
+  ExternalLink, CheckSquare, X,
 } from 'lucide-react';
 import { DOC_TYPE_LABELS } from '@/types/database';
 import type { Document, DocType, SiloType } from '@/types/database';
@@ -33,16 +34,19 @@ interface SiloUniverseProps {
   onViewDoc: (doc: Document) => void;
   onEditDoc: (doc: Document) => void;
   onDeleteDoc: (doc: Document) => void;
+  onBulkDelete?: (docs: Document[]) => void;
   onDownload: (doc: Document, format: 'pdf' | 'word') => void;
   onCreateDoc: (silo: SiloType, docType: DocType) => void;
 }
 
 export default function SiloUniverse({
   silo, siloLabel, docs, canEdit, onBack,
-  onViewDoc, onEditDoc, onDeleteDoc, onDownload, onCreateDoc,
+  onViewDoc, onEditDoc, onDeleteDoc, onBulkDelete, onDownload, onCreateDoc,
 }: SiloUniverseProps) {
   const [search, setSearch] = useState('');
   const [expandedType, setExpandedType] = useState<DocType | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const Icon = SILO_ICONS[silo];
 
@@ -64,6 +68,32 @@ export default function SiloUniverse({
 
   const toggleType = (dt: DocType) => {
     setExpandedType(prev => (prev === dt ? null : dt));
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (typeDocs: Document[]) => {
+    const allSelected = typeDocs.every(d => selected.has(d.id));
+    setSelected(prev => {
+      const next = new Set(prev);
+      typeDocs.forEach(d => allSelected ? next.delete(d.id) : next.add(d.id));
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); };
+
+  const handleBulkDelete = () => {
+    if (onBulkDelete && selected.size > 0) {
+      const selectedDocs = docs.filter(d => selected.has(d.id));
+      onBulkDelete(selectedDocs);
+    }
   };
 
   return (
