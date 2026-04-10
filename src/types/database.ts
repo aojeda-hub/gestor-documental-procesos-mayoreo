@@ -130,3 +130,9 @@ export const FREQUENCY_LABELS: Record<FrequencyType, string> = {
   semestral: 'Semestral',
   anual: 'Anual',
 };
+
+export const EMPRESA_LABELS: Record<EmpresaType, string> = {
+  mayoreo: 'MAYOREO',
+  beconsult: 'BECONSULT',
+  epa: 'EPA',
+};
