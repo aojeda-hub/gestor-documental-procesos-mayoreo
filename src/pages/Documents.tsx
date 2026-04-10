@@ -52,6 +52,8 @@ export default function Documents() {
   // Delete
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [bulkDeleteDocs, setBulkDeleteDocs] = useState<Document[]>([]);
+  const [showBulkDeleteAlert, setShowBulkDeleteAlert] = useState(false);
 
   // Confirm edit
   const [showConfirmEdit, setShowConfirmEdit] = useState(false);
