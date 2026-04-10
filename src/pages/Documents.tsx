@@ -318,6 +318,7 @@ export default function Documents() {
           onViewDoc={openDetails}
           onEditDoc={openDetails}
           onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
+          onBulkDelete={(selectedDocs) => { setBulkDeleteDocs(selectedDocs); setShowBulkDeleteAlert(true); }}
           onDownload={async (doc, fmt) => {
             const { data } = await supabase.from('document_versions').select('*')
               .eq('document_id', doc.id).eq('is_current', true).single();
