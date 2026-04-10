@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import {
   ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
   MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
-  ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor,
+  ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog,
   ExternalLink, CheckSquare, X,
 } from 'lucide-react';
 import { DOC_TYPE_LABELS } from '@/types/database';
@@ -49,7 +49,7 @@ export default function SiloUniverse({
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const Icon = SILO_ICONS[silo];
+  const Icon = SILO_ICONS[silo] || Cog;
 
   const grouped = useMemo(() => {
     const allTypes = Object.keys(DOC_TYPE_LABELS) as DocType[];
