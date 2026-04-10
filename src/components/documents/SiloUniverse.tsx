@@ -211,8 +211,14 @@ export default function SiloUniverse({
                             {typeDocs.map(doc => (
                               <div
                                 key={doc.id}
-                                className="flex items-center gap-3 px-5 py-2.5 text-sm hover:bg-accent/20 transition-colors group"
+                                className={`flex items-center gap-3 px-5 py-2.5 text-sm hover:bg-accent/20 transition-colors group ${selected.has(doc.id) ? 'bg-primary/5' : ''}`}
                               >
+                                {selectMode && (
+                                  <Checkbox
+                                    checked={selected.has(doc.id)}
+                                    onCheckedChange={() => toggleSelect(doc.id)}
+                                  />
+                                )}
                                 <div
                                   className="flex-1 min-w-0 cursor-pointer"
                                   onClick={() => onViewDoc(doc)}
