@@ -1,48 +1,55 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { FileText, AlertTriangle, CheckCircle, Clock, BarChart3 } from 'lucide-react';
-import type { ReviewAlert, Document } from '@/types/database';
-import { DOC_TYPE_LABELS, SILO_LABELS } from '@/types/database';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { FileText, BarChart3, Users, FolderOpen } from 'lucide-react';
+import { SILO_LABELS } from '@/types/database';
+import type { SiloType } from '@/types/database';
+
+interface SiloStat {
+  silo: SiloType;
+  count: number;
+}
 
 export default function Dashboard() {
   const [totalDocs, setTotalDocs] = useState(0);
   const [totalIndicators, setTotalIndicators] = useState(0);
-  const [alerts, setAlerts] = useState<(ReviewAlert & { documents: Document })[]>([]);
-  const [docsWithCurrent, setDocsWithCurrent] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [siloStats, setSiloStats] = useState<SiloStat[]>([]);
 
   useEffect(() => {
     const load = async () => {
-      const [docsRes, indRes, alertsRes, versionsRes] = await Promise.all([
+      const [docsRes, indRes, usersRes, docsData] = await Promise.all([
         supabase.from('documents').select('id', { count: 'exact', head: true }),
         supabase.from('indicators').select('id', { count: 'exact', head: true }),
-        supabase.from('review_alerts').select('*, documents(*)').eq('acknowledged', false).order('due_date'),
-        supabase.from('document_versions').select('document_id').eq('is_current', true),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('documents').select('silo'),
       ]);
       setTotalDocs(docsRes.count || 0);
       setTotalIndicators(indRes.count || 0);
-      setAlerts((alertsRes.data || []) as unknown as (ReviewAlert & { documents: Document })[]);
-      setDocsWithCurrent(new Set((versionsRes.data || []).map((v: any) => v.document_id)).size);
+      setTotalUsers(usersRes.count || 0);
+
+      // Group by silo
+      const map = new Map<SiloType, number>();
+      (docsData.data || []).forEach((d: any) => {
+        map.set(d.silo, (map.get(d.silo) || 0) + 1);
+      });
+      const stats: SiloStat[] = Array.from(map.entries())
+        .map(([silo, count]) => ({ silo, count }))
+        .sort((a, b) => b.count - a.count);
+      setSiloStats(stats);
     };
     load();
   }, []);
 
-  const vigentePct = totalDocs > 0 ? Math.round((docsWithCurrent / totalDocs) * 100) : 0;
-  const pendingAlerts = alerts.filter(a => new Date(a.due_date) <= new Date());
-  const upcomingAlerts = alerts.filter(a => new Date(a.due_date) > new Date());
-
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Salud Documental</h1>
+      <h1 className="text-2xl font-bold">Panel de Inicio</h1>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Documentos</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <FileText className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalDocs}</div>
@@ -50,62 +57,48 @@ export default function Dashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">% Vigentes</CardTitle>
-            <CheckCircle className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{vigentePct}%</div>
-            <div className="mt-2 h-2 rounded-full bg-muted">
-              <div className="h-full rounded-full bg-accent" style={{ width: `${vigentePct}%` }} />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Alertas Vencidas</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{pendingAlerts.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Indicadores</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Indicadores</CardTitle>
+            <BarChart3 className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalIndicators}</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Usuarios</CardTitle>
+            <Users className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalUsers}</div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Alerts */}
+      {/* Docs per silo */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Alertas de Revisión
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FolderOpen className="h-5 w-5 text-primary" />
+            Documentos por Silo
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {alerts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hay alertas pendientes.</p>
+          {siloStats.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin documentos aún.</p>
           ) : (
             <div className="space-y-3">
-              {alerts.map(alert => (
-                <div key={alert.id} className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <p className="font-medium">{alert.documents?.title || 'Documento'}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {alert.documents?.silo ? SILO_LABELS[alert.documents.silo as keyof typeof SILO_LABELS] : ''} ·{' '}
-                      {alert.documents?.doc_type ? DOC_TYPE_LABELS[alert.documents.doc_type as keyof typeof DOC_TYPE_LABELS] : ''}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={new Date(alert.due_date) <= new Date() ? 'destructive' : 'secondary'}>
-                      {format(new Date(alert.due_date), 'dd MMM yyyy', { locale: es })}
-                    </Badge>
+              {siloStats.map(s => (
+                <div key={s.silo} className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{SILO_LABELS[s.silo]}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-32 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: `${totalDocs > 0 ? (s.count / totalDocs) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-bold tabular-nums w-8 text-right">{s.count}</span>
                   </div>
                 </div>
               ))}
