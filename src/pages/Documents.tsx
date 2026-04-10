@@ -619,6 +619,26 @@ export default function Documents() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Bulk Delete Alert */}
+      <AlertDialog open={showBulkDeleteAlert} onOpenChange={setShowBulkDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar {bulkDeleteDocs.length} documento{bulkDeleteDocs.length !== 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminarán los siguientes documentos y todas sus versiones:
+              <ul className="mt-2 list-disc pl-4 max-h-40 overflow-y-auto text-sm">
+                {bulkDeleteDocs.map(d => <li key={d.id}>{d.title}</li>)}
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={e => { e.preventDefault(); handleBulkDeleteDocs(); }} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeleting ? 'Eliminando...' : `Eliminar ${bulkDeleteDocs.length}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+
       {/* Confirm Edit Dialog */}
       <Dialog open={showConfirmEdit} onOpenChange={open => { if (!open && !isConfirming) { setShowConfirmEdit(false); setEditingDocForConfirm(null); } }}>
         <DialogContent>
