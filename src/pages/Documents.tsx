@@ -638,6 +638,7 @@ export default function Documents() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirm Edit Dialog */}
       <Dialog open={showConfirmEdit} onOpenChange={open => { if (!open && !isConfirming) { setShowConfirmEdit(false); setEditingDocForConfirm(null); } }}>
