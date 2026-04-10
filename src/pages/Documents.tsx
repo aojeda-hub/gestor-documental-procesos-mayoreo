@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Upload, Loader2, FileUp, CheckCircle, Eye, Cog } from 'lucide-react';
+import ProcessTable from '@/components/ProcessTable';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Document, DocumentVersion, DocType, SiloType, EmpresaType } from '@/types/database';
 import { DOC_TYPE_LABELS, SILO_LABELS, EMPRESA_LABELS } from '@/types/database';
@@ -21,7 +22,7 @@ import SiloUniverse from '@/components/documents/SiloUniverse';
 export default function Documents() {
   const [activeEmpresa, setActiveEmpresa] = useState<EmpresaType>('mayoreo');
   const [activeSilo, setActiveSilo] = useState<SiloType | null>(null);
-  const [activeSection, setActiveSection] = useState<'documentos' | 'procesos'>('documentos');
+  
   const { user, profile, hasRole } = useAuth();
   const { toast } = useToast();
   const [docs, setDocs] = useState<Document[]>([]);
@@ -297,7 +298,7 @@ export default function Documents() {
       <h1 className="text-2xl font-bold">Documentos</h1>
 
       {/* Empresa Tabs */}
-      <Tabs value={activeEmpresa} onValueChange={(v) => { setActiveEmpresa(v as EmpresaType); setActiveSilo(null); setActiveSection('documentos'); }}>
+      <Tabs value={activeEmpresa} onValueChange={(v) => { setActiveEmpresa(v as EmpresaType); setActiveSilo(null); }}>
         <TabsList className="w-full justify-start">
           {empresas.map(([key, label]) => (
             <TabsTrigger key={key} value={key} className="flex-1 font-semibold tracking-wide">
@@ -308,7 +309,15 @@ export default function Documents() {
       </Tabs>
 
       {/* Full-screen Silo Universe View */}
-      {activeSilo ? (
+      {activeSilo === 'procesos' as any ? (
+        <div className="space-y-4">
+          <Button variant="ghost" size="sm" onClick={() => setActiveSilo(null)}>
+            ← Volver
+          </Button>
+          <h2 className="text-xl font-semibold flex items-center gap-2"><Cog className="h-5 w-5" /> Procesos</h2>
+          <ProcessTable />
+        </div>
+      ) : activeSilo ? (
         <SiloUniverse
           silo={activeSilo}
           siloLabel={SILO_LABELS[activeSilo]}
@@ -331,64 +340,24 @@ export default function Documents() {
         />
       ) : (
         <>
-          {/* Section toggle for Mayoreo */}
-          {activeEmpresa === 'mayoreo' && (
-            <div className="flex gap-2">
-              <Button
-                variant={activeSection === 'documentos' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveSection('documentos')}
-              >
-                <FileText className="mr-2 h-4 w-4" /> Documentos
-              </Button>
-              <Button
-                variant={activeSection === 'procesos' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveSection('procesos')}
-              >
-                <Cog className="mr-2 h-4 w-4" /> Procesos
-              </Button>
-            </div>
-          )}
-
           {/* Action Buttons */}
-          {activeSection === 'documentos' && (
-            <div className="flex flex-wrap items-center gap-3">
-              {canEdit && (
-                <>
-                  <Button variant="outline" onClick={() => { resetForm(); setShowCreate(true); }}>
-                    <Plus className="mr-2 h-4 w-4" /> Nuevo Documento
-                  </Button>
-                  <Button onClick={() => setShowBulkUpload(true)}>
-                    <FileUp className="mr-2 h-4 w-4" /> Carga Masiva
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {canEdit && (
+              <>
+                <Button variant="outline" onClick={() => { resetForm(); setShowCreate(true); }}>
+                  <Plus className="mr-2 h-4 w-4" /> Nuevo Documento
+                </Button>
+                <Button onClick={() => setShowBulkUpload(true)}>
+                  <FileUp className="mr-2 h-4 w-4" /> Carga Masiva
+                </Button>
+              </>
+            )}
+          </div>
 
           {/* Content */}
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : activeSection === 'procesos' && activeEmpresa === 'mayoreo' ? (
-            /* Procesos Section */
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Vista de procesos de Mayoreo — próximamente.</p>
-              {/* Placeholder grid for processes */}
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {silos.map(([key, label]) => {
-                  const count = groupedBySilo[key].length;
-                  return (
-                    <div key={key} className="rounded-lg border bg-card p-6 text-center space-y-2">
-                      <Cog className="h-8 w-8 mx-auto text-primary/60" />
-                      <h3 className="font-semibold">{label}</h3>
-                      <p className="text-xs text-muted-foreground">{count} documento{count !== 1 ? 's' : ''} asociados</p>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           ) : (
             /* Silo Cards Grid */
@@ -402,6 +371,17 @@ export default function Documents() {
                   onClick={() => setActiveSilo(key)}
                 />
               ))}
+              {/* Procesos Card */}
+              {activeEmpresa === 'mayoreo' && (
+                <div
+                  onClick={() => setActiveSilo('procesos' as any)}
+                  className="group cursor-pointer rounded-xl border bg-card p-6 text-center space-y-3 transition-all hover:shadow-lg hover:border-primary/40"
+                >
+                  <Cog className="h-10 w-10 mx-auto text-primary/60 group-hover:text-primary transition-colors" />
+                  <h3 className="font-semibold text-lg">Procesos</h3>
+                  <p className="text-xs text-muted-foreground">Gestión de procesos</p>
+                </div>
+              )}
             </div>
           )}
         </>
