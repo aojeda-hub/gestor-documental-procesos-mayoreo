@@ -11,6 +11,7 @@ const SILO_CONFIG: Record<SiloType, { icon: LucideIcon; description: string }> =
   control: { icon: BarChart3, description: 'Control de crédito, cobranza y auditoría interna.' },
   mercadeo: { icon: Megaphone, description: 'Estrategias de marketing, campañas y análisis de mercado.' },
   sistemas: { icon: Monitor, description: 'Infraestructura tecnológica, soporte y desarrollo de sistemas.' },
+  procesos: { icon: Cog, description: 'Documentación de procesos organizacionales, manuales y procedimientos.' },
 };
 
 interface SiloCardProps {
