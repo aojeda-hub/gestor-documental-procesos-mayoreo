@@ -23,6 +23,7 @@ const SILO_ICONS: Record<SiloType, typeof ShoppingCart> = {
   control: BarChart3,
   mercadeo: Megaphone,
   sistemas: Monitor,
+  procesos: Cog,
 };
 
 export interface SiloUniverseProps {
