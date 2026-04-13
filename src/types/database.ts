@@ -110,6 +110,7 @@ export const SILO_LABELS: Record<SiloType, string> = {
   control: 'Control (Crédito/Cobro)',
   mercadeo: 'Mercadeo',
   sistemas: 'Sistemas',
+  procesos: 'Procesos',
 };
 
 export const INDICATOR_TYPE_LABELS: Record<IndicatorType, string> = {
