@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit2, Eye, Trash2 } from 'lucide-react';
 import { IndicatorSheet } from '@/components/indicators/IndicatorSheet';
@@ -137,8 +138,20 @@ export default function Indicators() {
               ) : filtered.map(ind => (
                 <TableRow key={ind.id}>
                   <TableCell className="font-medium max-w-[200px]">
-                    <div>{ind.name}</div>
-                    {ind.definition && <p className="text-xs text-muted-foreground truncate">{ind.definition}</p>}
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="cursor-help">
+                            <div className="truncate">{ind.name}</div>
+                            {ind.definition && <p className="text-xs text-muted-foreground truncate">{ind.definition}</p>}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-sm">
+                          <p className="font-semibold">{ind.name}</p>
+                          {ind.definition && <p className="text-xs mt-1 text-muted-foreground">{ind.definition}</p>}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   <TableCell><Badge variant="secondary">{SILO_LABELS[ind.silo]}</Badge></TableCell>
                   <TableCell>{INDICATOR_TYPE_LABELS[ind.indicator_type]}</TableCell>
