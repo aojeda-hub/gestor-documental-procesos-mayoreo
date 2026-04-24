@@ -8,8 +8,22 @@ import {
   FileText, BarChart3, Users, FolderOpen, ArrowUpRight, Plus,
   TrendingUp, Network, FolderKanban, Activity
 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { SILO_LABELS } from '@/types/database';
 import type { SiloType } from '@/types/database';
+
+// Paleta de azules del sistema (de profundo a claro)
+const SILO_COLORS = [
+  'hsl(220, 70%, 22%)',  // navy profundo
+  'hsl(220, 75%, 35%)',  // azul medio
+  'hsl(220, 75%, 50%)',  // azul vibrante
+  'hsl(195, 75%, 45%)',  // cyan-azul
+  'hsl(220, 60%, 65%)',  // azul claro
+  'hsl(210, 35%, 75%)',  // azul-gris claro
+  'hsl(220, 30%, 45%)',  // azul-gris medio
+  'hsl(220, 40%, 28%)',  // navy oscuro
+  'hsl(195, 50%, 60%)',  // cyan suave
+];
 
 interface SiloStat {
   silo: SiloType;
