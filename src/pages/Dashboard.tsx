@@ -8,8 +8,22 @@ import {
   FileText, BarChart3, Users, FolderOpen, ArrowUpRight, Plus,
   TrendingUp, Network, FolderKanban, Activity
 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { SILO_LABELS } from '@/types/database';
 import type { SiloType } from '@/types/database';
+
+// Paleta de azules del sistema (de profundo a claro)
+const SILO_COLORS = [
+  'hsl(220, 70%, 22%)',  // navy profundo
+  'hsl(220, 75%, 35%)',  // azul medio
+  'hsl(220, 75%, 50%)',  // azul vibrante
+  'hsl(195, 75%, 45%)',  // cyan-azul
+  'hsl(220, 60%, 65%)',  // azul claro
+  'hsl(210, 35%, 75%)',  // azul-gris claro
+  'hsl(220, 30%, 45%)',  // azul-gris medio
+  'hsl(220, 40%, 28%)',  // navy oscuro
+  'hsl(195, 50%, 60%)',  // cyan suave
+];
 
 interface SiloStat {
   silo: SiloType;
@@ -140,38 +154,84 @@ export default function Dashboard() {
 
       {/* Middle Row */}
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Activity / Silo bars */}
+        {/* Distribución por Silo - Donut Chart */}
         <Card className="lg:col-span-2 rounded-2xl p-5 border-0 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-semibold text-lg">Distribución por Silo</h3>
               <p className="text-xs text-muted-foreground">Documentos clasificados por área</p>
             </div>
             <Activity className="h-5 w-5 text-muted-foreground" />
           </div>
-          {top4Silos.length === 0 ? (
+          {siloStats.length === 0 ? (
             <p className="text-sm text-muted-foreground py-12 text-center">Sin documentos aún.</p>
           ) : (
-            <div className="flex items-end justify-around gap-3 h-48 px-2">
-              {top4Silos.map(s => {
-                const heightPct = (s.count / maxSilo) * 100;
-                return (
-                  <button
-                    key={s.silo}
-                    onClick={() => navigate(`/documentos?silo=${s.silo}`)}
-                    className="flex-1 flex flex-col items-center gap-2 group max-w-[100px]"
-                  >
-                    <span className="text-xs font-bold text-foreground">{s.count}</span>
-                    <div
-                      className="w-full rounded-2xl bg-gradient-to-t from-[hsl(220_70%_22%)] to-[hsl(220_70%_45%)] transition-all group-hover:from-[hsl(220_75%_28%)] group-hover:to-[hsl(220_75%_55%)] min-h-[20px]"
-                      style={{ height: `${Math.max(heightPct, 8)}%` }}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+              {/* Semicircular donut */}
+              <div className="relative h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={siloStats.map(s => ({ name: SILO_LABELS[s.silo], value: s.count, silo: s.silo }))}
+                      cx="50%"
+                      cy="85%"
+                      startAngle={180}
+                      endAngle={0}
+                      innerRadius={75}
+                      outerRadius={120}
+                      paddingAngle={2}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {siloStats.map((s, idx) => (
+                        <Cell
+                          key={s.silo}
+                          fill={SILO_COLORS[idx % SILO_COLORS.length]}
+                          className="cursor-pointer transition-opacity hover:opacity-80"
+                          onClick={() => navigate(`/documentos?silo=${s.silo}`)}
+                        />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                      }}
+                      formatter={(v: number) => [`${v} docs`, '']}
                     />
-                    <span className="text-[11px] text-muted-foreground font-medium truncate max-w-full">
-                      {SILO_LABELS[s.silo]}
-                    </span>
-                  </button>
-                );
-              })}
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-x-0 bottom-2 text-center">
+                  <p className="text-3xl font-bold leading-none">{totalDocs}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Total documentos</p>
+                </div>
+              </div>
+
+              {/* Legend with counts */}
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                {siloStats.map((s, idx) => {
+                  const pct = totalDocs > 0 ? Math.round((s.count / totalDocs) * 100) : 0;
+                  return (
+                    <button
+                      key={s.silo}
+                      onClick={() => navigate(`/documentos?silo=${s.silo}`)}
+                      className="w-full flex items-center gap-2.5 p-2 -mx-2 rounded-lg hover:bg-accent/5 transition-colors text-left group"
+                    >
+                      <span
+                        className="h-3 w-3 rounded-sm flex-shrink-0"
+                        style={{ backgroundColor: SILO_COLORS[idx % SILO_COLORS.length] }}
+                      />
+                      <span className="text-xs font-medium flex-1 truncate group-hover:text-primary">
+                        {SILO_LABELS[s.silo]}
+                      </span>
+                      <span className="text-xs font-bold tabular-nums">{s.count}</span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums w-9 text-right">{pct}%</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </Card>
