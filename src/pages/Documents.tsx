@@ -448,13 +448,6 @@ export default function Documents() {
                   onClick={() => handleSiloChange(key)}
                 />
               ))}
-              <SiloCard
-                siloLabel="Procesos"
-                customIcon={Cog}
-                customDescription="Gestión y mapeo de procesos operativos de la organización."
-                badge="Mayoreo"
-                onClick={() => handleSiloChange('procesos' as any)}
-              />
             </div>
           ) : (
             <SiloUniverse
