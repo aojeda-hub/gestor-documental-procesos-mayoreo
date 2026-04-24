@@ -363,8 +363,8 @@ export default function Documents() {
     setShowCreate(true);
   };
 
-  // Group by silo
-  const silos = (Object.entries(SILO_LABELS) as [SiloType, string][]).filter(([key]) => key !== 'procesos');
+  // Group by silo (incluye 'procesos' como silo estándar)
+  const silos = Object.entries(SILO_LABELS) as [SiloType, string][];
   const groupedBySilo = silos.reduce<Record<SiloType, Document[]>>((acc, [key]) => {
     acc[key] = empresaDocs.filter(d => d.silo === key);
     return acc;
@@ -389,22 +389,7 @@ export default function Documents() {
       </Tabs>
 
       {/* Full-screen Silo Universe View */}
-      {activeSilo === 'procesos' as any ? (
-        <SiloUniverse
-          silo={'compras' as SiloType}
-          siloLabel="Procesos"
-          docs={[]}
-          canEdit={false}
-          onBack={() => handleSiloChange(null)}
-          onViewDoc={() => {}}
-          onEditDoc={() => {}}
-          onDeleteDoc={() => {}}
-          onBulkDelete={() => {}}
-          onDownload={async () => {}}
-          onCreateDoc={() => {}}
-          customContent={<ProcessTable />}
-        />
-      ) : activeSilo ? (
+      {activeSilo ? (
         <SiloUniverse
           silo={activeSilo}
           siloLabel={SILO_LABELS[activeSilo]}
