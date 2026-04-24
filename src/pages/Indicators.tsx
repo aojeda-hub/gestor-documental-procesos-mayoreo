@@ -146,9 +146,9 @@ export default function Indicators() {
                             {ind.definition && <p className="text-xs text-muted-foreground truncate">{ind.definition}</p>}
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-sm">
-                          <p className="font-semibold">{ind.name}</p>
-                          {ind.definition && <p className="text-xs mt-1 text-muted-foreground">{ind.definition}</p>}
+                        <TooltipContent side="right" align="start" className="max-w-md whitespace-normal break-words">
+                          <p className="font-semibold mb-1">{ind.name}</p>
+                          {ind.definition && <p className="text-xs leading-relaxed opacity-90">{ind.definition}</p>}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
