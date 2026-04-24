@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, BarChart3, Users, FolderOpen } from 'lucide-react';
@@ -15,6 +16,7 @@ export default function Dashboard() {
   const [totalIndicators, setTotalIndicators] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [siloStats, setSiloStats] = useState<SiloStat[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
@@ -89,8 +91,12 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-3">
               {siloStats.map(s => (
-                <div key={s.silo} className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{SILO_LABELS[s.silo]}</span>
+                <div 
+                  key={s.silo} 
+                  className="flex items-center justify-between group cursor-pointer hover:bg-accent/30 p-2 -mx-2 rounded-md transition-colors"
+                  onClick={() => navigate(`/documentos?silo=${s.silo}`)}
+                >
+                  <span className="text-sm font-medium group-hover:text-primary transition-colors">{SILO_LABELS[s.silo]}</span>
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-32 rounded-full bg-muted overflow-hidden">
                       <div
@@ -98,7 +104,7 @@ export default function Dashboard() {
                         style={{ width: `${totalDocs > 0 ? (s.count / totalDocs) * 100 : 0}%` }}
                       />
                     </div>
-                    <span className="text-sm font-bold tabular-nums w-8 text-right">{s.count}</span>
+                    <span className="text-sm font-bold tabular-nums w-8 text-right group-hover:text-primary transition-colors">{s.count}</span>
                   </div>
                 </div>
               ))}

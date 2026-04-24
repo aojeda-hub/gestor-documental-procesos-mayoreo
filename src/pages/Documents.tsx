@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -18,10 +19,29 @@ import type { Document, DocumentVersion, DocType, SiloType, EmpresaType } from '
 import { DOC_TYPE_LABELS, SILO_LABELS, EMPRESA_LABELS } from '@/types/database';
 import SiloCard from '@/components/documents/SiloCard';
 import SiloUniverse from '@/components/documents/SiloUniverse';
+import { organizarSiloPersonal, ClassificationReport } from '@/utils/personalSiloOrganizer';
+import { PERSONAL_SILO_LIST } from '@/data/personalSiloList';
 
 export default function Documents() {
   const [activeEmpresa, setActiveEmpresa] = useState<EmpresaType>('mayoreo');
   const [activeSilo, setActiveSilo] = useState<SiloType | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  useEffect(() => {
+    const siloParam = searchParams.get('silo') as SiloType | null;
+    if (siloParam && SILO_LABELS[siloParam]) {
+      setActiveSilo(siloParam);
+    }
+  }, [searchParams]);
+
+  const handleSiloChange = (silo: SiloType | null) => {
+    setActiveSilo(silo);
+    if (silo) {
+      setSearchParams({ silo });
+    } else {
+      setSearchParams({});
+    }
+  };
   
   const { user, profile, hasRole } = useAuth();
   const { toast } = useToast();
@@ -69,6 +89,10 @@ export default function Documents() {
   const [bulkType, setBulkType] = useState<DocType>('procedimiento');
   const [uploadingBulk, setUploadingBulk] = useState(false);
 
+  const [showOrganizer, setShowOrganizer] = useState(false);
+  const [organizerReport, setOrganizerReport] = useState<ClassificationReport | null>(null);
+  const [isOrganizing, setIsOrganizing] = useState(false);
+
   const canEdit = hasRole('admin') || hasRole('editor');
 
   const fetchDocs = async () => {
@@ -106,8 +130,21 @@ export default function Documents() {
   };
 
   const handleCreateDoc = async () => {
+    let finalType = formType;
+    let finalSilo = formSilo;
+    
+    if (formTitle.toUpperCase().includes('DC -')) {
+      finalType = 'descripcion_cargo';
+      finalSilo = 'personal';
+    }
+
     const { data: doc, error } = await supabase.from('documents').insert({
-      title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, created_by: user?.id, empresa: activeEmpresa,
+      title: formTitle, 
+      doc_type: finalType, 
+      silo: finalSilo, 
+      confidential: formConfidential, 
+      created_by: user?.id, 
+      empresa: activeEmpresa,
     } as any).select().single();
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
 
@@ -256,8 +293,22 @@ export default function Documents() {
     try {
       for (const file of bulkFiles) {
         const title = file.name.split('.').slice(0, -1).join('.') || file.name;
+        
+        let finalType = bulkType;
+        let finalSilo = bulkSilo;
+        
+        if (title.toUpperCase().includes('DC -')) {
+          finalType = 'descripcion_cargo';
+          finalSilo = 'personal';
+        }
+
         const { data: doc, error: docErr } = await supabase.from('documents').insert({
-          title, doc_type: bulkType, silo: bulkSilo, confidential: false, created_by: user?.id, empresa: activeEmpresa,
+          title, 
+          doc_type: finalType, 
+          silo: finalSilo, 
+          confidential: false, 
+          created_by: user?.id, 
+          empresa: activeEmpresa,
         } as any).select().single();
         if (docErr) throw docErr;
         const url = await uploadFile(file, (doc as any).id, 'file');
@@ -273,6 +324,35 @@ export default function Documents() {
     finally { setUploadingBulk(false); }
   };
 
+
+
+  const handleRunDryRun = async () => {
+    setIsOrganizing(true);
+    try {
+      const report = await organizarSiloPersonal(PERSONAL_SILO_LIST, 'dry_run');
+      setOrganizerReport(report);
+      setShowOrganizer(true);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsOrganizing(false);
+    }
+  };
+
+  const handleExecuteOrganization = async () => {
+    setIsOrganizing(true);
+    try {
+      await organizarSiloPersonal(PERSONAL_SILO_LIST, 'ejecutar');
+      toast({ title: 'Organización completada', description: 'El silo de personal ha sido re-clasificado.' });
+      setShowOrganizer(false);
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsOrganizing(false);
+    }
+  };
+
   const onCreateFromCard = (silo: SiloType, docType: DocType) => {
     setFormSilo(silo);
     setFormType(docType);
@@ -284,7 +364,7 @@ export default function Documents() {
   };
 
   // Group by silo
-  const silos = Object.entries(SILO_LABELS) as [SiloType, string][];
+  const silos = (Object.entries(SILO_LABELS) as [SiloType, string][]).filter(([key]) => key !== 'procesos');
   const groupedBySilo = silos.reduce<Record<SiloType, Document[]>>((acc, [key]) => {
     acc[key] = empresaDocs.filter(d => d.silo === key);
     return acc;
@@ -315,7 +395,7 @@ export default function Documents() {
           siloLabel="Procesos"
           docs={[]}
           canEdit={false}
-          onBack={() => setActiveSilo(null)}
+          onBack={() => handleSiloChange(null)}
           onViewDoc={() => {}}
           onEditDoc={() => {}}
           onDeleteDoc={() => {}}
@@ -330,7 +410,7 @@ export default function Documents() {
           siloLabel={SILO_LABELS[activeSilo]}
           docs={groupedBySilo[activeSilo]}
           canEdit={canEdit}
-          onBack={() => setActiveSilo(null)}
+          onBack={() => handleSiloChange(null)}
           onViewDoc={openDetails}
           onEditDoc={openDetails}
           onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
@@ -357,6 +437,12 @@ export default function Documents() {
                 <Button onClick={() => setShowBulkUpload(true)}>
                   <FileUp className="mr-2 h-4 w-4" /> Carga Masiva
                 </Button>
+                {hasRole('admin') && (
+                  <Button variant="secondary" onClick={handleRunDryRun} disabled={isOrganizing}>
+                    {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Cog className="mr-2 h-4 w-4" />}
+                    Clasificación Personal
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -366,27 +452,45 @@ export default function Documents() {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : (
+          ) : activeEmpresa === 'mayoreo' ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {silos.map(([key, label]) => (
                 <SiloCard
                   key={key}
                   silo={key}
                   siloLabel={label}
-                  docCount={groupedBySilo[key].length}
-                  onClick={() => setActiveSilo(key)}
+                  docCount={groupedBySilo[key]?.length || 0}
+                  onClick={() => handleSiloChange(key)}
                 />
               ))}
-              {activeEmpresa === 'mayoreo' && (
-                <SiloCard
-                  siloLabel="Procesos"
-                  customIcon={Cog}
-                  customDescription="Gestión y mapeo de procesos operativos de la organización."
-                  badge="Mayoreo"
-                  onClick={() => setActiveSilo('procesos' as any)}
-                />
-              )}
+              <SiloCard
+                siloLabel="Procesos"
+                customIcon={Cog}
+                customDescription="Gestión y mapeo de procesos operativos de la organización."
+                badge="Mayoreo"
+                onClick={() => handleSiloChange('procesos' as any)}
+              />
             </div>
+          ) : (
+            <SiloUniverse
+              silo={'sinsilo' as SiloType}
+              siloLabel={`Documentos ${EMPRESA_LABELS[activeEmpresa]}`}
+              docs={empresaDocs}
+              canEdit={canEdit}
+              onViewDoc={openDetails}
+              onEditDoc={openDetails}
+              onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
+              onBulkDelete={(selectedDocs) => { setBulkDeleteDocs(selectedDocs); setShowBulkDeleteAlert(true); }}
+              onDownload={async (doc, fmt) => {
+                const { data } = await supabase.from('document_versions').select('*')
+                  .eq('document_id', doc.id).eq('is_current', true).single();
+                const version = data as any;
+                const url = fmt === 'pdf' ? version?.url_pdf : version?.url_word;
+                if (url) window.open(url, '_blank');
+                else toast({ title: 'Sin archivo', description: `No hay archivo ${fmt === 'pdf' ? 'PDF' : 'Word'} disponible.`, variant: 'destructive' });
+              }}
+              onCreateDoc={(silo, docType) => onCreateFromCard('sinsilo' as SiloType, docType)}
+            />
           )}
         </>
       )}
@@ -640,6 +744,92 @@ export default function Documents() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* Personal Silo Organizer Dialog */}
+      <Dialog open={showOrganizer} onOpenChange={setShowOrganizer}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Cog className="h-5 w-5 text-primary" /> Organizador de Silo Personal
+            </DialogTitle>
+          </DialogHeader>
+          
+          {organizerReport && (
+            <div className="flex-1 overflow-hidden flex flex-col gap-4 mt-2">
+              <div className="grid grid-cols-4 gap-4">
+                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-center">
+                  <div className="text-2xl font-bold text-green-600">{organizerReport.correctos.length}</div>
+                  <div className="text-[10px] text-green-700 uppercase font-semibold">Correctos</div>
+                </div>
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
+                  <div className="text-2xl font-bold text-blue-600">{organizerReport.aMover.length}</div>
+                  <div className="text-[10px] text-blue-700 uppercase font-semibold">A Mover</div>
+                </div>
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-center">
+                  <div className="text-2xl font-bold text-red-600">{organizerReport.aEliminar.length}</div>
+                  <div className="text-[10px] text-red-700 uppercase font-semibold">A Eliminar</div>
+                </div>
+                <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20 text-center">
+                  <div className="text-2xl font-bold text-orange-600">{organizerReport.faltantes.length}</div>
+                  <div className="text-[10px] text-orange-700 uppercase font-semibold">Faltantes</div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                {organizerReport.aMover.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-bold text-blue-600 border-b pb-1">Documentos a Re-clasificar</h3>
+                    <div className="space-y-1">
+                      {organizerReport.aMover.map((item, idx) => (
+                        <div key={idx} className="text-xs p-2 bg-blue-50 rounded border border-blue-100 flex justify-between items-center">
+                          <span className="font-medium">{item.actual.title}</span>
+                          <span className="text-blue-700 italic font-semibold">{item.accion}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {organizerReport.aEliminar.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-bold text-red-600 border-b pb-1">Documentos a Eliminar (No están en la lista)</h3>
+                    <div className="space-y-1">
+                      {organizerReport.aEliminar.map((doc, idx) => (
+                        <div key={idx} className="text-xs p-2 bg-red-50 rounded border border-red-100">
+                          {doc.title} ({doc.doc_type})
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {organizerReport.faltantes.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-bold text-orange-600 border-b pb-1">Documentos Faltantes (En la lista pero no en el sistema)</h3>
+                    <div className="space-y-1">
+                      {organizerReport.faltantes.map((item, idx) => (
+                        <div key={idx} className="text-xs p-2 bg-orange-50 rounded border border-orange-100 flex justify-between">
+                          <span className="font-medium">{item.nombre}</span>
+                          <span className="text-orange-700 font-semibold">{item.tipo}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setShowOrganizer(false)} disabled={isOrganizing}>
+                  Cerrar (Dry Run)
+                </Button>
+                <Button className="flex-1" onClick={handleExecuteOrganization} disabled={isOrganizing || (organizerReport.aMover.length === 0 && organizerReport.aEliminar.length === 0)}>
+                  {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                  Ejecutar Organización
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

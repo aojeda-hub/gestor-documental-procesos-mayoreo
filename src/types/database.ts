@@ -1,5 +1,5 @@
-export type DocType = 'norma' | 'manual' | 'procedimiento' | 'anexo' | 'formato' | 'diagrama' | 'instructivo' | 'politica' | 'descripcion_cargo' | 'libro' | 'presentacion_clave' | 'presentacion' | 'gestion_beneficios';
-export type SiloType = 'compras' | 'logistica' | 'ventas' | 'personal' | 'control' | 'mercadeo' | 'sistemas' | 'procesos';
+export type DocType = 'norma' | 'manual' | 'procedimiento' | 'anexo' | 'formato' | 'diagrama' | 'instructivo' | 'politica' | 'descripcion_cargo' | 'libro' | 'presentacion_clave' | 'presentacion' | 'gestion_beneficios' | 'sintipo';
+export type SiloType = 'compras' | 'logistica' | 'ventas' | 'personal' | 'control' | 'mercadeo' | 'sistemas' | 'procesos' | 'sinsilo';
 export type EmpresaType = 'mayoreo' | 'beconsult' | 'epa';
 export type IndicatorType = 'eficiencia' | 'eficacia' | 'efectividad' | 'calidad' | 'productividad' | 'cumplimiento';
 export type FrequencyType = 'diario' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'semestral' | 'anual';
@@ -86,6 +86,38 @@ export interface ReviewAlert {
   documents?: Document;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  silo: SiloType;
+  phase: string;
+  planned_progress: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  description?: string | null;
+  goal?: string | null;
+  specific_goals?: string[] | null;
+  responsible?: string | null;
+  priority?: string | null;
+  kickoff_data?: any | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectTask {
+  id: string;
+  project_id: string;
+  name: string;
+  phase: string;
+  weight: number;
+  status: 'Pendiente' | 'En Progreso' | 'Completada';
+  actual_progress: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
   anexo: 'Anexo',
   procedimiento: 'Procedimiento',
@@ -100,6 +132,7 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
   formato: 'Formato',
   gestion_beneficios: 'Gestión de Beneficios',
   diagrama: 'Diagrama',
+  sintipo: 'Sin Tipo',
 };
 
 export const SILO_LABELS: Record<SiloType, string> = {
@@ -111,6 +144,7 @@ export const SILO_LABELS: Record<SiloType, string> = {
   mercadeo: 'Mercadeo',
   sistemas: 'Sistemas',
   procesos: 'Procesos',
+  sinsilo: 'Sin Silo',
 };
 
 export const INDICATOR_TYPE_LABELS: Record<IndicatorType, string> = {

@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, Users as UsersIcon,
+  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, Users as UsersIcon, Network, FolderKanban
 } from 'lucide-react';
 import { SILO_LABELS, ROLE_LABELS } from '@/types/database';
 import logo from '@/assets/logo.png';
@@ -13,6 +13,8 @@ const navItems = [
   { to: '/', label: 'Inicio', icon: LayoutDashboard },
   { to: '/documentos', label: 'Documentos', icon: FileText },
   { to: '/indicadores', label: 'Indicadores', icon: BarChart3 },
+  { to: '/proyectos', label: 'Proyectos', icon: FolderKanban },
+  { to: '/bpa', label: 'BPA', icon: Network },
   { to: '/usuarios', label: 'Usuarios', icon: UsersIcon, adminOnly: true },
 ];
 

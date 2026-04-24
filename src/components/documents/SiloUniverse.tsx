@@ -24,6 +24,7 @@ const SILO_ICONS: Record<SiloType, typeof ShoppingCart> = {
   mercadeo: Megaphone,
   sistemas: Monitor,
   procesos: Cog,
+  sinsilo: FileText,
 };
 
 export interface SiloUniverseProps {
@@ -31,7 +32,7 @@ export interface SiloUniverseProps {
   siloLabel: string;
   docs: Document[];
   canEdit: boolean;
-  onBack: () => void;
+  onBack?: () => void;
   onViewDoc: (doc: Document) => void;
   onEditDoc: (doc: Document) => void;
   onDeleteDoc: (doc: Document) => void;
@@ -108,9 +109,11 @@ export default function SiloUniverse({
     >
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+        {onBack && (
+          <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        )}
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
             <Icon className="h-5 w-5 text-primary" />
