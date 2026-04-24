@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      companias: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          nombre: string
+          orden: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+          orden?: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+          orden?: number
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       document_indicators: {
         Row: {
           document_id: string
@@ -99,6 +129,8 @@ export type Database = {
       }
       documentos: {
         Row: {
+          categoria: string | null
+          clasificacion: string | null
           drive_id_original: string | null
           eliminado: boolean | null
           fecha_actualizacion: string | null
@@ -110,13 +142,17 @@ export type Database = {
           nombre: string
           origen_ingesta: string | null
           propietario_sistema: boolean | null
+          silo: string | null
           storage_bucket: string
           storage_path: string | null
           tamano_bytes: number | null
+          tipo: string | null
           tipo_mime: string | null
           usuario_id: string | null
         }
         Insert: {
+          categoria?: string | null
+          clasificacion?: string | null
           drive_id_original?: string | null
           eliminado?: boolean | null
           fecha_actualizacion?: string | null
@@ -128,13 +164,17 @@ export type Database = {
           nombre: string
           origen_ingesta?: string | null
           propietario_sistema?: boolean | null
+          silo?: string | null
           storage_bucket?: string
           storage_path?: string | null
           tamano_bytes?: number | null
+          tipo?: string | null
           tipo_mime?: string | null
           usuario_id?: string | null
         }
         Update: {
+          categoria?: string | null
+          clasificacion?: string | null
           drive_id_original?: string | null
           eliminado?: boolean | null
           fecha_actualizacion?: string | null
@@ -146,9 +186,11 @@ export type Database = {
           nombre?: string
           origen_ingesta?: string | null
           propietario_sistema?: boolean | null
+          silo?: string | null
           storage_bucket?: string
           storage_path?: string | null
           tamano_bytes?: number | null
+          tipo?: string | null
           tipo_mime?: string | null
           usuario_id?: string | null
         }
@@ -232,6 +274,112 @@ export type Database = {
         }
         Relationships: []
       }
+      incidencia_imagenes: {
+        Row: {
+          created_at: string
+          id: string
+          incidencia_id: string
+          nombre_original: string | null
+          orden: number
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          incidencia_id: string
+          nombre_original?: string | null
+          orden?: number
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          incidencia_id?: string
+          nombre_original?: string | null
+          orden?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidencia_imagenes_incidencia_id_fkey"
+            columns: ["incidencia_id"]
+            isOneToOne: false
+            referencedRelation: "incidencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      incidencias: {
+        Row: {
+          codigo_transaccion: string | null
+          created_at: string
+          created_by: string | null
+          descripcion: string
+          estado: Database["public"]["Enums"]["incidencia_estado"]
+          fecha: string
+          fecha_completado: string | null
+          fecha_ocurrencia: string | null
+          id: string
+          modulo: Database["public"]["Enums"]["modulo_erp"]
+          nombre_transaccion: string | null
+          numero: number
+          prioridad: Database["public"]["Enums"]["incidencia_prioridad"]
+          proyecto_id: string | null
+          responsable: string | null
+          sistema_nombre: string | null
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          codigo_transaccion?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion: string
+          estado?: Database["public"]["Enums"]["incidencia_estado"]
+          fecha?: string
+          fecha_completado?: string | null
+          fecha_ocurrencia?: string | null
+          id?: string
+          modulo: Database["public"]["Enums"]["modulo_erp"]
+          nombre_transaccion?: string | null
+          numero?: number
+          prioridad?: Database["public"]["Enums"]["incidencia_prioridad"]
+          proyecto_id?: string | null
+          responsable?: string | null
+          sistema_nombre?: string | null
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          codigo_transaccion?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string
+          estado?: Database["public"]["Enums"]["incidencia_estado"]
+          fecha?: string
+          fecha_completado?: string | null
+          fecha_ocurrencia?: string | null
+          id?: string
+          modulo?: Database["public"]["Enums"]["modulo_erp"]
+          nombre_transaccion?: string | null
+          numero?: number
+          prioridad?: Database["public"]["Enums"]["incidencia_prioridad"]
+          proyecto_id?: string | null
+          responsable?: string | null
+          sistema_nombre?: string | null
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidencias_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       indicators: {
         Row: {
           action_plan: string | null
@@ -289,6 +437,33 @@ export type Database = {
         }
         Relationships: []
       }
+      normas_personal: {
+        Row: {
+          activo: boolean | null
+          descripcion: string | null
+          fecha_creacion: string | null
+          id: number
+          nombre_norma: string
+          tipo: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          descripcion?: string | null
+          fecha_creacion?: string | null
+          id?: number
+          nombre_norma: string
+          tipo?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          descripcion?: string | null
+          fecha_creacion?: string | null
+          id?: number
+          nombre_norma?: string
+          tipo?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -318,6 +493,151 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      project_tasks: {
+        Row: {
+          actual_progress: number
+          created_at: string | null
+          end_date: string | null
+          id: string
+          name: string
+          phase: string
+          project_id: string
+          start_date: string | null
+          status: string
+          updated_at: string | null
+          weight: number
+        }
+        Insert: {
+          actual_progress?: number
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          phase?: string
+          project_id: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string | null
+          weight?: number
+        }
+        Update: {
+          actual_progress?: number
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          phase?: string
+          project_id?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string | null
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          end_date: string | null
+          goal: string | null
+          id: string
+          kickoff_data: Json | null
+          name: string
+          phase: string
+          planned_progress: number
+          priority: string | null
+          responsible: string | null
+          silo: string
+          specific_goals: string[] | null
+          start_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          end_date?: string | null
+          goal?: string | null
+          id?: string
+          kickoff_data?: Json | null
+          name: string
+          phase?: string
+          planned_progress?: number
+          priority?: string | null
+          responsible?: string | null
+          silo: string
+          specific_goals?: string[] | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          end_date?: string | null
+          goal?: string | null
+          id?: string
+          kickoff_data?: Json | null
+          name?: string
+          phase?: string
+          planned_progress?: number
+          priority?: string | null
+          responsible?: string | null
+          silo?: string
+          specific_goals?: string[] | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      proyectos: {
+        Row: {
+          archivado: boolean
+          compania_id: string
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          id: string
+          nombre: string
+          updated_at: string
+        }
+        Insert: {
+          archivado?: boolean
+          compania_id: string
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          id?: string
+          nombre: string
+          updated_at?: string
+        }
+        Update: {
+          archivado?: boolean
+          compania_id?: string
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          id?: string
+          nombre?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proyectos_compania_id_fkey"
+            columns: ["compania_id"]
+            isOneToOne: false
+            referencedRelation: "companias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       review_alerts: {
         Row: {
@@ -353,6 +673,106 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_casos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entorno: Database["public"]["Enums"]["test_entorno"]
+          estado: Database["public"]["Enums"]["test_caso_estado"]
+          id: string
+          modulo: string | null
+          numero: number
+          orden: number
+          responsable: string | null
+          resultado_esperado: string | null
+          resultado_obtenido: string | null
+          ruta_acceso: string | null
+          script_id: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entorno?: Database["public"]["Enums"]["test_entorno"]
+          estado?: Database["public"]["Enums"]["test_caso_estado"]
+          id?: string
+          modulo?: string | null
+          numero?: number
+          orden?: number
+          responsable?: string | null
+          resultado_esperado?: string | null
+          resultado_obtenido?: string | null
+          ruta_acceso?: string | null
+          script_id: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entorno?: Database["public"]["Enums"]["test_entorno"]
+          estado?: Database["public"]["Enums"]["test_caso_estado"]
+          id?: string
+          modulo?: string | null
+          numero?: number
+          orden?: number
+          responsable?: string | null
+          resultado_esperado?: string | null
+          resultado_obtenido?: string | null
+          ruta_acceso?: string | null
+          script_id?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_casos_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "test_scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_scripts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          id: string
+          nombre: string
+          proyecto_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          id?: string
+          nombre: string
+          proyecto_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          id?: string
+          nombre?: string
+          proyecto_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_scripts_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
         ]
@@ -434,6 +854,21 @@ export type Database = {
         }
         Relationships: []
       }
+      normas: {
+        Row: {
+          fecha_creacion: string | null
+          titulo: string | null
+        }
+        Insert: {
+          fecha_creacion?: string | null
+          titulo?: string | null
+        }
+        Update: {
+          fecha_creacion?: string | null
+          titulo?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
@@ -470,6 +905,8 @@ export type Database = {
         | "trimestral"
         | "semestral"
         | "anual"
+      incidencia_estado: "pendiente" | "en_curso" | "resuelto"
+      incidencia_prioridad: "baja" | "media" | "alta"
       indicator_type:
         | "eficiencia"
         | "eficacia"
@@ -477,6 +914,12 @@ export type Database = {
         | "calidad"
         | "productividad"
         | "cumplimiento"
+      modulo_erp:
+        | "nomina"
+        | "ventas"
+        | "compras"
+        | "inventario"
+        | "contabilidad"
       silo_type:
         | "compras"
         | "logistica"
@@ -486,6 +929,9 @@ export type Database = {
         | "mercadeo"
         | "sistemas"
         | "procesos"
+        | "sinsilo"
+      test_caso_estado: "pendiente" | "en_curso" | "completada"
+      test_entorno: "QA" | "PRD"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -639,6 +1085,8 @@ export const Constants = {
         "semestral",
         "anual",
       ],
+      incidencia_estado: ["pendiente", "en_curso", "resuelto"],
+      incidencia_prioridad: ["baja", "media", "alta"],
       indicator_type: [
         "eficiencia",
         "eficacia",
@@ -647,6 +1095,7 @@ export const Constants = {
         "productividad",
         "cumplimiento",
       ],
+      modulo_erp: ["nomina", "ventas", "compras", "inventario", "contabilidad"],
       silo_type: [
         "compras",
         "logistica",
@@ -656,7 +1105,10 @@ export const Constants = {
         "mercadeo",
         "sistemas",
         "procesos",
+        "sinsilo",
       ],
+      test_caso_estado: ["pendiente", "en_curso", "completada"],
+      test_entorno: ["QA", "PRD"],
     },
   },
 } as const
