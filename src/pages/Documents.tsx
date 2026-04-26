@@ -176,6 +176,11 @@ export default function Documents() {
     setWordFile(null); setPdfFile(null); setGenericFile(null); setFormConfidential(false);
   };
 
+  const openPreview = (doc: Document) => {
+    setPreviewDoc(doc);
+    setShowPreviewDialog(true);
+  };
+
   const openDetails = async (doc: Document) => {
     setSelectedDoc(doc);
     setFormTitle(doc.title);
