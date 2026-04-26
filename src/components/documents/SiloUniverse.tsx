@@ -9,11 +9,12 @@ import {
   ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
   MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
   ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog,
-  ExternalLink, CheckSquare, X,
+  ExternalLink, CheckSquare, X, FileSpreadsheet,
 } from 'lucide-react';
 import { DOC_TYPE_LABELS } from '@/types/database';
 import type { Document, DocType, SiloType } from '@/types/database';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 const SILO_ICONS: Record<SiloType, typeof ShoppingCart> = {
   compras: ShoppingCart,
