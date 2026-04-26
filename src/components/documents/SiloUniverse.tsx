@@ -223,6 +223,16 @@ export default function SiloUniverse({
                   <Badge variant="secondary" className="text-xs font-normal">
                     {totalForType}
                   </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                    title={`Descargar ${label} en Excel`}
+                    disabled={totalForType === 0}
+                    onClick={(e) => handleExportExcel(e, type, label, docs.filter(d => d.doc_type === type))}
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                  </Button>
                 </div>
 
                 {/* Expanded document list */}
