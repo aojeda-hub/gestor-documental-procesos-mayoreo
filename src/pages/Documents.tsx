@@ -679,6 +679,15 @@ export default function Documents() {
         </DialogContent>
       </Dialog>
 
+      {/* Document Preview (read-only) */}
+      <DocumentPreviewDialog
+        open={showPreviewDialog}
+        onOpenChange={setShowPreviewDialog}
+        doc={previewDoc}
+        canEdit={canEdit}
+        onEdit={openDetails}
+      />
+
       {/* Delete Alert */}
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
         <AlertDialogContent>
