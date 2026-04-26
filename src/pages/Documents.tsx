@@ -19,6 +19,7 @@ import type { Document, DocumentVersion, DocType, SiloType, EmpresaType } from '
 import { DOC_TYPE_LABELS, SILO_LABELS, EMPRESA_LABELS } from '@/types/database';
 import SiloCard from '@/components/documents/SiloCard';
 import SiloUniverse from '@/components/documents/SiloUniverse';
+import DocumentPreviewDialog from '@/components/documents/DocumentPreviewDialog';
 import { organizarSiloPersonal, ClassificationReport } from '@/utils/personalSiloOrganizer';
 import { PERSONAL_SILO_LIST } from '@/data/personalSiloList';
 
