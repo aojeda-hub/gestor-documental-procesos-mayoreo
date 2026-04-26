@@ -71,6 +71,10 @@ export default function Documents() {
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Preview dialog (read-only)
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+
   // Delete
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
