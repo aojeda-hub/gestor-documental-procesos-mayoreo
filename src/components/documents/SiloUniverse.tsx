@@ -9,11 +9,12 @@ import {
   ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
   MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
   ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog,
-  ExternalLink, CheckSquare, X,
+  ExternalLink, CheckSquare, X, FileSpreadsheet,
 } from 'lucide-react';
 import { DOC_TYPE_LABELS } from '@/types/database';
 import type { Document, DocType, SiloType } from '@/types/database';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 const SILO_ICONS: Record<SiloType, typeof ShoppingCart> = {
   compras: ShoppingCart,
@@ -97,6 +98,29 @@ export default function SiloUniverse({
       const selectedDocs = docs.filter(d => selected.has(d.id));
       onBulkDelete(selectedDocs);
     }
+  };
+
+  const handleExportExcel = (e: React.MouseEvent, type: DocType, label: string, typeDocs: Document[]) => {
+    e.stopPropagation();
+    if (typeDocs.length === 0) return;
+    const rows = typeDocs.map(d => ({
+      'Título': d.title,
+      'Tipo': label,
+      'Silo': siloLabel,
+      'Confidencial': d.confidential ? 'Sí' : 'No',
+      'Word': d.url_word || '',
+      'PDF': d.url_pdf || '',
+      'Archivo': d.url_file || '',
+      'Drive': d.drive_link || '',
+      'Actualizado': format(new Date(d.updated_at), 'dd/MM/yyyy'),
+      'Creado': format(new Date(d.created_at), 'dd/MM/yyyy'),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 30));
+    const safeSilo = siloLabel.replace(/[^a-z0-9]/gi, '_');
+    const safeLabel = label.replace(/[^a-z0-9]/gi, '_');
+    XLSX.writeFile(wb, `${safeSilo}_${safeLabel}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
   return (
@@ -199,6 +223,16 @@ export default function SiloUniverse({
                   <Badge variant="secondary" className="text-xs font-normal">
                     {totalForType}
                   </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                    title={`Descargar ${label} en Excel`}
+                    disabled={totalForType === 0}
+                    onClick={(e) => handleExportExcel(e, type, label, docs.filter(d => d.doc_type === type))}
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                  </Button>
                 </div>
 
                 {/* Expanded document list */}
