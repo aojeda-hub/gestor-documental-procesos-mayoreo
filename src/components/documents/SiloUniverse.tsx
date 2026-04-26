@@ -100,6 +100,29 @@ export default function SiloUniverse({
     }
   };
 
+  const handleExportExcel = (e: React.MouseEvent, type: DocType, label: string, typeDocs: Document[]) => {
+    e.stopPropagation();
+    if (typeDocs.length === 0) return;
+    const rows = typeDocs.map(d => ({
+      'Título': d.title,
+      'Tipo': label,
+      'Silo': siloLabel,
+      'Confidencial': d.confidential ? 'Sí' : 'No',
+      'Word': d.url_word || '',
+      'PDF': d.url_pdf || '',
+      'Archivo': d.url_file || '',
+      'Drive': d.drive_link || '',
+      'Actualizado': format(new Date(d.updated_at), 'dd/MM/yyyy'),
+      'Creado': format(new Date(d.created_at), 'dd/MM/yyyy'),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 30));
+    const safeSilo = siloLabel.replace(/[^a-z0-9]/gi, '_');
+    const safeLabel = label.replace(/[^a-z0-9]/gi, '_');
+    XLSX.writeFile(wb, `${safeSilo}_${safeLabel}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
