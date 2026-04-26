@@ -19,6 +19,7 @@ import type { Document, DocumentVersion, DocType, SiloType, EmpresaType } from '
 import { DOC_TYPE_LABELS, SILO_LABELS, EMPRESA_LABELS } from '@/types/database';
 import SiloCard from '@/components/documents/SiloCard';
 import SiloUniverse from '@/components/documents/SiloUniverse';
+import DocumentPreviewDialog from '@/components/documents/DocumentPreviewDialog';
 import { organizarSiloPersonal, ClassificationReport } from '@/utils/personalSiloOrganizer';
 import { PERSONAL_SILO_LIST } from '@/data/personalSiloList';
 
@@ -69,6 +70,10 @@ export default function Documents() {
   const [currentVersion, setCurrentVersion] = useState<DocumentVersion | null>(null);
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Preview dialog (read-only)
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
 
   // Delete
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
@@ -169,6 +174,11 @@ export default function Documents() {
   const resetForm = () => {
     setFormTitle(''); setVDesc(''); setVDriveUrl(''); setVAuthors(''); setVApprover('');
     setWordFile(null); setPdfFile(null); setGenericFile(null); setFormConfidential(false);
+  };
+
+  const openPreview = (doc: Document) => {
+    setPreviewDoc(doc);
+    setShowPreviewDialog(true);
   };
 
   const openDetails = async (doc: Document) => {
@@ -396,7 +406,7 @@ export default function Documents() {
           docs={groupedBySilo[activeSilo]}
           canEdit={canEdit}
           onBack={() => handleSiloChange(null)}
-          onViewDoc={openDetails}
+          onViewDoc={openPreview}
           onEditDoc={openDetails}
           onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
           onBulkDelete={(selectedDocs) => { setBulkDeleteDocs(selectedDocs); setShowBulkDeleteAlert(true); }}
@@ -455,7 +465,7 @@ export default function Documents() {
               siloLabel={`Documentos ${EMPRESA_LABELS[activeEmpresa]}`}
               docs={empresaDocs}
               canEdit={canEdit}
-              onViewDoc={openDetails}
+              onViewDoc={openPreview}
               onEditDoc={openDetails}
               onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
               onBulkDelete={(selectedDocs) => { setBulkDeleteDocs(selectedDocs); setShowBulkDeleteAlert(true); }}
@@ -668,6 +678,15 @@ export default function Documents() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Document Preview (read-only) */}
+      <DocumentPreviewDialog
+        open={showPreviewDialog}
+        onOpenChange={setShowPreviewDialog}
+        doc={previewDoc}
+        canEdit={canEdit}
+        onEdit={openDetails}
+      />
 
       {/* Delete Alert */}
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
