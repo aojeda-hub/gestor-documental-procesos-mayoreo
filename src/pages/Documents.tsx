@@ -406,7 +406,7 @@ export default function Documents() {
           docs={groupedBySilo[activeSilo]}
           canEdit={canEdit}
           onBack={() => handleSiloChange(null)}
-          onViewDoc={openDetails}
+          onViewDoc={openPreview}
           onEditDoc={openDetails}
           onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
           onBulkDelete={(selectedDocs) => { setBulkDeleteDocs(selectedDocs); setShowBulkDeleteAlert(true); }}
@@ -465,7 +465,7 @@ export default function Documents() {
               siloLabel={`Documentos ${EMPRESA_LABELS[activeEmpresa]}`}
               docs={empresaDocs}
               canEdit={canEdit}
-              onViewDoc={openDetails}
+              onViewDoc={openPreview}
               onEditDoc={openDetails}
               onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
               onBulkDelete={(selectedDocs) => { setBulkDeleteDocs(selectedDocs); setShowBulkDeleteAlert(true); }}
