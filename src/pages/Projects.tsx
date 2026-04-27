@@ -15,7 +15,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket } from 'lucide-react';
+import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2 } from 'lucide-react';
+import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
 import type { Project, ProjectTask, SiloType } from '@/types/database';
 import { SILO_LABELS } from '@/types/database';
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog';
@@ -44,6 +45,7 @@ export default function Projects() {
   const [tasksDialogOpen, setTasksDialogOpen] = useState(false);
   const [ganttDialogOpen, setGanttDialogOpen] = useState(false);
   const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
+  const [certificaErpOpen, setCertificaErpOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
 
@@ -157,12 +159,19 @@ export default function Projects() {
             </SelectContent>
           </Select>
         </div>
-        {canEdit && (
-          <Button onClick={() => { setSelectedProject(null); setFormDialogOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" /> Nuevo Proyecto
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setCertificaErpOpen(true)}>
+            <FileCheck2 className="mr-2 h-4 w-4" /> CertificaERP
           </Button>
-        )}
+          {canEdit && (
+            <Button onClick={() => { setSelectedProject(null); setFormDialogOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" /> Nuevo Proyecto
+            </Button>
+          )}
+        </div>
       </div>
+
+      <CertificaERPDialog open={certificaErpOpen} onOpenChange={setCertificaErpOpen} />
 
       <Card>
         <CardContent className="p-0 overflow-x-auto">
