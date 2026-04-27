@@ -15,6 +15,7 @@ import { DOC_TYPE_LABELS } from '@/types/database';
 import type { Document, DocType, SiloType } from '@/types/database';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
+import DescripcionesCargo from './DescripcionesCargo';
 
 const SILO_ICONS: Record<SiloType, typeof ShoppingCart> = {
   compras: ShoppingCart,
@@ -51,6 +52,7 @@ export default function SiloUniverse({
   const [expandedType, setExpandedType] = useState<DocType | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'general' | 'cargos'>('general');
 
   const Icon = SILO_ICONS[silo] || Cog;
 
@@ -175,8 +177,38 @@ export default function SiloUniverse({
       ) : (
       <>
 
-      {/* Search */}
-      <div className="relative max-w-md">
+      {silo === 'personal' && (
+        <div className="border-b border-border/40 pb-4 mb-4">
+          <div className="flex gap-4 border-b">
+            <button 
+              className={`pb-2 text-sm font-bold ${activeTab === 'general' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setActiveTab('general')}
+            >
+              Documentos Generales
+            </button>
+            <button 
+              className={`pb-2 text-sm font-bold ${activeTab === 'cargos' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setActiveTab('cargos')}
+            >
+              Descripciones de Cargo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'cargos' ? (
+        <DescripcionesCargo 
+          docs={docs} 
+          canEdit={canEdit}
+          onViewDoc={onViewDoc}
+          onEditDoc={onEditDoc}
+          onDeleteDoc={onDeleteDoc}
+          onDownload={onDownload}
+        />
+      ) : (
+        <>
+          {/* Search */}
+          <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Buscar documentos..."
@@ -387,6 +419,8 @@ export default function SiloUniverse({
           })
         )}
       </div>
+      </>
+      )}
       </>
       )}
     </motion.div>
