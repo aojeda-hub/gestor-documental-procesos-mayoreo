@@ -3,12 +3,13 @@ export type SiloType = 'compras' | 'logistica' | 'ventas' | 'personal' | 'contro
 export type EmpresaType = 'mayoreo' | 'beconsult' | 'epa';
 export type IndicatorType = 'eficiencia' | 'eficacia' | 'efectividad' | 'calidad' | 'productividad' | 'cumplimiento';
 export type FrequencyType = 'diario' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'semestral' | 'anual';
-export type AppRole = 'admin' | 'editor' | 'viewer';
+export type AppRole = 'admin' | 'editor' | 'viewer' | 'responsable_metodos';
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   admin: 'Administrador',
   editor: 'Editor',
   viewer: 'Visor',
+  responsable_metodos: 'Responsable de Métodos',
 };
 
 export interface Profile {
