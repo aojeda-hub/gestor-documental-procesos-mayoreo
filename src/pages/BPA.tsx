@@ -41,6 +41,28 @@ export default function BPA() {
     localStorage.setItem("bpa_nav_state", JSON.stringify(navState));
   }, [navState]);
 
+  const [expandedSilos, setExpandedSilos] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("bpa_expanded_silos");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("bpa_expanded_silos", JSON.stringify(Array.from(expandedSilos)));
+  }, [expandedSilos]);
+
+  const toggleSiloExpanded = (silo: string) => {
+    setExpandedSilos(prev => {
+      const next = new Set(prev);
+      if (next.has(silo)) next.delete(silo);
+      else next.add(silo);
+      return next;
+    });
+  };
+
   const selectSilo = (silo: string) => {
     setNavState({ level: "silo", silo, grupo: null, proceso: null, actividad: null, tarea: null });
   };
