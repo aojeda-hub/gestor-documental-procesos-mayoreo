@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
-import { Search, UserPlus, Filter } from 'lucide-react';
+import { Search, UserPlus, Filter, ShieldPlus, Loader2 } from 'lucide-react';
 import { UserRole } from '@/types/database';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -30,7 +30,34 @@ export default function Users() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
   const [saving, setSaving] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const { toast } = useToast();
+
+  const RESPONSABLES_INICIALES = [
+    { email: 'saraya@mayoreo.biz', full_name: 'Stephanie Araya', silo: 'logistica' },
+    { email: 'apulido@mayoreo.biz', full_name: 'Ambar Pulido', silo: 'compras' },
+    { email: 'mzarraga@mayoreo.biz', full_name: 'Mayte Zarraga', silo: 'mercadeo' },
+    { email: 'prodriguez@mayoreo.biz', full_name: 'Paola Rodriguez', silo: 'control' },
+    { email: 'emonagas@mayoreo.biz', full_name: 'Edgar Monagas', silo: 'sistemas' },
+  ];
+
+  const handleSeedResponsables = async () => {
+    if (!confirm('Se crearán las cuentas de los Responsables de Métodos con contraseña temporal "Mayoreo2026!". ¿Continuar?')) return;
+    setSeeding(true);
+    const results: string[] = [];
+    for (const r of RESPONSABLES_INICIALES) {
+      const { data, error } = await supabase.functions.invoke('create-responsable', { body: r });
+      if (error || (data as any)?.error) {
+        results.push(`❌ ${r.email}: ${error?.message || (data as any)?.error}`);
+      } else {
+        results.push(`✓ ${r.email}`);
+      }
+    }
+    toast({ title: 'Responsables creados', description: results.join('\n') });
+    setSeeding(false);
+    fetchUsers();
+  };
+
 
   const fetchUsers = async () => {
     setLoading(true);
