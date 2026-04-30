@@ -929,7 +929,7 @@ export type Database = {
       soft_delete_documento: { Args: { doc_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "editor" | "viewer"
+      app_role: "admin" | "editor" | "viewer" | "responsable_metodos"
       doc_type:
         | "norma"
         | "manual"
@@ -1114,7 +1114,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "editor", "viewer"],
+      app_role: ["admin", "editor", "viewer", "responsable_metodos"],
       doc_type: [
         "norma",
         "manual",
