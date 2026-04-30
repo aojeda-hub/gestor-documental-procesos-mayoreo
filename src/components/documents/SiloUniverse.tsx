@@ -57,7 +57,8 @@ export default function SiloUniverse({
   const Icon = SILO_ICONS[silo] || Cog;
 
   const grouped = useMemo(() => {
-    const allTypes = Object.keys(DOC_TYPE_LABELS) as DocType[];
+    const allTypes = (Object.keys(DOC_TYPE_LABELS) as DocType[])
+      .filter(dt => !(silo === 'personal' && dt === 'descripcion_cargo'));
     const filtered = search
       ? docs.filter(d => d.title.toLowerCase().includes(search.toLowerCase()))
       : docs;
@@ -70,7 +71,7 @@ export default function SiloUniverse({
       }
     }
     return map;
-  }, [docs, search]);
+  }, [docs, search, silo]);
 
   const toggleType = (dt: DocType) => {
     setExpandedType(prev => (prev === dt ? null : dt));
