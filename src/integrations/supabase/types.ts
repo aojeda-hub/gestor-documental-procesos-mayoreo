@@ -677,6 +677,54 @@ export type Database = {
           },
         ]
       }
+      seguimientos: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          descripcion: string | null
+          estado: Database["public"]["Enums"]["seguimiento_estado"]
+          fecha_completado: string | null
+          fecha_limite: string | null
+          id: string
+          orden: number
+          prioridad: Database["public"]["Enums"]["seguimiento_prioridad"]
+          responsable: string | null
+          titulo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["seguimiento_estado"]
+          fecha_completado?: string | null
+          fecha_limite?: string | null
+          id?: string
+          orden?: number
+          prioridad?: Database["public"]["Enums"]["seguimiento_prioridad"]
+          responsable?: string | null
+          titulo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["seguimiento_estado"]
+          fecha_completado?: string | null
+          fecha_limite?: string | null
+          id?: string
+          orden?: number
+          prioridad?: Database["public"]["Enums"]["seguimiento_prioridad"]
+          responsable?: string | null
+          titulo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       test_casos: {
         Row: {
           created_at: string
@@ -920,6 +968,13 @@ export type Database = {
         | "compras"
         | "inventario"
         | "contabilidad"
+      seguimiento_estado:
+        | "pendiente"
+        | "en_revision"
+        | "en_progreso"
+        | "completado"
+        | "cancelado"
+      seguimiento_prioridad: "baja" | "media" | "alta" | "critica"
       silo_type:
         | "compras"
         | "logistica"
@@ -1096,6 +1151,14 @@ export const Constants = {
         "cumplimiento",
       ],
       modulo_erp: ["nomina", "ventas", "compras", "inventario", "contabilidad"],
+      seguimiento_estado: [
+        "pendiente",
+        "en_revision",
+        "en_progreso",
+        "completado",
+        "cancelado",
+      ],
+      seguimiento_prioridad: ["baja", "media", "alta", "critica"],
       silo_type: [
         "compras",
         "logistica",
