@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
-import { Search, UserPlus, Filter } from 'lucide-react';
+import { Search, UserPlus, Filter, ShieldPlus, Loader2 } from 'lucide-react';
 import { UserRole } from '@/types/database';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -30,7 +30,34 @@ export default function Users() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
   const [saving, setSaving] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const { toast } = useToast();
+
+  const RESPONSABLES_INICIALES = [
+    { email: 'saraya@mayoreo.biz', full_name: 'Stephanie Araya', silo: 'logistica' },
+    { email: 'apulido@mayoreo.biz', full_name: 'Ambar Pulido', silo: 'compras' },
+    { email: 'mzarraga@mayoreo.biz', full_name: 'Mayte Zarraga', silo: 'mercadeo' },
+    { email: 'prodriguez@mayoreo.biz', full_name: 'Paola Rodriguez', silo: 'control' },
+    { email: 'emonagas@mayoreo.biz', full_name: 'Edgar Monagas', silo: 'sistemas' },
+  ];
+
+  const handleSeedResponsables = async () => {
+    if (!confirm('Se crearán las cuentas de los Responsables de Métodos con contraseña temporal "Mayoreo2026!". ¿Continuar?')) return;
+    setSeeding(true);
+    const results: string[] = [];
+    for (const r of RESPONSABLES_INICIALES) {
+      const { data, error } = await supabase.functions.invoke('create-responsable', { body: r });
+      if (error || (data as any)?.error) {
+        results.push(`❌ ${r.email}: ${error?.message || (data as any)?.error}`);
+      } else {
+        results.push(`✓ ${r.email}`);
+      }
+    }
+    toast({ title: 'Responsables creados', description: results.join('\n') });
+    setSeeding(false);
+    fetchUsers();
+  };
+
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -149,9 +176,15 @@ export default function Users() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Gestión de Usuarios</h1>
           <p className="text-muted-foreground italic">Administre las cuentas de usuario y sus permisos de acceso.</p>
         </div>
-        <Button onClick={() => { setSelectedUser(null); setModalOpen(true); }} className="w-fit">
-          <UserPlus className="h-4 w-4 mr-2" /> Nuevo Usuario
-        </Button>
+        <div className="flex gap-2 w-fit">
+          <Button variant="outline" onClick={handleSeedResponsables} disabled={seeding}>
+            {seeding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldPlus className="h-4 w-4 mr-2" />}
+            Crear Responsables Iniciales
+          </Button>
+          <Button onClick={() => { setSelectedUser(null); setModalOpen(true); }}>
+            <UserPlus className="h-4 w-4 mr-2" /> Nuevo Usuario
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 bg-card p-4 rounded-lg border shadow-sm">
