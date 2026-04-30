@@ -11,6 +11,7 @@ import Documents from "@/pages/Documents";
 import Indicators from "@/pages/Indicators";
 import BPA from "@/pages/BPA";
 import Projects from "@/pages/Projects";
+import Seguimientos from "@/pages/Seguimientos";
 import Users from "@/pages/Users";
 import NotFound from "./pages/NotFound.tsx";
 
