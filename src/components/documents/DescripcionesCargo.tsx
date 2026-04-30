@@ -262,8 +262,8 @@ export default function DescripcionesCargo({
                               </span>
                             )}
 
-                            {/* Dropdown Actions if document exists */}
-                            {matchedDoc && (
+                            {/* Actions */}
+                            {matchedDoc ? (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
@@ -299,7 +299,16 @@ export default function DescripcionesCargo({
                                   )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                            )}
+                            ) : canEdit && onUploadDoc ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={onUploadDoc}
+                                className="h-8 gap-1.5 opacity-70 group-hover:opacity-100 transition-opacity"
+                              >
+                                <Upload className="h-3.5 w-3.5" /> Subir
+                              </Button>
+                            ) : null}
                           </div>
                         </TableCell>
                       </TableRow>
