@@ -176,9 +176,15 @@ export default function Users() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Gestión de Usuarios</h1>
           <p className="text-muted-foreground italic">Administre las cuentas de usuario y sus permisos de acceso.</p>
         </div>
-        <Button onClick={() => { setSelectedUser(null); setModalOpen(true); }} className="w-fit">
-          <UserPlus className="h-4 w-4 mr-2" /> Nuevo Usuario
-        </Button>
+        <div className="flex gap-2 w-fit">
+          <Button variant="outline" onClick={handleSeedResponsables} disabled={seeding}>
+            {seeding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldPlus className="h-4 w-4 mr-2" />}
+            Crear Responsables Iniciales
+          </Button>
+          <Button onClick={() => { setSelectedUser(null); setModalOpen(true); }}>
+            <UserPlus className="h-4 w-4 mr-2" /> Nuevo Usuario
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 bg-card p-4 rounded-lg border shadow-sm">
