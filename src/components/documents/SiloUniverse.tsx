@@ -205,6 +205,7 @@ export default function SiloUniverse({
           onEditDoc={onEditDoc}
           onDeleteDoc={onDeleteDoc}
           onDownload={onDownload}
+          onUploadDoc={() => onCreateDoc(silo, 'descripcion_cargo')}
         />
       ) : (
         <>

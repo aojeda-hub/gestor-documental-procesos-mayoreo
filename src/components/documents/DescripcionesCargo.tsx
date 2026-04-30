@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Briefcase, FileText, ExternalLink, MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2 } from 'lucide-react';
+import { Briefcase, FileText, ExternalLink, MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2, Upload } from 'lucide-react';
 import type { Document } from '@/types/database';
 
 const inventoryData = [
@@ -143,6 +143,7 @@ export interface DescripcionesCargoProps {
   onEditDoc: (doc: Document) => void;
   onDeleteDoc: (doc: Document) => void;
   onDownload: (doc: Document, format: 'pdf' | 'word') => void;
+  onUploadDoc?: () => void;
 }
 
 export default function DescripcionesCargo({
@@ -151,7 +152,8 @@ export default function DescripcionesCargo({
   onViewDoc,
   onEditDoc,
   onDeleteDoc,
-  onDownload
+  onDownload,
+  onUploadDoc
 }: DescripcionesCargoProps) {
   const [selectedDepto, setSelectedDepto] = useState<string>("Todos");
 
@@ -260,8 +262,8 @@ export default function DescripcionesCargo({
                               </span>
                             )}
 
-                            {/* Dropdown Actions if document exists */}
-                            {matchedDoc && (
+                            {/* Actions */}
+                            {matchedDoc ? (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
@@ -297,7 +299,16 @@ export default function DescripcionesCargo({
                                   )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                            )}
+                            ) : canEdit && onUploadDoc ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={onUploadDoc}
+                                className="h-8 gap-1.5 opacity-70 group-hover:opacity-100 transition-opacity"
+                              >
+                                <Upload className="h-3.5 w-3.5" /> Subir
+                              </Button>
+                            ) : null}
                           </div>
                         </TableCell>
                       </TableRow>
