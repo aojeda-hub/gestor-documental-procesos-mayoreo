@@ -226,22 +226,34 @@ export default function BPA() {
         </CardHeader>
         <ScrollArea className="h-[calc(100vh-220px)]">
           <div className="p-3 space-y-1">
-            {bpaData.silos.map(silo => (
+            {bpaData.silos.map(silo => {
+              const isExpanded = expandedSilos.has(silo.nombre) || navState.silo === silo.nombre;
+              const isSelected = navState.silo === silo.nombre;
+              return (
               <div key={silo.nombre} className="space-y-1">
-                <button
-                  onClick={() => selectSilo(silo.nombre)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-semibold transition-colors flex items-center justify-between group ${
-                    navState.silo === silo.nombre ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
+                <div
+                  className={`w-full rounded-md text-sm font-semibold transition-colors flex items-center group ${
+                    isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
                   }`}
                 >
-                  <span className="flex items-center gap-2">
+                  <button
+                    onClick={() => selectSilo(silo.nombre)}
+                    className="flex-1 text-left px-3 py-2 flex items-center gap-2"
+                  >
                     <Briefcase className="h-4 w-4 opacity-70" />
                     {silo.nombre}
-                  </span>
-                  <ChevronRight className={`h-4 w-4 transition-transform ${navState.silo === silo.nombre ? 'rotate-90' : 'opacity-0 group-hover:opacity-50'}`} />
-                </button>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleSiloExpanded(silo.nombre); }}
+                    className="p-2 rounded-md hover:bg-primary/10 transition-colors"
+                    title={isExpanded ? "Suprimir" : "Expandir"}
+                    aria-label={isExpanded ? "Suprimir" : "Expandir"}
+                  >
+                    <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                  </button>
+                </div>
                 
-                {navState.silo === silo.nombre && (
+                {isExpanded && (
                   <div className="ml-4 pl-2 border-l border-border/50 space-y-1 mt-1 pb-2">
                     {silo.grupos.map(grupo => (
                       <div key={grupo.nombre} className="space-y-1">
@@ -275,7 +287,8 @@ export default function BPA() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
       </Card>
