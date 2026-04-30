@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Briefcase, FileText, ExternalLink, MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2 } from 'lucide-react';
+import { Briefcase, FileText, ExternalLink, MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2, Upload } from 'lucide-react';
 import type { Document } from '@/types/database';
 
 const inventoryData = [
