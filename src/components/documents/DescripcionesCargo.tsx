@@ -143,6 +143,7 @@ export interface DescripcionesCargoProps {
   onEditDoc: (doc: Document) => void;
   onDeleteDoc: (doc: Document) => void;
   onDownload: (doc: Document, format: 'pdf' | 'word') => void;
+  onUploadDoc?: () => void;
 }
 
 export default function DescripcionesCargo({
@@ -151,7 +152,8 @@ export default function DescripcionesCargo({
   onViewDoc,
   onEditDoc,
   onDeleteDoc,
-  onDownload
+  onDownload,
+  onUploadDoc
 }: DescripcionesCargoProps) {
   const [selectedDepto, setSelectedDepto] = useState<string>("Todos");
 
