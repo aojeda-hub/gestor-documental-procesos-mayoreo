@@ -161,15 +161,19 @@ export default function DescripcionesCargo({
     ? inventoryData 
     : inventoryData.filter(item => item.depto === selectedDepto);
 
+  const normalize = (s: string) =>
+    s.toLowerCase()
+      .replace(/\.docx?$/i, '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+      .replace(/[^a-z0-9]+/g, ''); // strip spaces, dashes, punctuation
+
   const getMatchedDoc = (archivoName: string) => {
     if (!archivoName) return null;
-    
-    // Normalize string to match accurately
-    const normalizedTarget = archivoName.toLowerCase().replace(/\.docx?$/, '').trim();
-    
+    const target = normalize(archivoName);
+    if (!target) return null;
     return docs.find(doc => {
-      const normalizedTitle = doc.title.toLowerCase().trim();
-      return normalizedTitle === normalizedTarget || normalizedTitle.includes(normalizedTarget) || normalizedTarget.includes(normalizedTitle);
+      const t = normalize(doc.title);
+      return t === target || t.includes(target) || target.includes(t);
     });
   };
 
