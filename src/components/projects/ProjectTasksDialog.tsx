@@ -52,7 +52,7 @@ export function ProjectTasksDialog({ open, onOpenChange, projectId, projectName,
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setTasks(data || []);
+      setTasks((data || []) as ProjectTask[]);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
