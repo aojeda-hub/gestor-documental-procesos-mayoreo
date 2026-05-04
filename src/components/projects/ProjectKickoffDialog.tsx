@@ -119,7 +119,7 @@ export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: Pr
         ['Silo:', project.silo],
       ],
       theme: 'striped',
-      headStyles: { fillStyle: 'F0F0F0', textColor: 50 }
+      headStyles: { fillColor: [240, 240, 240], textColor: 50 }
     });
 
     // Kickoff Details
