@@ -138,7 +138,7 @@ export default function Documents() {
     let finalType = formType;
     let finalSilo = formSilo;
     
-    if (formTitle.toUpperCase().includes('DC -')) {
+    if (/^DC\s*-/i.test(formTitle.trim())) {
       finalType = 'descripcion_cargo';
       finalSilo = 'personal';
     }
@@ -307,7 +307,7 @@ export default function Documents() {
         let finalType = bulkType;
         let finalSilo = bulkSilo;
         
-        if (title.toUpperCase().includes('DC -')) {
+        if (/^DC\s*-/i.test(title.trim())) {
           finalType = 'descripcion_cargo';
           finalSilo = 'personal';
         }
