@@ -120,7 +120,7 @@ export function ModernGantt({ tasks }: ModernGanttProps) {
                   
                   let barColor = 'bg-red-500'; // No iniciado
                   if (task.status === 'Completada') barColor = 'bg-green-500';
-                  else if (task.status === 'En curso') {
+                  else if (task.status === 'En Progreso') {
                     // Split bar logic like in Activity 1? 
                     // Actually let's follow the legend: Green=Completo, Orange=Incompleto, Red=No iniciado
                     barColor = today > tEnd ? 'bg-orange-500' : 'bg-green-500'; 
