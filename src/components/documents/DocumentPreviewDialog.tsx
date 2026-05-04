@@ -90,7 +90,9 @@ export default function DocumentPreviewDialog({
 
   const sources: AvailableSource[] = [];
   if (version?.url_pdf) sources.push({ key: 'pdf', label: 'PDF', url: version.url_pdf, embedUrl: buildEmbedUrl(version.url_pdf, 'pdf') });
-  if (version?.url_word) sources.push({ key: 'word', label: 'Word', url: version.url_word, embedUrl: buildEmbedUrl(version.url_word, 'word') });
+  if (version?.url_word && !version.url_word.includes('docs.google.com') && !version.url_word.includes('drive.google.com')) {
+    sources.push({ key: 'word', label: 'Word', url: version.url_word, embedUrl: buildEmbedUrl(version.url_word, 'word') });
+  }
   if ((version as any)?.drive_link || (doc as any)?.drive_link) {
     const driveUrl = ((version as any)?.drive_link || (doc as any)?.drive_link) as string;
     sources.push({ key: 'drive', label: 'Drive', url: driveUrl, embedUrl: buildEmbedUrl(driveUrl, 'drive') });

@@ -150,12 +150,12 @@ export default function Documents() {
       confidential: formConfidential, 
       created_by: user?.id, 
       empresa: activeEmpresa,
+      drive_link: vDriveUrl.trim() || null,
     } as any).select().single();
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
 
     let urlWord = null, urlPdf = null, urlFile = null;
     if (wordFile) urlWord = await uploadFile(wordFile, (doc as any).id, 'word').catch(() => null);
-    else if (vDriveUrl.trim()) urlWord = vDriveUrl.trim();
     if (pdfFile) urlPdf = await uploadFile(pdfFile, (doc as any).id, 'pdf').catch(() => null);
     if (genericFile) urlFile = await uploadFile(genericFile, (doc as any).id, 'file').catch(() => null);
 
@@ -197,6 +197,7 @@ export default function Documents() {
     setCurrentVersion(current);
     if (current) { setVDesc(current.description || ''); setVAuthors(current.authors || ''); setVApprover(current.approver || ''); }
     else { setVDesc(''); setVAuthors(''); setVApprover(''); }
+    setVDriveUrl(doc.drive_link || '');
     setWordFile(null); setPdfFile(null); setGenericFile(null);
   };
 
@@ -205,7 +206,7 @@ export default function Documents() {
     setIsUpdating(true);
     try {
       await supabase.from('documents').update({
-        title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential,
+        title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, drive_link: vDriveUrl.trim() || null
       } as any).eq('id', selectedDoc.id);
 
       if (currentVersion) {
@@ -477,7 +478,7 @@ export default function Documents() {
                 if (url) window.open(url, '_blank');
                 else toast({ title: 'Sin archivo', description: `No hay archivo ${fmt === 'pdf' ? 'PDF' : 'Word'} disponible.`, variant: 'destructive' });
               }}
-              onCreateDoc={(silo, docType) => onCreateFromCard('sinsilo' as SiloType, docType)}
+              onCreateDoc={(silo, docType, initialTitle) => onCreateFromCard('sinsilo' as SiloType, docType, initialTitle)}
             />
           )}
         </>

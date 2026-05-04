@@ -40,7 +40,7 @@ export interface SiloUniverseProps {
   onDeleteDoc: (doc: Document) => void;
   onBulkDelete?: (docs: Document[]) => void;
   onDownload: (doc: Document, format: 'pdf' | 'word') => void;
-  onCreateDoc: (silo: SiloType, docType: DocType) => void;
+  onCreateDoc: (silo: SiloType, docType: DocType, initialTitle?: string) => void;
   customContent?: React.ReactNode;
 }
 
@@ -205,7 +205,7 @@ export default function SiloUniverse({
           onEditDoc={onEditDoc}
           onDeleteDoc={onDeleteDoc}
           onDownload={onDownload}
-          onUploadDoc={() => onCreateDoc(silo, 'descripcion_cargo')}
+          onUploadDoc={(initialTitle) => onCreateDoc(silo, 'descripcion_cargo', initialTitle)}
         />
       ) : (
         <>

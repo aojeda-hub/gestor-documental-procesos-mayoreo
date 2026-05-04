@@ -143,7 +143,7 @@ export interface DescripcionesCargoProps {
   onEditDoc: (doc: Document) => void;
   onDeleteDoc: (doc: Document) => void;
   onDownload: (doc: Document, format: 'pdf' | 'word') => void;
-  onUploadDoc?: () => void;
+  onUploadDoc?: (initialTitle?: string) => void;
 }
 
 export default function DescripcionesCargo({
@@ -307,7 +307,7 @@ export default function DescripcionesCargo({
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={onUploadDoc}
+                                onClick={() => onUploadDoc && onUploadDoc(item.archivo ? item.archivo.replace(/\\.docx?$/i, '') : `DC-${item.cargo}`)}
                                 className="h-8 gap-1.5 opacity-70 group-hover:opacity-100 transition-opacity"
                               >
                                 <Upload className="h-3.5 w-3.5" /> Subir
