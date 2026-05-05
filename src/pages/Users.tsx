@@ -63,21 +63,20 @@ export default function Users() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*');
+      const [profilesRes, rolesRes, silosRes] = await Promise.all([
+        supabase.from('profiles').select('*'),
+        supabase.from('user_roles').select('*'),
+        supabase.from('user_silos').select('*'),
+      ]);
 
-      if (profilesError) throw profilesError;
+      if (profilesRes.error) throw profilesRes.error;
+      if (rolesRes.error) throw rolesRes.error;
+      if (silosRes.error) throw silosRes.error;
 
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('*');
-
-      if (rolesError) throw rolesError;
-
-      const usersWithRoles: UserWithRoles[] = (profilesData || []).map(profile => ({
+      const usersWithRoles: UserWithRoles[] = (profilesRes.data || []).map(profile => ({
         ...profile,
-        roles: (rolesData || []).filter(r => r.user_id === profile.user_id) as UserRole[],
+        roles: (rolesRes.data || []).filter(r => r.user_id === profile.user_id) as UserRole[],
+        silos: (silosRes.data || []).filter(s => s.user_id === profile.user_id).map(s => s.silo as SiloType),
         email: profile.email || (profile.full_name ? `${profile.full_name.toLowerCase().replace(/\s+/g, '.')}@mayoreo.biz` : 'sin-email@mayoreo.biz')
       }));
 
