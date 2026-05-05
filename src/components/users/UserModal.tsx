@@ -5,10 +5,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, X } from 'lucide-react';
 import { 
-  UserRole, SILO_LABELS, ROLE_LABELS, AppRole 
+  UserRole, SILO_LABELS, ROLE_LABELS, AppRole, SiloType
 } from '@/types/database';
 
 interface UserWithRoles {
@@ -16,6 +17,7 @@ interface UserWithRoles {
   user_id: string;
   full_name: string;
   silo: string | null;
+  silos: SiloType[];
   created_at: string;
   updated_at: string;
   roles: UserRole[];
@@ -32,17 +34,17 @@ interface UserModalProps {
 
 export function UserModal({ open, onOpenChange, user, onSave, loading }: UserModalProps) {
   const [fullName, setFullName] = useState('');
-  const [silo, setSilo] = useState<string | null>(null);
+  const [silos, setSilos] = useState<SiloType[]>([]);
   const [userRoles, setUserRoles] = useState<Partial<UserRole>[]>([]);
 
   useEffect(() => {
     if (user) {
       setFullName(user.full_name || '');
-      setSilo(user.silo);
+      setSilos(user.silos || []);
       setUserRoles(user.roles.map(r => ({ ...r })));
     } else {
       setFullName('');
-      setSilo(null);
+      setSilos([]);
       setUserRoles([]);
     }
   }, [user, open]);
@@ -55,9 +57,20 @@ export function UserModal({ open, onOpenChange, user, onSave, loading }: UserMod
     setUserRoles(userRoles.filter((_, i) => i !== index));
   };
 
-  const handleSave = async () => {
-    await onSave({ full_name: fullName, silo, roles: userRoles });
+  const toggleSilo = (s: SiloType) => {
+    setSilos(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
+
+  const handleSave = async () => {
+    await onSave({ 
+      full_name: fullName, 
+      silo: silos[0] ?? null, // mantener compat: silo principal = primero
+      silos, 
+      roles: userRoles 
+    });
+  };
+
+  const availableSilos = (Object.keys(SILO_LABELS) as SiloType[]).filter(s => !silos.includes(s));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -76,16 +89,32 @@ export function UserModal({ open, onOpenChange, user, onSave, loading }: UserMod
           </div>
 
           <div className="space-y-2">
-            <Label>Silo</Label>
-            <Select value={silo || 'none'} onValueChange={v => setSilo(v === 'none' ? null : v)}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar silo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin silo</SelectItem>
-                {Object.entries(SILO_LABELS).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Silos asignados</Label>
+            <div className="flex flex-wrap gap-1.5 min-h-[40px] p-2 border rounded-md bg-background">
+              {silos.length === 0 && (
+                <span className="text-xs text-muted-foreground italic self-center">Sin silos asignados</span>
+              )}
+              {silos.map(s => (
+                <Badge key={s} variant="secondary" className="text-xs gap-1 pr-1">
+                  {SILO_LABELS[s]}
+                  <button onClick={() => toggleSilo(s)} className="hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            {availableSilos.length > 0 && (
+              <Select value="" onValueChange={(v) => toggleSilo(v as SiloType)}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="+ Agregar silo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSilos.map(s => (
+                    <SelectItem key={s} value={s} className="text-xs">{SILO_LABELS[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="space-y-2">
