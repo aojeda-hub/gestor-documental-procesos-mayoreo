@@ -120,19 +120,19 @@ export interface ProjectTask {
 }
 
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
-  anexo: 'Anexo',
-  procedimiento: 'Procedimiento',
-  norma: 'Norma',
-  instructivo: 'Instructivo',
-  politica: 'Política',
-  descripcion_cargo: 'Descripción de Cargo',
-  manual: 'Manual',
-  libro: 'Libro',
-  presentacion_clave: 'Presentación Clave',
-  presentacion: 'Presentación',
-  formato: 'Formato',
+  anexo: 'Anexos',
+  procedimiento: 'Procedimientos',
+  norma: 'Normas',
+  instructivo: 'Instructivos',
+  politica: 'Políticas',
+  descripcion_cargo: 'Descripciones de Cargo',
+  manual: 'Manuales',
+  libro: 'Libros',
+  presentacion_clave: 'Presentaciones Clave',
+  presentacion: 'Presentaciones',
+  formato: 'Formatos',
   gestion_beneficios: 'Gestión de Beneficios',
-  diagrama: 'Diagrama',
+  diagrama: 'Diagramas',
   sintipo: 'Sin Tipo',
 };
 
