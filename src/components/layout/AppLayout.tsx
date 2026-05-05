@@ -50,6 +50,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 space-y-0.5 px-3">
           {navItems.map(item => {
             if (item.adminOnly && !roles.includes('admin')) return null;
+            if ((item as any).responsableOrAdmin && !roles.includes('admin') && !roles.includes('responsable_metodos')) return null;
             const isActive = location.pathname === item.to;
             return (
               <Link key={item.to} to={item.to} onClick={() => setSidebarOpen(false)}
