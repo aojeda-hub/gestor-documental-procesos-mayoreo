@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { SILO_LABELS, ROLE_LABELS } from '@/types/database';
 import logo from '@/assets/logo.png';
+import Chatbot from '../chat/Chatbot';
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: LayoutDashboard },
@@ -98,6 +99,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
         </main>
+        <Chatbot />
       </div>
     </div>
   );
