@@ -98,7 +98,7 @@ export default function Documents() {
   const [organizerReport, setOrganizerReport] = useState<ClassificationReport | null>(null);
   const [isOrganizing, setIsOrganizing] = useState(false);
 
-  const canEdit = hasRole('admin') || hasRole('editor');
+  const canEdit = hasRole('admin') || hasRole('editor') || hasRole('responsable_metodos');
 
   const fetchDocs = async () => {
     setLoading(true);
