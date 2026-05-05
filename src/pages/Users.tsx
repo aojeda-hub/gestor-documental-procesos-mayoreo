@@ -122,7 +122,7 @@ export default function Users() {
   const handleSave = async (data: any) => {
     setSaving(true);
     try {
-      const { roles, ...profileData } = data;
+      const { roles, silos, ...profileData } = data;
       
       if (selectedUser) {
         const { error: profileError } = await supabase
@@ -142,6 +142,17 @@ export default function Users() {
               role: r.role,
             })));
           if (rolesError) throw rolesError;
+        }
+
+        await supabase.from('user_silos').delete().eq('user_id', selectedUser.user_id);
+        if (silos && silos.length > 0) {
+          const { error: silosError } = await supabase
+            .from('user_silos')
+            .insert(silos.map((s: SiloType) => ({
+              user_id: selectedUser.user_id,
+              silo: s,
+            })));
+          if (silosError) throw silosError;
         }
       } else {
         toast({ title: "Creación de usuarios no implementada en este demo" });
