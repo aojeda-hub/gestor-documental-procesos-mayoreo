@@ -437,6 +437,30 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_base: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       normas_personal: {
         Row: {
           activo: boolean | null
