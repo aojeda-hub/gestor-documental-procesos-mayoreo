@@ -4,13 +4,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Edit2, Trash2 } from 'lucide-react';
-import { UserRole, SILO_LABELS, ROLE_LABELS } from '@/types/database';
+import { UserRole, SILO_LABELS, ROLE_LABELS, SiloType } from '@/types/database';
 
 interface UserWithRoles {
   id: string;
   user_id: string;
   full_name: string;
   silo: string | null;
+  silos: SiloType[];
   created_at: string;
   updated_at: string;
   roles: UserRole[];
