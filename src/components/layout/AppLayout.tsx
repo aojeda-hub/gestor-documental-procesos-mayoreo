@@ -13,8 +13,8 @@ const navItems = [
   { to: '/', label: 'Inicio', icon: LayoutDashboard },
   { to: '/documentos', label: 'Documentos', icon: FileText },
   { to: '/indicadores', label: 'Indicadores', icon: BarChart3 },
-  { to: '/proyectos', label: 'Proyectos', icon: FolderKanban },
-  { to: '/seguimientos', label: 'Mis Seguimientos', icon: ListChecks },
+  { to: '/proyectos', label: 'Proyectos', icon: FolderKanban, responsableOrAdmin: true },
+  { to: '/seguimientos', label: 'Mis Seguimientos', icon: ListChecks, responsableOrAdmin: true },
   { to: '/bpa', label: 'BPA', icon: Network },
   { to: '/usuarios', label: 'Usuarios', icon: UsersIcon, adminOnly: true },
 ];
