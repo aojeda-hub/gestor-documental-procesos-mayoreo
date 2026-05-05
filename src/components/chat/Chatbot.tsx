@@ -22,7 +22,7 @@ export const Chatbot: React.FC = () => {
     {
       id: '1',
       role: 'assistant',
-      content: '¡Hola! Soy el asistente inteligente de Mayoreo. ¿En qué puedo ayudarte hoy?',
+      content: '¡Hola! Soy el asistente inteligente de Procesos. ¿En qué puedo ayudarte hoy?',
       timestamp: new Date(),
     },
   ]);
@@ -110,7 +110,7 @@ export const Chatbot: React.FC = () => {
                   <Bot className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold leading-none">Asistente Mayoreo</h3>
+                  <h3 className="text-sm font-bold leading-none">Asistente Inteligente de Procesos</h3>
                   {!isMinimized && <p className="mt-1 text-[10px] opacity-80">En línea • Gemini 2.0 Flash</p>}
                 </div>
               </div>

@@ -89,6 +89,12 @@ Deno.serve(async (req) => {
       if (answer) break;
     }
     
+    // 4. Generar Respuesta Final
+    const finalPrompt = `
+      Eres el "Asistente Inteligente de Procesos" de la empresa "Mayoreo".
+      Tu objetivo es responder de forma profesional, clara y útil.
+    `;
+    
     // Si no encontró ninguna coincidencia
     if (!answer) {
       answer = "Puedo responder preguntas sobre: el departamento de procesos, sus roles (Jefe, Coordinador, Asesor), qué problemas resolvemos, misión, visión y valores. ¿Qué te gustaría saber?";
