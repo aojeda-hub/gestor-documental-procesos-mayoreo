@@ -58,7 +58,12 @@ export default function SiloUniverse({
 
   const grouped = useMemo(() => {
     const allTypes = (Object.keys(DOC_TYPE_LABELS) as DocType[])
-      .filter(dt => !(silo === 'personal' && dt === 'descripcion_cargo'));
+      .filter(dt => !(silo === 'personal' && dt === 'descripcion_cargo'))
+      .sort((a, b) => {
+        if (a === 'norma') return -1;
+        if (b === 'norma') return 1;
+        return 0;
+      });
     const filtered = search
       ? docs.filter(d => d.title.toLowerCase().includes(search.toLowerCase()))
       : docs;
