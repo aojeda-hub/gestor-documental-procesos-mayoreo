@@ -45,10 +45,14 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
               </TableCell>
               <TableCell className="text-muted-foreground">{user.email}</TableCell>
               <TableCell>
-                {user.silo ? (
-                  <Badge variant="outline" className="text-[10px]">
-                    {SILO_LABELS[user.silo as keyof typeof SILO_LABELS] || user.silo}
-                  </Badge>
+                {user.silos && user.silos.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {user.silos.map(s => (
+                      <Badge key={s} variant="outline" className="text-[10px]">
+                        {SILO_LABELS[s] || s}
+                      </Badge>
+                    ))}
+                  </div>
                 ) : (
                   <span className="text-xs text-muted-foreground italic">Sin silo</span>
                 )}
