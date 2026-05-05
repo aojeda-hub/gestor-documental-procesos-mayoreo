@@ -8,7 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
 import { Search, UserPlus, Filter, ShieldPlus, Loader2 } from 'lucide-react';
-import { UserRole } from '@/types/database';
+import { UserRole, SiloType } from '@/types/database';
 import { useToast } from '@/components/ui/use-toast';
 
 interface UserWithRoles {
@@ -16,6 +16,7 @@ interface UserWithRoles {
   user_id: string;
   full_name: string;
   silo: string | null;
+  silos: SiloType[];
   created_at: string;
   updated_at: string;
   roles: UserRole[];
