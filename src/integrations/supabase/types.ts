@@ -870,6 +870,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_silos: {
+        Row: {
+          created_at: string
+          id: string
+          silo: Database["public"]["Enums"]["silo_type"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          silo: Database["public"]["Enums"]["silo_type"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          silo?: Database["public"]["Enums"]["silo_type"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       documentos_activos: {
@@ -955,6 +976,13 @@ export type Database = {
         Returns: boolean
       }
       soft_delete_documento: { Args: { doc_id: string }; Returns: boolean }
+      user_has_silo: {
+        Args: {
+          _silo: Database["public"]["Enums"]["silo_type"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "editor" | "viewer" | "responsable_metodos"
