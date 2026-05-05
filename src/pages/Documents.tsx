@@ -364,10 +364,10 @@ export default function Documents() {
     }
   };
 
-  const onCreateFromCard = (silo: SiloType, docType: DocType) => {
+  const onCreateFromCard = (silo: SiloType, docType: DocType, initialTitle?: string) => {
     setFormSilo(silo);
     setFormType(docType);
-    setFormTitle('');
+    setFormTitle(initialTitle || '');
     setFormConfidential(false);
     setVDesc(''); setVDriveUrl('');
     setWordFile(null); setPdfFile(null); setGenericFile(null);
