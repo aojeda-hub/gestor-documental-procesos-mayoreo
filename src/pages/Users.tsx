@@ -8,7 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
 import { Search, UserPlus, Filter, ShieldPlus, Loader2 } from 'lucide-react';
-import { UserRole } from '@/types/database';
+import { UserRole, SiloType } from '@/types/database';
 import { useToast } from '@/components/ui/use-toast';
 
 interface UserWithRoles {
@@ -16,6 +16,7 @@ interface UserWithRoles {
   user_id: string;
   full_name: string;
   silo: string | null;
+  silos: SiloType[];
   created_at: string;
   updated_at: string;
   roles: UserRole[];
@@ -62,21 +63,20 @@ export default function Users() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*');
+      const [profilesRes, rolesRes, silosRes] = await Promise.all([
+        supabase.from('profiles').select('*'),
+        supabase.from('user_roles').select('*'),
+        supabase.from('user_silos').select('*'),
+      ]);
 
-      if (profilesError) throw profilesError;
+      if (profilesRes.error) throw profilesRes.error;
+      if (rolesRes.error) throw rolesRes.error;
+      if (silosRes.error) throw silosRes.error;
 
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('*');
-
-      if (rolesError) throw rolesError;
-
-      const usersWithRoles: UserWithRoles[] = (profilesData || []).map(profile => ({
+      const usersWithRoles: UserWithRoles[] = (profilesRes.data || []).map(profile => ({
         ...profile,
-        roles: (rolesData || []).filter(r => r.user_id === profile.user_id) as UserRole[],
+        roles: (rolesRes.data || []).filter(r => r.user_id === profile.user_id) as UserRole[],
+        silos: (silosRes.data || []).filter(s => s.user_id === profile.user_id).map(s => s.silo as SiloType),
         email: profile.email || (profile.full_name ? `${profile.full_name.toLowerCase().replace(/\s+/g, '.')}@mayoreo.biz` : 'sin-email@mayoreo.biz')
       }));
 
@@ -122,7 +122,7 @@ export default function Users() {
   const handleSave = async (data: any) => {
     setSaving(true);
     try {
-      const { roles, ...profileData } = data;
+      const { roles, silos, ...profileData } = data;
       
       if (selectedUser) {
         const { error: profileError } = await supabase
@@ -142,6 +142,17 @@ export default function Users() {
               role: r.role,
             })));
           if (rolesError) throw rolesError;
+        }
+
+        await supabase.from('user_silos').delete().eq('user_id', selectedUser.user_id);
+        if (silos && silos.length > 0) {
+          const { error: silosError } = await supabase
+            .from('user_silos')
+            .insert(silos.map((s: SiloType) => ({
+              user_id: selectedUser.user_id,
+              silo: s,
+            })));
+          if (silosError) throw silosError;
         }
       } else {
         toast({ title: "Creación de usuarios no implementada en este demo" });
