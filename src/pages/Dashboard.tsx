@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   FileText, BarChart3, Users, FolderOpen, ArrowUpRight, Plus,
-  TrendingUp, Network, FolderKanban, Activity
+  TrendingUp, Network, FolderKanban, Activity, BookOpen
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { SILO_LABELS } from '@/types/database';
@@ -237,20 +237,37 @@ export default function Dashboard() {
         </Card>
 
         {/* Quick Access / Reminder */}
-        <Card className="rounded-2xl p-5 border-0 shadow-sm bg-gradient-to-br from-[hsl(220_30%_12%)] to-[hsl(220_40%_18%)] text-white">
-          <p className="text-xs text-white/60 font-medium">Acceso Rápido</p>
-          <h3 className="font-bold text-xl mt-1">Mapa BPA</h3>
-          <p className="text-sm text-white/70 mt-2">
-            Visualiza la red de procesos e interacciones del negocio.
-          </p>
-          <Button
-            onClick={() => navigate('/bpa')}
-            className="mt-6 w-full rounded-full bg-white text-[hsl(220_60%_15%)] hover:bg-white/90 gap-2"
-          >
-            <Network className="h-4 w-4" />
-            Ir al BPA
-          </Button>
-        </Card>
+        <div className="flex flex-col gap-4">
+          <Card className="rounded-2xl p-5 border-0 shadow-sm bg-gradient-to-br from-[hsl(220_30%_12%)] to-[hsl(220_40%_18%)] text-white">
+            <p className="text-xs text-white/60 font-medium">Acceso Rápido</p>
+            <h3 className="font-bold text-xl mt-1">Mapa BPA</h3>
+            <p className="text-sm text-white/70 mt-2">
+              Visualiza la red de procesos e interacciones del negocio.
+            </p>
+            <Button
+              onClick={() => navigate('/bpa')}
+              className="mt-6 w-full rounded-full bg-white text-[hsl(220_60%_15%)] hover:bg-white/90 gap-2"
+            >
+              <Network className="h-4 w-4" />
+              Ir al BPA
+            </Button>
+          </Card>
+
+          <Card className="rounded-2xl p-5 border-0 shadow-sm bg-gradient-to-br from-[hsl(195_50%_20%)] to-[hsl(195_50%_30%)] text-white">
+            <p className="text-xs text-white/60 font-medium">Recursos</p>
+            <h3 className="font-bold text-xl mt-1">Glosario de Términos Mayoreo</h3>
+            <p className="text-sm text-white/70 mt-2">
+              Consulta el vocabulario y definiciones del sistema.
+            </p>
+            <Button
+              onClick={() => window.open('https://preview--glosario-de-terminos-mayoreo.lovable.app/', '_blank')}
+              className="mt-6 w-full rounded-full bg-white text-[hsl(195_50%_20%)] hover:bg-white/90 gap-2"
+            >
+              <BookOpen className="h-4 w-4" />
+              Abrir Glosario
+            </Button>
+          </Card>
+        </div>
       </div>
 
       {/* Bottom Row: Silos full list + Recent docs */}
