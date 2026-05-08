@@ -33,6 +33,12 @@ const apps: DevApp[] = [
     url: 'https://flujodeaprobacion.mayoreo.biz/',
     icon: GitBranch,
   },
+  {
+    title: 'Gestión de Proyectos',
+    description: 'Planificación y seguimiento de proyectos.',
+    url: 'https://proyectos.mayoreo.biz/login',
+    icon: FolderKanban,
+  },
 ];
 
 export default function Desarrollos() {
