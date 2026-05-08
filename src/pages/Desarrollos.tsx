@@ -15,6 +15,12 @@ const apps: DevApp[] = [
     url: 'https://preview--glosario-de-terminos-mayoreo.lovable.app/',
     icon: BookOpen,
   },
+  {
+    title: 'Glosario de Términos - Procesos',
+    description: 'Glosario específico del área de Procesos.',
+    url: 'https://esy-sync-hub.lovable.app/',
+    icon: BookOpen,
+  },
 ];
 
 export default function Desarrollos() {
