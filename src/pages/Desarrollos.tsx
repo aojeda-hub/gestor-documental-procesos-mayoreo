@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/card';
-import { ArrowUpRight, BookOpen, Sparkles } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Sparkles, Building2 } from 'lucide-react';
 
 interface DevApp {
   title: string;
