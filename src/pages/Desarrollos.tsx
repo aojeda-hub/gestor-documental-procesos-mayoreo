@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/card';
-import { ArrowUpRight, BookOpen, Sparkles, Building2, GitBranch, FolderKanban } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Sparkles, Building2, GitBranch, FolderKanban, CalendarDays } from 'lucide-react';
 
 interface DevApp {
   title: string;
@@ -38,6 +38,12 @@ const apps: DevApp[] = [
     description: 'Planificación y seguimiento de proyectos.',
     url: 'https://proyectos.mayoreo.biz/login',
     icon: FolderKanban,
+  },
+  {
+    title: 'Gestión Mensual',
+    description: 'Seguimiento de la gestión mensual.',
+    url: 'https://gestion-mayoreo.vercel.app/login',
+    icon: CalendarDays,
   },
 ];
 
