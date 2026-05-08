@@ -27,6 +27,12 @@ const apps: DevApp[] = [
     url: 'https://portal-interno.mayoreo.biz/login',
     icon: Building2,
   },
+  {
+    title: 'Flujo de aprobación de documentos',
+    description: 'Gestión y seguimiento de aprobaciones documentales.',
+    url: 'https://flujodeaprobacion.mayoreo.biz/',
+    icon: GitBranch,
+  },
 ];
 
 export default function Desarrollos() {
