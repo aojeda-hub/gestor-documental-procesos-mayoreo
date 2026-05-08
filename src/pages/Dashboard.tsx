@@ -236,46 +236,21 @@ export default function Dashboard() {
           )}
         </Card>
 
-        {/* Quick Access / Reminder */}
-        <div className="flex flex-col gap-4">
-          <Card className="rounded-2xl p-5 border-0 shadow-sm bg-gradient-to-br from-[hsl(220_30%_12%)] to-[hsl(220_40%_18%)] text-white">
-            <p className="text-xs text-white/60 font-medium">Acceso Rápido</p>
-            <h3 className="font-bold text-xl mt-1">Mapa BPA</h3>
-            <p className="text-sm text-white/70 mt-2">
-              Visualiza la red de procesos e interacciones del negocio.
-            </p>
-            <Button
-              onClick={() => navigate('/bpa')}
-              className="mt-6 w-full rounded-full bg-white text-[hsl(220_60%_15%)] hover:bg-white/90 gap-2"
-            >
-              <Network className="h-4 w-4" />
-              Ir al BPA
-            </Button>
-          </Card>
-
-          <Card className="rounded-2xl p-5 border-0 shadow-sm">
-            <h3 className="font-semibold text-base flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-primary" />
-              Desarrollos a la medida
-            </h3>
-            <p className="text-xs text-muted-foreground mt-1">Aplicaciones y recursos complementarios</p>
-            <div className="mt-4 space-y-2">
-              <button
-                onClick={() => window.open('https://preview--glosario-de-terminos-mayoreo.lovable.app/', '_blank')}
-                className="w-full flex items-center gap-3 p-2.5 rounded-lg border bg-card hover:bg-accent/5 transition-colors text-left group"
-              >
-                <div className="h-9 w-9 rounded-lg bg-[hsl(195_50%_20%)] flex items-center justify-center flex-shrink-0">
-                  <BookOpen className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate group-hover:text-primary">Glosario de Términos Mayoreo</p>
-                  <p className="text-xs text-muted-foreground truncate">Vocabulario y definiciones del sistema</p>
-                </div>
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
-              </button>
-            </div>
-          </Card>
-        </div>
+        {/* Quick Access */}
+        <Card className="rounded-2xl p-5 border-0 shadow-sm bg-gradient-to-br from-[hsl(220_30%_12%)] to-[hsl(220_40%_18%)] text-white">
+          <p className="text-xs text-white/60 font-medium">Acceso Rápido</p>
+          <h3 className="font-bold text-xl mt-1">Mapa BPA</h3>
+          <p className="text-sm text-white/70 mt-2">
+            Visualiza la red de procesos e interacciones del negocio.
+          </p>
+          <Button
+            onClick={() => navigate('/bpa')}
+            className="mt-6 w-full rounded-full bg-white text-[hsl(220_60%_15%)] hover:bg-white/90 gap-2"
+          >
+            <Network className="h-4 w-4" />
+            Ir al BPA
+          </Button>
+        </Card>
       </div>
 
       {/* Bottom Row: Silos full list + Recent docs */}
