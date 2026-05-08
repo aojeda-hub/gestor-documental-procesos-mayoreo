@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   FileText, BarChart3, Users, FolderOpen, ArrowUpRight, Plus,
-  TrendingUp, Network, FolderKanban, Activity
+  TrendingUp, Network, FolderKanban, Activity, BookOpen
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { SILO_LABELS } from '@/types/database';
