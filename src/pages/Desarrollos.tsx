@@ -39,6 +39,12 @@ const apps: DevApp[] = [
     url: 'https://proyectos.mayoreo.biz/login',
     icon: FolderKanban,
   },
+  {
+    title: 'Gestión Mensual',
+    description: 'Seguimiento de la gestión mensual.',
+    url: 'https://gestion-mayoreo.vercel.app/login',
+    icon: CalendarDays,
+  },
 ];
 
 export default function Desarrollos() {
