@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, Users as UsersIcon, Network, FolderKanban, Briefcase, ListChecks
+  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, Users as UsersIcon, Network, FolderKanban, Briefcase, ListChecks, Sparkles
 } from 'lucide-react';
 import { SILO_LABELS, ROLE_LABELS } from '@/types/database';
 import logo from '@/assets/logo.png';
@@ -17,6 +17,7 @@ const navItems = [
   { to: '/proyectos', label: 'Proyectos', icon: FolderKanban, responsableOrAdmin: true },
   { to: '/seguimientos', label: 'Mis Seguimientos', icon: ListChecks, responsableOrAdmin: true },
   { to: '/bpa', label: 'BPA', icon: Network },
+  { to: '/desarrollos', label: 'Desarrollos a la medida', icon: Sparkles },
   { to: '/usuarios', label: 'Usuarios', icon: UsersIcon, adminOnly: true },
 ];
 
