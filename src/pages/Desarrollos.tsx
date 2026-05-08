@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/card';
-import { ArrowUpRight, BookOpen, Sparkles } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Sparkles, Building2 } from 'lucide-react';
 
 interface DevApp {
   title: string;
@@ -20,6 +20,12 @@ const apps: DevApp[] = [
     description: 'Glosario específico del área de Procesos.',
     url: 'https://esy-sync-hub.lovable.app/',
     icon: BookOpen,
+  },
+  {
+    title: 'Portal Interno Mayoreo',
+    description: 'Acceso al portal interno corporativo.',
+    url: 'https://portal-interno.mayoreo.biz/login',
+    icon: Building2,
   },
 ];
 
