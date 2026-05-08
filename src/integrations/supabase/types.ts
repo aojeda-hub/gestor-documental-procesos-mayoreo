@@ -44,6 +44,39 @@ export type Database = {
         }
         Relationships: []
       }
+      desarrollos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          icono: string | null
+          id: string
+          nombre: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          icono?: string | null
+          id?: string
+          nombre: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          icono?: string | null
+          id?: string
+          nombre?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       document_indicators: {
         Row: {
           document_id: string

@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { ArrowUpRight, BookOpen, Sparkles, Building2, GitBranch, FolderKanban, CalendarDays } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Sparkles, Building2, GitBranch, FolderKanban, CalendarDays, Globe } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DevApp {
   title: string;
@@ -8,7 +10,7 @@ interface DevApp {
   icon: typeof BookOpen;
 }
 
-const apps: DevApp[] = [
+const defaultApps: DevApp[] = [
   {
     title: 'Glosario de Términos Mayoreo',
     description: 'Vocabulario y definiciones del sistema.',
@@ -48,6 +50,29 @@ const apps: DevApp[] = [
 ];
 
 export default function Desarrollos() {
+  const [dynamicApps, setDynamicApps] = useState<DevApp[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('desarrollos')
+        .select('nombre, url, descripcion')
+        .order('created_at', { ascending: false });
+      if (data) {
+        setDynamicApps(
+          data.map(d => ({
+            title: d.nombre,
+            description: d.descripcion ?? '',
+            url: d.url,
+            icon: Globe,
+          }))
+        );
+      }
+    })();
+  }, []);
+
+  const apps = [...defaultApps, ...dynamicApps];
+
   return (
     <div className="space-y-6">
       <div>
@@ -72,7 +97,7 @@ export default function Desarrollos() {
                 <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
               <h3 className="font-semibold mt-4 group-hover:text-primary transition-colors">{app.title}</h3>
-              <p className="text-xs text-muted-foreground mt-1">{app.description}</p>
+              {app.description && <p className="text-xs text-muted-foreground mt-1">{app.description}</p>}
             </Card>
           </button>
         ))}

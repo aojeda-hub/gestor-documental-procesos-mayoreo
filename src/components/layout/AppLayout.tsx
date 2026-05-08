@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, Users as UsersIcon, Network, FolderKanban, Briefcase, ListChecks, Sparkles
+  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, Users as UsersIcon, Network, FolderKanban, Briefcase, ListChecks, Sparkles, ShieldCheck
 } from 'lucide-react';
 import { SILO_LABELS, ROLE_LABELS } from '@/types/database';
 import logo from '@/assets/logo.png';
@@ -18,7 +18,7 @@ const navItems = [
   { to: '/seguimientos', label: 'Mis Seguimientos', icon: ListChecks, responsableOrAdmin: true },
   { to: '/bpa', label: 'BPA', icon: Network },
   { to: '/desarrollos', label: 'Desarrollos a la medida', icon: Sparkles },
-  { to: '/usuarios', label: 'Usuarios', icon: UsersIcon, adminOnly: true },
+  { to: '/admin', label: 'Administración', icon: ShieldCheck, adminOnly: true },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
