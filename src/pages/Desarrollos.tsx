@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/card';
-import { ArrowUpRight, BookOpen, Sparkles, Building2, GitBranch } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Sparkles, Building2, GitBranch, FolderKanban } from 'lucide-react';
 
 interface DevApp {
   title: string;
@@ -32,6 +32,12 @@ const apps: DevApp[] = [
     description: 'Gestión y seguimiento de aprobaciones documentales.',
     url: 'https://flujodeaprobacion.mayoreo.biz/',
     icon: GitBranch,
+  },
+  {
+    title: 'Gestión de Proyectos',
+    description: 'Planificación y seguimiento de proyectos.',
+    url: 'https://proyectos.mayoreo.biz/login',
+    icon: FolderKanban,
   },
 ];
 
