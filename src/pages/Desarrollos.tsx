@@ -21,6 +21,12 @@ const apps: DevApp[] = [
     url: 'https://esy-sync-hub.lovable.app/',
     icon: BookOpen,
   },
+  {
+    title: 'Portal Interno Mayoreo',
+    description: 'Acceso al portal interno corporativo.',
+    url: 'https://portal-interno.mayoreo.biz/login',
+    icon: Building2,
+  },
 ];
 
 export default function Desarrollos() {
