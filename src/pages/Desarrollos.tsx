@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/card';
-import { ArrowUpRight, BookOpen, Sparkles, Building2 } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Sparkles, Building2, GitBranch } from 'lucide-react';
 
 interface DevApp {
   title: string;
@@ -26,6 +26,12 @@ const apps: DevApp[] = [
     description: 'Acceso al portal interno corporativo.',
     url: 'https://portal-interno.mayoreo.biz/login',
     icon: Building2,
+  },
+  {
+    title: 'Flujo de aprobación de documentos',
+    description: 'Gestión y seguimiento de aprobaciones documentales.',
+    url: 'https://flujodeaprobacion.mayoreo.biz/',
+    icon: GitBranch,
   },
 ];
 
