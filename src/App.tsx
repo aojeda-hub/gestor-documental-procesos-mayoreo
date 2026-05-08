@@ -10,6 +10,7 @@ import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
 import Indicators from "@/pages/Indicators";
 import BPA from "@/pages/BPA";
+import Desarrollos from "@/pages/Desarrollos";
 import Projects from "@/pages/Projects";
 import Seguimientos from "@/pages/Seguimientos";
 import Users from "@/pages/Users";
