@@ -3,6 +3,10 @@ import { Card } from '@/components/ui/card';
 import { ArrowUpRight, BookOpen, Sparkles, Building2, GitBranch, FolderKanban, CalendarDays, Globe } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+const ICONS: Record<string, typeof BookOpen> = {
+  BookOpen, Building2, GitBranch, FolderKanban, CalendarDays, Globe,
+};
+
 interface DevApp {
   title: string;
   description: string;
@@ -10,68 +14,27 @@ interface DevApp {
   icon: typeof BookOpen;
 }
 
-const defaultApps: DevApp[] = [
-  {
-    title: 'Glosario de Términos Mayoreo',
-    description: 'Vocabulario y definiciones del sistema.',
-    url: 'https://preview--glosario-de-terminos-mayoreo.lovable.app/',
-    icon: BookOpen,
-  },
-  {
-    title: 'Glosario de Términos - Procesos',
-    description: 'Glosario específico del área de Procesos.',
-    url: 'https://esy-sync-hub.lovable.app/',
-    icon: BookOpen,
-  },
-  {
-    title: 'Portal Interno Mayoreo',
-    description: 'Acceso al portal interno corporativo.',
-    url: 'https://portal-interno.mayoreo.biz/login',
-    icon: Building2,
-  },
-  {
-    title: 'Flujo de aprobación de documentos',
-    description: 'Gestión y seguimiento de aprobaciones documentales.',
-    url: 'https://flujodeaprobacion.mayoreo.biz/',
-    icon: GitBranch,
-  },
-  {
-    title: 'Gestión de Proyectos',
-    description: 'Planificación y seguimiento de proyectos.',
-    url: 'https://proyectos.mayoreo.biz/login',
-    icon: FolderKanban,
-  },
-  {
-    title: 'Gestión Mensual',
-    description: 'Seguimiento de la gestión mensual.',
-    url: 'https://gestion-mayoreo.vercel.app/login',
-    icon: CalendarDays,
-  },
-];
-
 export default function Desarrollos() {
-  const [dynamicApps, setDynamicApps] = useState<DevApp[]>([]);
+  const [apps, setApps] = useState<DevApp[]>([]);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from('desarrollos')
-        .select('nombre, url, descripcion')
-        .order('created_at', { ascending: false });
+        .select('nombre, url, descripcion, icono, created_at')
+        .order('created_at', { ascending: true });
       if (data) {
-        setDynamicApps(
+        setApps(
           data.map(d => ({
             title: d.nombre,
             description: d.descripcion ?? '',
             url: d.url,
-            icon: Globe,
+            icon: ICONS[d.icono ?? 'Globe'] ?? Globe,
           }))
         );
       }
     })();
   }, []);
-
-  const apps = [...defaultApps, ...dynamicApps];
 
   return (
     <div className="space-y-6">
