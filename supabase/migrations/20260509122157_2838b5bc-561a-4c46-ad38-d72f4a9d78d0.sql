@@ -1,0 +1,1 @@
+UPDATE desarrollos SET descripcion = 'Vocabulario y definiciones Mayoreo' WHERE id IN ('095c27c1-b193-4116-b9c4-7e13f11322f8','d7972291-050a-4ab4-9233-0345d3b053a6');
