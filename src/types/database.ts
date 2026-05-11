@@ -92,7 +92,7 @@ export interface Project {
   name: string;
   silo: SiloType;
   phase: string;
-  planned_progress: number;
+  planned_progress: number | null;
   start_date?: string | null;
   end_date?: string | null;
   description?: string | null;
