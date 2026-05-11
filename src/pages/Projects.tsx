@@ -214,7 +214,26 @@ export default function Projects() {
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No se encontraron proyectos.</TableCell></TableRow>
               ) : filtered.map(project => {
-                const deviation = project.actual_progress - project.planned_progress;
+                const planned = project.planned_progress as number | null;
+                const actual = project.actual_progress as number | null;
+                const hasBoth = planned !== null && actual !== null;
+                const deviation = hasBoth ? (actual! - planned!) : null;
+
+                let devClass = 'text-muted-foreground';
+                if (deviation !== null) {
+                  if (deviation >= 5) devClass = 'text-green-700';
+                  else if (deviation >= 0) devClass = 'text-green-500';
+                  else if (deviation >= -5) devClass = 'text-yellow-500';
+                  else if (deviation >= -15) devClass = 'text-orange-500';
+                  else devClass = 'text-red-600';
+                }
+
+                const ND = (
+                  <span className="inline-flex items-center gap-1 text-muted-foreground" title="Faltan fechas o tareas">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-500" /> N/D
+                  </span>
+                );
+
                 return (
                   <TableRow key={project.id}>
                     <TableCell className="font-medium">{project.name}</TableCell>
@@ -231,10 +250,10 @@ export default function Projects() {
                     </TableCell>
                     <TableCell className="text-sm">{project.start_date || '-'}</TableCell>
                     <TableCell className="text-sm">{project.end_date || '-'}</TableCell>
-                    <TableCell className="text-center">{project.planned_progress.toFixed(1)}%</TableCell>
-                    <TableCell className="text-center">{project.actual_progress.toFixed(1)}%</TableCell>
-                    <TableCell className={`text-center font-bold ${deviation < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {deviation > 0 ? '+' : ''}{deviation.toFixed(1)}%
+                    <TableCell className="text-center">{planned !== null ? `${planned.toFixed(1)}%` : ND}</TableCell>
+                    <TableCell className="text-center">{actual !== null ? `${actual.toFixed(1)}%` : ND}</TableCell>
+                    <TableCell className={`text-center font-bold ${devClass}`}>
+                      {deviation !== null ? `${deviation > 0 ? '+' : ''}${deviation.toFixed(1)}%` : ND}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
