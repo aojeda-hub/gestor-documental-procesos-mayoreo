@@ -125,9 +125,20 @@ export default function Documents() {
   // Filter docs by active empresa
   const empresaDocs = docs.filter(d => d.empresa === activeEmpresa);
 
+  const sanitizeFileName = (name: string) =>
+    name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/_+/g, '_');
+
   const uploadFile = async (file: File, docId: string, type: string) => {
-    const path = `${docId}/${Date.now()}_${type}_${file.name}`;
-    const { error } = await supabase.storage.from('documents').upload(path, file);
+    const safeName = sanitizeFileName(file.name);
+    const path = `${docId}/${Date.now()}_${type}_${safeName}`;
+    const { error } = await supabase.storage.from('documents').upload(path, file, {
+      contentType: file.type || 'application/octet-stream',
+      upsert: false,
+    });
     if (error) throw error;
     const { data, error: signError } = await supabase.storage.from('documents').createSignedUrl(path, 60 * 60 * 24 * 365);
     if (signError) throw signError;
@@ -218,6 +229,19 @@ export default function Documents() {
           description: vDesc, authors: vAuthors, approver: vApprover,
           url_word: urlWord, url_pdf: urlPdf, url_file: urlFile,
         } as any).eq('id', currentVersion.id);
+      } else if (wordFile || pdfFile || genericFile || vDesc || vAuthors || vApprover) {
+        // No existing version — create one so uploaded files don't get lost
+        let urlWord = null, urlPdf = null, urlFile = null;
+        if (wordFile) urlWord = await uploadFile(wordFile, selectedDoc.id, 'word');
+        if (pdfFile) urlPdf = await uploadFile(pdfFile, selectedDoc.id, 'pdf');
+        if (genericFile) urlFile = await uploadFile(genericFile, selectedDoc.id, 'file');
+        await supabase.from('document_versions').insert({
+          document_id: selectedDoc.id, version_number: 1,
+          description: vDesc || 'Carga inicial',
+          authors: vAuthors || profile?.full_name || user?.email || '',
+          approver: vApprover || '',
+          url_word: urlWord, url_pdf: urlPdf, url_file: urlFile, is_current: true,
+        } as any);
       }
       toast({ title: 'Cambios guardados' });
       setShowDetailsDialog(false);
@@ -562,8 +586,8 @@ export default function Documents() {
             <div className="space-y-2">
               <Label>Archivos</Label>
               <div className="grid grid-cols-1 gap-3">
-                <div><span className="text-xs text-muted-foreground">Word</span><Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} /></div>
-                <div><span className="text-xs text-muted-foreground">PDF</span><Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} /></div>
+                <div><span className="text-xs text-muted-foreground">Word (cualquier formato)</span><Input type="file" onChange={e => setWordFile(e.target.files?.[0] || null)} /></div>
+                <div><span className="text-xs text-muted-foreground">PDF (cualquier formato)</span><Input type="file" onChange={e => setPdfFile(e.target.files?.[0] || null)} /></div>
                 <div><span className="text-xs text-muted-foreground">Otro archivo</span><Input type="file" onChange={e => setGenericFile(e.target.files?.[0] || null)} /></div>
               </div>
             </div>
@@ -652,8 +676,8 @@ export default function Documents() {
                     </div>
                     {canEdit && (
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1"><Label className="text-[10px]">Actualizar Word</Label><Input type="file" accept=".doc,.docx" className="h-8 text-[10px]" onChange={e => setWordFile(e.target.files?.[0] || null)} /></div>
-                        <div className="space-y-1"><Label className="text-[10px]">Actualizar PDF</Label><Input type="file" accept=".pdf" className="h-8 text-[10px]" onChange={e => setPdfFile(e.target.files?.[0] || null)} /></div>
+                        <div className="space-y-1"><Label className="text-[10px]">Actualizar Word</Label><Input type="file" className="h-8 text-[10px]" onChange={e => setWordFile(e.target.files?.[0] || null)} /></div>
+                        <div className="space-y-1"><Label className="text-[10px]">Actualizar PDF</Label><Input type="file" className="h-8 text-[10px]" onChange={e => setPdfFile(e.target.files?.[0] || null)} /></div>
                         <div className="space-y-1 col-span-2"><Label className="text-[10px]">Otros Archivos</Label><Input type="file" className="h-8 text-[10px]" onChange={e => setGenericFile(e.target.files?.[0] || null)} /></div>
                       </div>
                     )}
