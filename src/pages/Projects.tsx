@@ -15,13 +15,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
 import type { Project, ProjectTask, SiloType } from '@/types/database';
 import { SILO_LABELS } from '@/types/database';
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog';
 import { ProjectTasksDialog } from '@/components/projects/ProjectTasksDialog';
 import { ProjectKickoffDialog } from '@/components/projects/ProjectKickoffDialog';
+import { ProjectDocumentsDialog } from '@/components/projects/ProjectDocumentsDialog';
 import { ModernGantt } from '@/components/projects/ModernGantt';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -45,6 +46,7 @@ export default function Projects() {
   const [tasksDialogOpen, setTasksDialogOpen] = useState(false);
   const [ganttDialogOpen, setGanttDialogOpen] = useState(false);
   const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
+  const [docsDialogOpen, setDocsDialogOpen] = useState(false);
   const [certificaErpOpen, setCertificaErpOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
@@ -239,13 +241,21 @@ export default function Projects() {
                         >
                           <CalendarRange className="h-4 w-4 text-purple-600" />
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           onClick={() => { setSelectedProject(project); setTasksDialogOpen(true); }}
                           title="Gestionar Tareas"
                         >
                           <ListChecks className="h-4 w-4 text-blue-600" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => { setSelectedProject(project); setDocsDialogOpen(true); }}
+                          title="Documentos de soporte"
+                        >
+                          <Paperclip className="h-4 w-4 text-emerald-600" />
                         </Button>
                         {canEdit && (
                           <>
@@ -320,6 +330,15 @@ export default function Projects() {
           projectName={selectedProject.name}
           projectPhase={selectedProject.phase}
           onTasksChange={fetchProjects}
+        />
+      )}
+
+      {selectedProject && (
+        <ProjectDocumentsDialog
+          open={docsDialogOpen}
+          onOpenChange={setDocsDialogOpen}
+          projectId={selectedProject.id}
+          projectName={selectedProject.name}
         />
       )}
     </div>
