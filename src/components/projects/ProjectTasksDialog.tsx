@@ -295,6 +295,7 @@ export function ProjectTasksDialog({ open, onOpenChange, projectId, projectName,
                   <TableHead className="w-[100px]">Inicio</TableHead>
                   <TableHead className="w-[100px]">Fin</TableHead>
                   <TableHead className="w-[80px] text-center">Peso</TableHead>
+                  <TableHead className="w-[110px]">Avance</TableHead>
                   <TableHead className="w-[150px]">Estatus</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
