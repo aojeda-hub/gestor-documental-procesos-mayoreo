@@ -53,7 +53,7 @@ function businessDaysBetween(start: Date, end: Date): number {
 export default function Projects() {
   const { hasRole } = useAuth();
   const { toast } = useToast();
-  const [projects, setProjects] = useState<(Project & { actual_progress: number })[]>([]);
+  const [projects, setProjects] = useState<(Project & { actual_progress: number | null; planned_progress: number | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSilo, setFilterSilo] = useState('all');
   const [search, setSearch] = useState('');
