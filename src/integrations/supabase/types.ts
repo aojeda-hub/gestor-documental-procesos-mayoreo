@@ -600,6 +600,7 @@ export type Database = {
           id: string
           name: string
           phase: string
+          progress_percent: number
           project_id: string
           start_date: string | null
           status: string
@@ -613,6 +614,7 @@ export type Database = {
           id?: string
           name: string
           phase?: string
+          progress_percent?: number
           project_id: string
           start_date?: string | null
           status?: string
@@ -626,6 +628,7 @@ export type Database = {
           id?: string
           name?: string
           phase?: string
+          progress_percent?: number
           project_id?: string
           start_date?: string | null
           status?: string
