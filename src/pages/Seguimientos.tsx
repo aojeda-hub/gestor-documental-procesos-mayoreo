@@ -82,8 +82,64 @@ export default function Seguimientos() {
       .order('orden', { ascending: true })
       .order('created_at', { ascending: false });
     if (error) toast({ title: 'Error al cargar', description: error.message, variant: 'destructive' });
-    else setItems((data as any[] as Seguimiento[]) || []);
+    else {
+      const list = (data as any[] as Seguimiento[]) || [];
+      setItems(list);
+      // load note counts
+      if (list.length > 0) {
+        const { data: notesData } = await supabase
+          .from('seguimiento_notas' as any)
+          .select('seguimiento_id')
+          .in('seguimiento_id', list.map(i => i.id));
+        const counts: Record<string, number> = {};
+        ((notesData as any[]) || []).forEach((n: any) => {
+          counts[n.seguimiento_id] = (counts[n.seguimiento_id] || 0) + 1;
+        });
+        setNoteCounts(counts);
+      }
+    }
     setLoading(false);
+  };
+
+  const openNotes = async (s: Seguimiento) => {
+    setNotesFor(s);
+    setNotesOpen(true);
+    setNewNote('');
+    setNotesLoading(true);
+    const { data, error } = await supabase
+      .from('seguimiento_notas' as any)
+      .select('*')
+      .eq('seguimiento_id', s.id)
+      .order('created_at', { ascending: false });
+    if (error) toast({ title: 'Error al cargar notas', description: error.message, variant: 'destructive' });
+    else setNotes((data as any[]) || []);
+    setNotesLoading(false);
+  };
+
+  const addNote = async () => {
+    if (!user || !notesFor || !newNote.trim()) return;
+    const { error } = await supabase.from('seguimiento_notas' as any).insert({
+      seguimiento_id: notesFor.id,
+      user_id: user.id,
+      contenido: newNote.trim(),
+    });
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setNewNote('');
+    openNotes(notesFor);
+    setNoteCounts(prev => ({ ...prev, [notesFor.id]: (prev[notesFor.id] || 0) + 1 }));
+  };
+
+  const deleteNote = async (id: string) => {
+    const { error } = await supabase.from('seguimiento_notas' as any).delete().eq('id', id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setNotes(prev => prev.filter(n => n.id !== id));
+    if (notesFor) setNoteCounts(prev => ({ ...prev, [notesFor.id]: Math.max(0, (prev[notesFor.id] || 1) - 1) }));
   };
 
   useEffect(() => { load(); }, [user]);
