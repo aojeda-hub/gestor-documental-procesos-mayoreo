@@ -15,13 +15,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
 import type { Project, ProjectTask, SiloType } from '@/types/database';
 import { SILO_LABELS } from '@/types/database';
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog';
 import { ProjectTasksDialog } from '@/components/projects/ProjectTasksDialog';
 import { ProjectKickoffDialog } from '@/components/projects/ProjectKickoffDialog';
+import { ProjectDocumentsDialog } from '@/components/projects/ProjectDocumentsDialog';
 import { ModernGantt } from '@/components/projects/ModernGantt';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
