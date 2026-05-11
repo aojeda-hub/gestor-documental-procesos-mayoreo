@@ -332,6 +332,15 @@ export default function Projects() {
           onTasksChange={fetchProjects}
         />
       )}
+
+      {selectedProject && (
+        <ProjectDocumentsDialog
+          open={docsDialogOpen}
+          onOpenChange={setDocsDialogOpen}
+          projectId={selectedProject.id}
+          projectName={selectedProject.name}
+        />
+      )}
     </div>
   );
 }
