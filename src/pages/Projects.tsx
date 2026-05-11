@@ -15,7 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip } from 'lucide-react';
+import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
 import type { Project, ProjectTask, SiloType } from '@/types/database';
 import { SILO_LABELS } from '@/types/database';
@@ -34,10 +34,26 @@ const PHASE_DESCRIPTIONS: Record<string, string> = {
   'Adopción': 'Los usuarios finales comienzan a usar el entregable. Se da capacitación, soporte inicial, se recoge feedback y se asegura el uso continuo.',
 };
 
+// Cuenta días hábiles (Lun-Vie) entre dos fechas, inclusivo.
+function businessDaysBetween(start: Date, end: Date): number {
+  if (end < start) return 0;
+  let count = 0;
+  const cur = new Date(start);
+  cur.setHours(0, 0, 0, 0);
+  const last = new Date(end);
+  last.setHours(0, 0, 0, 0);
+  while (cur <= last) {
+    const d = cur.getDay();
+    if (d !== 0 && d !== 6) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
 export default function Projects() {
   const { hasRole } = useAuth();
   const { toast } = useToast();
-  const [projects, setProjects] = useState<(Project & { actual_progress: number })[]>([]);
+  const [projects, setProjects] = useState<(Project & { actual_progress: number | null; planned_progress: number | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSilo, setFilterSilo] = useState('all');
   const [search, setSearch] = useState('');
@@ -65,7 +81,7 @@ export default function Projects() {
 
       const { data: tasksData, error: tasksError } = await supabase
         .from('project_tasks')
-        .select('project_id, weight, status');
+        .select('project_id, weight, status, progress_percent');
 
       if (tasksError) throw tasksError;
 
@@ -73,28 +89,29 @@ export default function Projects() {
       const projectsWithProgress = (projectsData || []).map(project => {
         const projectTasks = (tasksData || []).filter(t => t.project_id === project.id);
         const totalWeight = projectTasks.reduce((sum, t) => sum + Number(t.weight), 0);
-        const completedWeight = projectTasks
-          .filter(t => t.status === 'Completada')
-          .reduce((sum, t) => sum + Number(t.weight), 0);
-        
-        const actual_progress = totalWeight > 0 ? (completedWeight / totalWeight) * 100 : 0;
-        
-        // Calculate planned progress automatically
-        let planned_progress = 0;
+        const weightedProgress = projectTasks.reduce((sum, t) => {
+          const pct = t.status === 'Completada' ? 100 : Number((t as any).progress_percent ?? 0);
+          return sum + Number(t.weight) * pct;
+        }, 0);
+
+        const actual_progress: number | null = totalWeight > 0 ? weightedProgress / totalWeight : null;
+
+        // Calculate planned progress using business days (Mon-Fri)
+        let planned_progress: number | null = null;
         if (project.start_date && project.end_date) {
-          const start = new Date(project.start_date).getTime();
-          const end = new Date(project.end_date).getTime();
-          const now = new Date().getTime();
-          
-          if (now >= end) {
-            planned_progress = 100;
-          } else if (now > start) {
-            const totalDuration = end - start;
-            const elapsed = now - start;
-            planned_progress = (elapsed / totalDuration) * 100;
+          const start = new Date(project.start_date);
+          const end = new Date(project.end_date);
+          const now = new Date();
+          const totalBd = businessDaysBetween(start, end);
+          if (totalBd > 0) {
+            if (now >= end) planned_progress = 100;
+            else if (now <= start) planned_progress = 0;
+            else planned_progress = (businessDaysBetween(start, now) / totalBd) * 100;
+          } else {
+            planned_progress = 0;
           }
         }
-        
+
         return { ...project, actual_progress, planned_progress };
       });
 
@@ -197,7 +214,26 @@ export default function Projects() {
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No se encontraron proyectos.</TableCell></TableRow>
               ) : filtered.map(project => {
-                const deviation = project.actual_progress - project.planned_progress;
+                const planned = project.planned_progress as number | null;
+                const actual = project.actual_progress as number | null;
+                const hasBoth = planned !== null && actual !== null;
+                const deviation = hasBoth ? (actual! - planned!) : null;
+
+                let devClass = 'text-muted-foreground';
+                if (deviation !== null) {
+                  if (deviation >= 5) devClass = 'text-green-700';
+                  else if (deviation >= 0) devClass = 'text-green-500';
+                  else if (deviation >= -5) devClass = 'text-yellow-500';
+                  else if (deviation >= -15) devClass = 'text-orange-500';
+                  else devClass = 'text-red-600';
+                }
+
+                const ND = (
+                  <span className="inline-flex items-center gap-1 text-muted-foreground" title="Faltan fechas o tareas">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-500" /> N/D
+                  </span>
+                );
+
                 return (
                   <TableRow key={project.id}>
                     <TableCell className="font-medium">{project.name}</TableCell>
@@ -214,10 +250,10 @@ export default function Projects() {
                     </TableCell>
                     <TableCell className="text-sm">{project.start_date || '-'}</TableCell>
                     <TableCell className="text-sm">{project.end_date || '-'}</TableCell>
-                    <TableCell className="text-center">{project.planned_progress.toFixed(1)}%</TableCell>
-                    <TableCell className="text-center">{project.actual_progress.toFixed(1)}%</TableCell>
-                    <TableCell className={`text-center font-bold ${deviation < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {deviation > 0 ? '+' : ''}{deviation.toFixed(1)}%
+                    <TableCell className="text-center">{planned !== null ? `${planned.toFixed(1)}%` : ND}</TableCell>
+                    <TableCell className="text-center">{actual !== null ? `${actual.toFixed(1)}%` : ND}</TableCell>
+                    <TableCell className={`text-center font-bold ${devClass}`}>
+                      {deviation !== null ? `${deviation > 0 ? '+' : ''}${deviation.toFixed(1)}%` : ND}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">

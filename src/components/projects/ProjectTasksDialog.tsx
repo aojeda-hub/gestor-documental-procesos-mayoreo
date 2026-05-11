@@ -22,12 +22,15 @@ interface ProjectTasksDialogProps {
 
 const PHASES = ['Alineación', 'Diseño', 'Construcción', 'Implementación', 'Adopción'];
 
+const PROGRESS_OPTIONS = [0, 25, 50, 75, 100];
+
 const emptyTaskForm = {
   name: '',
   phase: 'Alineación',
   weight: 1,
-  status: 'Pendiente' as const,
+  status: 'Pendiente' as 'Pendiente' | 'En Progreso' | 'Completada',
   actual_progress: 0,
+  progress_percent: 0,
   start_date: '',
   end_date: '',
 };
@@ -109,11 +112,29 @@ export function ProjectTasksDialog({ open, onOpenChange, projectId, projectName,
 
   const updateTaskStatus = async (task: ProjectTask, newStatus: ProjectTask['status']) => {
     try {
+      const patch: any = { status: newStatus };
+      if (newStatus === 'Completada') patch.progress_percent = 100;
+      else if (newStatus === 'Pendiente') patch.progress_percent = 0;
       const { error } = await supabase
         .from('project_tasks')
-        .update({ status: newStatus })
+        .update(patch)
         .eq('id', task.id);
 
+      if (error) throw error;
+      fetchTasks();
+      onTasksChange();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const updateTaskProgress = async (task: ProjectTask, pct: number) => {
+    try {
+      const patch: any = { progress_percent: pct };
+      if (pct === 100) patch.status = 'Completada';
+      else if (pct === 0 && task.status === 'Completada') patch.status = 'Pendiente';
+      else if (pct > 0 && pct < 100 && task.status !== 'En Progreso') patch.status = 'En Progreso';
+      const { error } = await supabase.from('project_tasks').update(patch).eq('id', task.id);
       if (error) throw error;
       fetchTasks();
       onTasksChange();
@@ -274,15 +295,16 @@ export function ProjectTasksDialog({ open, onOpenChange, projectId, projectName,
                   <TableHead className="w-[100px]">Inicio</TableHead>
                   <TableHead className="w-[100px]">Fin</TableHead>
                   <TableHead className="w-[80px] text-center">Peso</TableHead>
+                  <TableHead className="w-[110px]">Avance</TableHead>
                   <TableHead className="w-[150px]">Estatus</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-4">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-4">Cargando...</TableCell></TableRow>
                 ) : tasks.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-4 text-muted-foreground">Sin tareas aún.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-4 text-muted-foreground">Sin tareas aún.</TableCell></TableRow>
                 ) : tasks.map(task => (
                   <TableRow key={task.id}>
                     <TableCell>
@@ -301,6 +323,17 @@ export function ProjectTasksDialog({ open, onOpenChange, projectId, projectName,
                     <TableCell className="text-[10px] whitespace-nowrap">{task.start_date || '-'}</TableCell>
                     <TableCell className="text-[10px] whitespace-nowrap">{task.end_date || '-'}</TableCell>
                     <TableCell className="text-center">{task.weight}</TableCell>
+                    <TableCell>
+                      <Select
+                        value={String(task.progress_percent ?? 0)}
+                        onValueChange={(v) => updateTaskProgress(task, Number(v))}
+                      >
+                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {PROGRESS_OPTIONS.map(p => <SelectItem key={p} value={String(p)}>{p}%</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell>
                       <Select 
                         value={task.status} 

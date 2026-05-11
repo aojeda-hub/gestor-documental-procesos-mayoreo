@@ -92,7 +92,7 @@ export interface Project {
   name: string;
   silo: SiloType;
   phase: string;
-  planned_progress: number;
+  planned_progress: number | null;
   start_date?: string | null;
   end_date?: string | null;
   description?: string | null;
@@ -113,6 +113,7 @@ export interface ProjectTask {
   weight: number;
   status: 'Pendiente' | 'En Progreso' | 'Completada';
   actual_progress: number;
+  progress_percent: number;
   start_date?: string | null;
   end_date?: string | null;
   created_at: string;
