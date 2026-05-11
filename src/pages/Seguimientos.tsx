@@ -73,6 +73,10 @@ export default function Seguimientos() {
   const [newNote, setNewNote] = useState('');
   const [notesLoading, setNotesLoading] = useState(false);
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
+  const [cardOpen, setCardOpen] = useState(false);
+  const [cardId, setCardId] = useState<string | null>(null);
+
+  const openCard = (id: string) => { setCardId(id); setCardOpen(true); };
 
   const load = async () => {
     if (!user) return;
