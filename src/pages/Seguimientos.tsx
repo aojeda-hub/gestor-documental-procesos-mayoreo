@@ -279,13 +279,25 @@ export default function Seguimientos() {
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h4 className="font-medium text-sm leading-snug flex-1">{s.titulo}</h4>
-                        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
-                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(s)}>
-                            <Pencil className="h-3 w-3" />
+                        <div className="flex items-center gap-0.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-1.5 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                            onClick={() => openNotes(s)}
+                            title="Ver notas"
+                          >
+                            <StickyNote className="h-3 w-3" />
+                            {noteCounts[s.id] ? <span>{noteCounts[s.id]}</span> : null}
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-400" onClick={() => remove(s.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(s)}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-400" onClick={() => remove(s.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                       {s.descripcion && (
