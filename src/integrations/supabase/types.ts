@@ -551,6 +551,47 @@ export type Database = {
         }
         Relationships: []
       }
+      project_documents: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          name: string
+          project_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name: string
+          project_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name?: string
+          project_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_tasks: {
         Row: {
           actual_progress: number
