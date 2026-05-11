@@ -125,9 +125,20 @@ export default function Documents() {
   // Filter docs by active empresa
   const empresaDocs = docs.filter(d => d.empresa === activeEmpresa);
 
+  const sanitizeFileName = (name: string) =>
+    name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/_+/g, '_');
+
   const uploadFile = async (file: File, docId: string, type: string) => {
-    const path = `${docId}/${Date.now()}_${type}_${file.name}`;
-    const { error } = await supabase.storage.from('documents').upload(path, file);
+    const safeName = sanitizeFileName(file.name);
+    const path = `${docId}/${Date.now()}_${type}_${safeName}`;
+    const { error } = await supabase.storage.from('documents').upload(path, file, {
+      contentType: file.type || 'application/octet-stream',
+      upsert: false,
+    });
     if (error) throw error;
     const { data, error: signError } = await supabase.storage.from('documents').createSignedUrl(path, 60 * 60 * 24 * 365);
     if (signError) throw signError;
