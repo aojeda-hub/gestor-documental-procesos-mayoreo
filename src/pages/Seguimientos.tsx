@@ -460,6 +460,15 @@ export default function Seguimientos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {cardId && (
+        <SeguimientoCardDialog
+          seguimientoId={cardId}
+          open={cardOpen}
+          onOpenChange={setCardOpen}
+          onChanged={load}
+        />
+      )}
     </div>
   );
 }
