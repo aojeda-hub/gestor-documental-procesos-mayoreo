@@ -737,6 +737,41 @@ export type Database = {
           },
         ]
       }
+      seguimiento_notas: {
+        Row: {
+          contenido: string
+          created_at: string
+          id: string
+          seguimiento_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contenido: string
+          created_at?: string
+          id?: string
+          seguimiento_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contenido?: string
+          created_at?: string
+          id?: string
+          seguimiento_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seguimiento_notas_seguimiento_id_fkey"
+            columns: ["seguimiento_id"]
+            isOneToOne: false
+            referencedRelation: "seguimientos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seguimientos: {
         Row: {
           categoria: string | null
