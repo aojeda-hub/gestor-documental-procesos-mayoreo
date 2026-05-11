@@ -66,6 +66,12 @@ export default function Seguimientos() {
   const [editing, setEditing] = useState<Seguimiento | null>(null);
   const [form, setForm] = useState(empty);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesFor, setNotesFor] = useState<Seguimiento | null>(null);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
 
   const load = async () => {
     if (!user) return;
