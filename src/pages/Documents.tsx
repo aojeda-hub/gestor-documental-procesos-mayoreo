@@ -676,8 +676,8 @@ export default function Documents() {
                     </div>
                     {canEdit && (
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1"><Label className="text-[10px]">Actualizar Word</Label><Input type="file" accept=".doc,.docx" className="h-8 text-[10px]" onChange={e => setWordFile(e.target.files?.[0] || null)} /></div>
-                        <div className="space-y-1"><Label className="text-[10px]">Actualizar PDF</Label><Input type="file" accept=".pdf" className="h-8 text-[10px]" onChange={e => setPdfFile(e.target.files?.[0] || null)} /></div>
+                        <div className="space-y-1"><Label className="text-[10px]">Actualizar Word</Label><Input type="file" className="h-8 text-[10px]" onChange={e => setWordFile(e.target.files?.[0] || null)} /></div>
+                        <div className="space-y-1"><Label className="text-[10px]">Actualizar PDF</Label><Input type="file" className="h-8 text-[10px]" onChange={e => setPdfFile(e.target.files?.[0] || null)} /></div>
                         <div className="space-y-1 col-span-2"><Label className="text-[10px]">Otros Archivos</Label><Input type="file" className="h-8 text-[10px]" onChange={e => setGenericFile(e.target.files?.[0] || null)} /></div>
                       </div>
                     )}
