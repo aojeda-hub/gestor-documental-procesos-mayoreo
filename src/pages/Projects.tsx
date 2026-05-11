@@ -34,6 +34,22 @@ const PHASE_DESCRIPTIONS: Record<string, string> = {
   'Adopción': 'Los usuarios finales comienzan a usar el entregable. Se da capacitación, soporte inicial, se recoge feedback y se asegura el uso continuo.',
 };
 
+// Cuenta días hábiles (Lun-Vie) entre dos fechas, inclusivo.
+function businessDaysBetween(start: Date, end: Date): number {
+  if (end < start) return 0;
+  let count = 0;
+  const cur = new Date(start);
+  cur.setHours(0, 0, 0, 0);
+  const last = new Date(end);
+  last.setHours(0, 0, 0, 0);
+  while (cur <= last) {
+    const d = cur.getDay();
+    if (d !== 0 && d !== 6) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
 export default function Projects() {
   const { hasRole } = useAuth();
   const { toast } = useToast();
