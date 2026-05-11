@@ -112,11 +112,29 @@ export function ProjectTasksDialog({ open, onOpenChange, projectId, projectName,
 
   const updateTaskStatus = async (task: ProjectTask, newStatus: ProjectTask['status']) => {
     try {
+      const patch: any = { status: newStatus };
+      if (newStatus === 'Completada') patch.progress_percent = 100;
+      else if (newStatus === 'Pendiente') patch.progress_percent = 0;
       const { error } = await supabase
         .from('project_tasks')
-        .update({ status: newStatus })
+        .update(patch)
         .eq('id', task.id);
 
+      if (error) throw error;
+      fetchTasks();
+      onTasksChange();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const updateTaskProgress = async (task: ProjectTask, pct: number) => {
+    try {
+      const patch: any = { progress_percent: pct };
+      if (pct === 100) patch.status = 'Completada';
+      else if (pct === 0 && task.status === 'Completada') patch.status = 'Pendiente';
+      else if (pct > 0 && pct < 100 && task.status !== 'En Progreso') patch.status = 'En Progreso';
+      const { error } = await supabase.from('project_tasks').update(patch).eq('id', task.id);
       if (error) throw error;
       fetchTasks();
       onTasksChange();
