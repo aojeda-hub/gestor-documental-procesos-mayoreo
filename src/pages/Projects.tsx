@@ -241,13 +241,21 @@ export default function Projects() {
                         >
                           <CalendarRange className="h-4 w-4 text-purple-600" />
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           onClick={() => { setSelectedProject(project); setTasksDialogOpen(true); }}
                           title="Gestionar Tareas"
                         >
                           <ListChecks className="h-4 w-4 text-blue-600" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => { setSelectedProject(project); setDocsDialogOpen(true); }}
+                          title="Documentos de soporte"
+                        >
+                          <Paperclip className="h-4 w-4 text-emerald-600" />
                         </Button>
                         {canEdit && (
                           <>
