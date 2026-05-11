@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Plus, Calendar, User, Tag, Trash2, Pencil, AlertCircle } from 'lucide-react';
+import { Plus, Calendar, User, Tag, Trash2, Pencil, AlertCircle, StickyNote, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -66,6 +66,12 @@ export default function Seguimientos() {
   const [editing, setEditing] = useState<Seguimiento | null>(null);
   const [form, setForm] = useState(empty);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesFor, setNotesFor] = useState<Seguimiento | null>(null);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
 
   const load = async () => {
     if (!user) return;
@@ -76,8 +82,64 @@ export default function Seguimientos() {
       .order('orden', { ascending: true })
       .order('created_at', { ascending: false });
     if (error) toast({ title: 'Error al cargar', description: error.message, variant: 'destructive' });
-    else setItems((data as any[] as Seguimiento[]) || []);
+    else {
+      const list = (data as any[] as Seguimiento[]) || [];
+      setItems(list);
+      // load note counts
+      if (list.length > 0) {
+        const { data: notesData } = await supabase
+          .from('seguimiento_notas' as any)
+          .select('seguimiento_id')
+          .in('seguimiento_id', list.map(i => i.id));
+        const counts: Record<string, number> = {};
+        ((notesData as any[]) || []).forEach((n: any) => {
+          counts[n.seguimiento_id] = (counts[n.seguimiento_id] || 0) + 1;
+        });
+        setNoteCounts(counts);
+      }
+    }
     setLoading(false);
+  };
+
+  const openNotes = async (s: Seguimiento) => {
+    setNotesFor(s);
+    setNotesOpen(true);
+    setNewNote('');
+    setNotesLoading(true);
+    const { data, error } = await supabase
+      .from('seguimiento_notas' as any)
+      .select('*')
+      .eq('seguimiento_id', s.id)
+      .order('created_at', { ascending: false });
+    if (error) toast({ title: 'Error al cargar notas', description: error.message, variant: 'destructive' });
+    else setNotes((data as any[]) || []);
+    setNotesLoading(false);
+  };
+
+  const addNote = async () => {
+    if (!user || !notesFor || !newNote.trim()) return;
+    const { error } = await supabase.from('seguimiento_notas' as any).insert({
+      seguimiento_id: notesFor.id,
+      user_id: user.id,
+      contenido: newNote.trim(),
+    });
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setNewNote('');
+    openNotes(notesFor);
+    setNoteCounts(prev => ({ ...prev, [notesFor.id]: (prev[notesFor.id] || 0) + 1 }));
+  };
+
+  const deleteNote = async (id: string) => {
+    const { error } = await supabase.from('seguimiento_notas' as any).delete().eq('id', id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setNotes(prev => prev.filter(n => n.id !== id));
+    if (notesFor) setNoteCounts(prev => ({ ...prev, [notesFor.id]: Math.max(0, (prev[notesFor.id] || 1) - 1) }));
   };
 
   useEffect(() => { load(); }, [user]);
@@ -217,13 +279,25 @@ export default function Seguimientos() {
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h4 className="font-medium text-sm leading-snug flex-1">{s.titulo}</h4>
-                        <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
-                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(s)}>
-                            <Pencil className="h-3 w-3" />
+                        <div className="flex items-center gap-0.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-1.5 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                            onClick={() => openNotes(s)}
+                            title="Ver notas"
+                          >
+                            <StickyNote className="h-3 w-3" />
+                            {noteCounts[s.id] ? <span>{noteCounts[s.id]}</span> : null}
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-400" onClick={() => remove(s.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(s)}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-400" onClick={() => remove(s.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                       {s.descripcion && (
@@ -317,6 +391,68 @@ export default function Seguimientos() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={save}>{editing ? 'Guardar' : 'Crear'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notes Dialog */}
+      <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <StickyNote className="h-4 w-4" />
+              Notas {notesFor && <span className="text-muted-foreground font-normal">— {notesFor.titulo}</span>}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Escribe una nota..."
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+                rows={2}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    addNote();
+                  }
+                }}
+              />
+              <Button onClick={addNote} disabled={!newNote.trim()} size="icon" className="h-auto">
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="max-h-[400px] overflow-y-auto space-y-2">
+              {notesLoading ? (
+                <div className="text-center text-sm text-muted-foreground py-6">Cargando...</div>
+              ) : notes.length === 0 ? (
+                <div className="text-center text-sm text-muted-foreground py-6 border border-dashed rounded-md">
+                  Sin notas todavía
+                </div>
+              ) : (
+                notes.map(n => (
+                  <Card key={n.id} className="p-3 group">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm whitespace-pre-wrap flex-1">{n.contenido}</p>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => deleteNote(n.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1">
+                      {format(new Date(n.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNotesOpen(false)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
