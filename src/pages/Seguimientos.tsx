@@ -9,11 +9,12 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Plus, Calendar, User, Tag, Trash2, Pencil, AlertCircle, StickyNote, Send } from 'lucide-react';
+import { Plus, Calendar, User, Tag, Trash2, Pencil, AlertCircle, StickyNote, Send, Maximize2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { SeguimientoCardDialog } from '@/components/seguimientos/SeguimientoCardDialog';
 
 type Estado = 'pendiente' | 'en_revision' | 'en_progreso' | 'completado' | 'cancelado';
 type Prioridad = 'baja' | 'media' | 'alta' | 'critica';
@@ -72,6 +73,10 @@ export default function Seguimientos() {
   const [newNote, setNewNote] = useState('');
   const [notesLoading, setNotesLoading] = useState(false);
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
+  const [cardOpen, setCardOpen] = useState(false);
+  const [cardId, setCardId] = useState<string | null>(null);
+
+  const openCard = (id: string) => { setCardId(id); setCardOpen(true); };
 
   const load = async () => {
     if (!user) return;
@@ -275,22 +280,21 @@ export default function Seguimientos() {
                       draggable
                       onDragStart={() => setDraggedId(s.id)}
                       onDragEnd={() => setDraggedId(null)}
-                      className="p-3 cursor-grab active:cursor-grabbing hover:border-primary/50 transition-colors group"
+                      onClick={() => openCard(s.id)}
+                      className="p-3 cursor-pointer hover:border-primary/50 transition-colors group"
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h4 className="font-medium text-sm leading-snug flex-1">{s.titulo}</h4>
-                        <div className="flex items-center gap-0.5">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-1.5 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-                            onClick={() => openNotes(s)}
-                            title="Ver notas"
-                          >
-                            <StickyNote className="h-3 w-3" />
-                            {noteCounts[s.id] ? <span>{noteCounts[s.id]}</span> : null}
-                          </Button>
+                        <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                          {noteCounts[s.id] ? (
+                            <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 px-1">
+                              <StickyNote className="h-3 w-3" />{noteCounts[s.id]}
+                            </span>
+                          ) : null}
                           <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
+                            <Button size="icon" variant="ghost" className="h-6 w-6" title="Abrir" onClick={() => openCard(s.id)}>
+                              <Maximize2 className="h-3 w-3" />
+                            </Button>
                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(s)}>
                               <Pencil className="h-3 w-3" />
                             </Button>
@@ -456,6 +460,15 @@ export default function Seguimientos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {cardId && (
+        <SeguimientoCardDialog
+          seguimientoId={cardId}
+          open={cardOpen}
+          onOpenChange={setCardOpen}
+          onChanged={load}
+        />
+      )}
     </div>
   );
 }
