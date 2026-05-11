@@ -229,6 +229,19 @@ export default function Documents() {
           description: vDesc, authors: vAuthors, approver: vApprover,
           url_word: urlWord, url_pdf: urlPdf, url_file: urlFile,
         } as any).eq('id', currentVersion.id);
+      } else if (wordFile || pdfFile || genericFile || vDesc || vAuthors || vApprover) {
+        // No existing version — create one so uploaded files don't get lost
+        let urlWord = null, urlPdf = null, urlFile = null;
+        if (wordFile) urlWord = await uploadFile(wordFile, selectedDoc.id, 'word');
+        if (pdfFile) urlPdf = await uploadFile(pdfFile, selectedDoc.id, 'pdf');
+        if (genericFile) urlFile = await uploadFile(genericFile, selectedDoc.id, 'file');
+        await supabase.from('document_versions').insert({
+          document_id: selectedDoc.id, version_number: 1,
+          description: vDesc || 'Carga inicial',
+          authors: vAuthors || profile?.full_name || user?.email || '',
+          approver: vApprover || '',
+          url_word: urlWord, url_pdf: urlPdf, url_file: urlFile, is_current: true,
+        } as any);
       }
       toast({ title: 'Cambios guardados' });
       setShowDetailsDialog(false);
