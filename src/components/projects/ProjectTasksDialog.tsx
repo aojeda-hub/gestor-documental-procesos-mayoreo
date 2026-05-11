@@ -302,9 +302,9 @@ export function ProjectTasksDialog({ open, onOpenChange, projectId, projectName,
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-4">Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-4">Cargando...</TableCell></TableRow>
                 ) : tasks.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-4 text-muted-foreground">Sin tareas aún.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-4 text-muted-foreground">Sin tareas aún.</TableCell></TableRow>
                 ) : tasks.map(task => (
                   <TableRow key={task.id}>
                     <TableCell>
