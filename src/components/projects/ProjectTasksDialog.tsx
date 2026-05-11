@@ -324,6 +324,17 @@ export function ProjectTasksDialog({ open, onOpenChange, projectId, projectName,
                     <TableCell className="text-[10px] whitespace-nowrap">{task.end_date || '-'}</TableCell>
                     <TableCell className="text-center">{task.weight}</TableCell>
                     <TableCell>
+                      <Select
+                        value={String(task.progress_percent ?? 0)}
+                        onValueChange={(v) => updateTaskProgress(task, Number(v))}
+                      >
+                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {PROGRESS_OPTIONS.map(p => <SelectItem key={p} value={String(p)}>{p}%</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
                       <Select 
                         value={task.status} 
                         onValueChange={(v: any) => updateTaskStatus(task, v)}
