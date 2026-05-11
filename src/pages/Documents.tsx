@@ -586,8 +586,8 @@ export default function Documents() {
             <div className="space-y-2">
               <Label>Archivos</Label>
               <div className="grid grid-cols-1 gap-3">
-                <div><span className="text-xs text-muted-foreground">Word</span><Input type="file" accept=".doc,.docx" onChange={e => setWordFile(e.target.files?.[0] || null)} /></div>
-                <div><span className="text-xs text-muted-foreground">PDF</span><Input type="file" accept=".pdf" onChange={e => setPdfFile(e.target.files?.[0] || null)} /></div>
+                <div><span className="text-xs text-muted-foreground">Word (cualquier formato)</span><Input type="file" onChange={e => setWordFile(e.target.files?.[0] || null)} /></div>
+                <div><span className="text-xs text-muted-foreground">PDF (cualquier formato)</span><Input type="file" onChange={e => setPdfFile(e.target.files?.[0] || null)} /></div>
                 <div><span className="text-xs text-muted-foreground">Otro archivo</span><Input type="file" onChange={e => setGenericFile(e.target.files?.[0] || null)} /></div>
               </div>
             </div>
