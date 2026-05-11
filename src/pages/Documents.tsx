@@ -423,7 +423,7 @@ export default function Documents() {
         />
       ) : (
         <>
-          {/* Action Buttons */}
+          {/* Action Buttons + Search */}
           <div className="flex flex-wrap items-center gap-3">
             {canEdit && (
               <>
@@ -433,14 +433,52 @@ export default function Documents() {
                 <Button onClick={() => setShowBulkUpload(true)}>
                   <FileUp className="mr-2 h-4 w-4" /> Carga Masiva
                 </Button>
-                {hasRole('admin') && (
-                  <Button variant="secondary" onClick={handleRunDryRun} disabled={isOrganizing}>
-                    {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Cog className="mr-2 h-4 w-4" />}
-                    Clasificación Personal
-                  </Button>
-                )}
               </>
             )}
+            <div className="relative flex items-center gap-2 ml-auto">
+              <div className="relative">
+                <Input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar documento por nombre..."
+                  className="w-72 pr-3"
+                />
+                {search.trim() && (() => {
+                  const q = search.trim().toLowerCase();
+                  const matches = empresaDocs
+                    .filter(d => d.title.toLowerCase().startsWith(q))
+                    .slice(0, 10);
+                  return (
+                    <div className="absolute z-50 mt-1 w-full max-h-72 overflow-y-auto rounded-md border bg-popover shadow-lg">
+                      {matches.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</div>
+                      ) : matches.map(doc => (
+                        <button
+                          key={doc.id}
+                          onClick={() => { openPreview(doc); setSearch(''); }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2 border-b last:border-0"
+                        >
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate flex-1">{doc.title}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">{SILO_LABELS[doc.silo as SiloType]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+              <Button
+                onClick={() => {
+                  const q = search.trim().toLowerCase();
+                  if (!q) return;
+                  const first = empresaDocs.find(d => d.title.toLowerCase().startsWith(q));
+                  if (first) { openPreview(first); setSearch(''); }
+                  else toast({ title: 'Sin resultados', description: 'Ningún documento coincide.', variant: 'destructive' });
+                }}
+              >
+                Buscar
+              </Button>
+            </div>
           </div>
 
           {/* Content */}
