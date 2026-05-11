@@ -81,7 +81,7 @@ export default function Projects() {
 
       const { data: tasksData, error: tasksError } = await supabase
         .from('project_tasks')
-        .select('project_id, weight, status');
+        .select('project_id, weight, status, progress_percent');
 
       if (tasksError) throw tasksError;
 
@@ -89,28 +89,29 @@ export default function Projects() {
       const projectsWithProgress = (projectsData || []).map(project => {
         const projectTasks = (tasksData || []).filter(t => t.project_id === project.id);
         const totalWeight = projectTasks.reduce((sum, t) => sum + Number(t.weight), 0);
-        const completedWeight = projectTasks
-          .filter(t => t.status === 'Completada')
-          .reduce((sum, t) => sum + Number(t.weight), 0);
-        
-        const actual_progress = totalWeight > 0 ? (completedWeight / totalWeight) * 100 : 0;
-        
-        // Calculate planned progress automatically
-        let planned_progress = 0;
+        const weightedProgress = projectTasks.reduce((sum, t) => {
+          const pct = t.status === 'Completada' ? 100 : Number((t as any).progress_percent ?? 0);
+          return sum + Number(t.weight) * pct;
+        }, 0);
+
+        const actual_progress: number | null = totalWeight > 0 ? weightedProgress / totalWeight : null;
+
+        // Calculate planned progress using business days (Mon-Fri)
+        let planned_progress: number | null = null;
         if (project.start_date && project.end_date) {
-          const start = new Date(project.start_date).getTime();
-          const end = new Date(project.end_date).getTime();
-          const now = new Date().getTime();
-          
-          if (now >= end) {
-            planned_progress = 100;
-          } else if (now > start) {
-            const totalDuration = end - start;
-            const elapsed = now - start;
-            planned_progress = (elapsed / totalDuration) * 100;
+          const start = new Date(project.start_date);
+          const end = new Date(project.end_date);
+          const now = new Date();
+          const totalBd = businessDaysBetween(start, end);
+          if (totalBd > 0) {
+            if (now >= end) planned_progress = 100;
+            else if (now <= start) planned_progress = 0;
+            else planned_progress = (businessDaysBetween(start, now) / totalBd) * 100;
+          } else {
+            planned_progress = 0;
           }
         }
-        
+
         return { ...project, actual_progress, planned_progress };
       });
 
