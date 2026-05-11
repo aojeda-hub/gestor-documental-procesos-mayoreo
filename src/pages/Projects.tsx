@@ -46,6 +46,7 @@ export default function Projects() {
   const [tasksDialogOpen, setTasksDialogOpen] = useState(false);
   const [ganttDialogOpen, setGanttDialogOpen] = useState(false);
   const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
+  const [docsDialogOpen, setDocsDialogOpen] = useState(false);
   const [certificaErpOpen, setCertificaErpOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
