@@ -778,6 +778,206 @@ export type Database = {
           },
         ]
       }
+      seguimiento_adjuntos: {
+        Row: {
+          created_at: string
+          enlace: string | null
+          id: string
+          nombre: string
+          seguimiento_id: string
+          storage_path: string | null
+          tamano_bytes: number | null
+          tipo_mime: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enlace?: string | null
+          id?: string
+          nombre: string
+          seguimiento_id: string
+          storage_path?: string | null
+          tamano_bytes?: number | null
+          tipo_mime?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enlace?: string | null
+          id?: string
+          nombre?: string
+          seguimiento_id?: string
+          storage_path?: string | null
+          tamano_bytes?: number | null
+          tipo_mime?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seguimiento_adjuntos_seguimiento_id_fkey"
+            columns: ["seguimiento_id"]
+            isOneToOne: false
+            referencedRelation: "seguimientos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seguimiento_checklist_items: {
+        Row: {
+          checklist_id: string
+          completado: boolean
+          created_at: string
+          id: string
+          orden: number
+          texto: string
+        }
+        Insert: {
+          checklist_id: string
+          completado?: boolean
+          created_at?: string
+          id?: string
+          orden?: number
+          texto: string
+        }
+        Update: {
+          checklist_id?: string
+          completado?: boolean
+          created_at?: string
+          id?: string
+          orden?: number
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seguimiento_checklist_items_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "seguimiento_checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seguimiento_checklists: {
+        Row: {
+          created_at: string
+          id: string
+          orden: number
+          seguimiento_id: string
+          titulo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          orden?: number
+          seguimiento_id: string
+          titulo?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          orden?: number
+          seguimiento_id?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seguimiento_checklists_seguimiento_id_fkey"
+            columns: ["seguimiento_id"]
+            isOneToOne: false
+            referencedRelation: "seguimientos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seguimiento_etiqueta_items: {
+        Row: {
+          created_at: string
+          etiqueta_id: string
+          id: string
+          seguimiento_id: string
+        }
+        Insert: {
+          created_at?: string
+          etiqueta_id: string
+          id?: string
+          seguimiento_id: string
+        }
+        Update: {
+          created_at?: string
+          etiqueta_id?: string
+          id?: string
+          seguimiento_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seguimiento_etiqueta_items_etiqueta_id_fkey"
+            columns: ["etiqueta_id"]
+            isOneToOne: false
+            referencedRelation: "seguimiento_etiquetas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seguimiento_etiqueta_items_seguimiento_id_fkey"
+            columns: ["seguimiento_id"]
+            isOneToOne: false
+            referencedRelation: "seguimientos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seguimiento_etiquetas: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          nombre: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          nombre: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          nombre?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      seguimiento_miembros: {
+        Row: {
+          created_at: string
+          id: string
+          member_user_id: string
+          seguimiento_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          member_user_id: string
+          seguimiento_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          member_user_id?: string
+          seguimiento_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seguimiento_miembros_seguimiento_id_fkey"
+            columns: ["seguimiento_id"]
+            isOneToOne: false
+            referencedRelation: "seguimientos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seguimiento_notas: {
         Row: {
           contenido: string
@@ -820,12 +1020,14 @@ export type Database = {
           descripcion: string | null
           estado: Database["public"]["Enums"]["seguimiento_estado"]
           fecha_completado: string | null
+          fecha_inicio: string | null
           fecha_limite: string | null
           id: string
           orden: number
           prioridad: Database["public"]["Enums"]["seguimiento_prioridad"]
           responsable: string | null
           titulo: string
+          ubicacion: string | null
           updated_at: string
           user_id: string
         }
@@ -835,12 +1037,14 @@ export type Database = {
           descripcion?: string | null
           estado?: Database["public"]["Enums"]["seguimiento_estado"]
           fecha_completado?: string | null
+          fecha_inicio?: string | null
           fecha_limite?: string | null
           id?: string
           orden?: number
           prioridad?: Database["public"]["Enums"]["seguimiento_prioridad"]
           responsable?: string | null
           titulo: string
+          ubicacion?: string | null
           updated_at?: string
           user_id: string
         }
@@ -850,12 +1054,14 @@ export type Database = {
           descripcion?: string | null
           estado?: Database["public"]["Enums"]["seguimiento_estado"]
           fecha_completado?: string | null
+          fecha_inicio?: string | null
           fecha_limite?: string | null
           id?: string
           orden?: number
           prioridad?: Database["public"]["Enums"]["seguimiento_prioridad"]
           responsable?: string | null
           titulo?: string
+          ubicacion?: string | null
           updated_at?: string
           user_id?: string
         }
