@@ -394,6 +394,68 @@ export default function Seguimientos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Notes Dialog */}
+      <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <StickyNote className="h-4 w-4" />
+              Notas {notesFor && <span className="text-muted-foreground font-normal">— {notesFor.titulo}</span>}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Escribe una nota..."
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+                rows={2}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    addNote();
+                  }
+                }}
+              />
+              <Button onClick={addNote} disabled={!newNote.trim()} size="icon" className="h-auto">
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="max-h-[400px] overflow-y-auto space-y-2">
+              {notesLoading ? (
+                <div className="text-center text-sm text-muted-foreground py-6">Cargando...</div>
+              ) : notes.length === 0 ? (
+                <div className="text-center text-sm text-muted-foreground py-6 border border-dashed rounded-md">
+                  Sin notas todavía
+                </div>
+              ) : (
+                notes.map(n => (
+                  <Card key={n.id} className="p-3 group">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm whitespace-pre-wrap flex-1">{n.contenido}</p>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => deleteNote(n.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1">
+                      {format(new Date(n.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNotesOpen(false)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
