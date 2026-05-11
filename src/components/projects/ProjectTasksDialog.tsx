@@ -22,12 +22,15 @@ interface ProjectTasksDialogProps {
 
 const PHASES = ['Alineación', 'Diseño', 'Construcción', 'Implementación', 'Adopción'];
 
+const PROGRESS_OPTIONS = [0, 25, 50, 75, 100];
+
 const emptyTaskForm = {
   name: '',
   phase: 'Alineación',
   weight: 1,
-  status: 'Pendiente' as const,
+  status: 'Pendiente' as 'Pendiente' | 'En Progreso' | 'Completada',
   actual_progress: 0,
+  progress_percent: 0,
   start_date: '',
   end_date: '',
 };
