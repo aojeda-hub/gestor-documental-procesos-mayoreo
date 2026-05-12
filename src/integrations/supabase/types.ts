@@ -592,6 +592,56 @@ export type Database = {
           },
         ]
       }
+      project_phases: {
+        Row: {
+          actual_end: string | null
+          actual_start: string | null
+          created_at: string
+          id: string
+          name: string
+          order_index: number
+          planned_end: string | null
+          planned_start: string | null
+          project_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_end?: string | null
+          actual_start?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          order_index: number
+          planned_end?: string | null
+          planned_start?: string | null
+          project_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_end?: string | null
+          actual_start?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+          planned_end?: string | null
+          planned_start?: string | null
+          project_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_phases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_tasks: {
         Row: {
           actual_progress: number
@@ -600,6 +650,7 @@ export type Database = {
           id: string
           name: string
           phase: string
+          phase_id: string | null
           progress_percent: number
           project_id: string
           start_date: string | null
@@ -614,6 +665,7 @@ export type Database = {
           id?: string
           name: string
           phase?: string
+          phase_id?: string | null
           progress_percent?: number
           project_id: string
           start_date?: string | null
@@ -628,6 +680,7 @@ export type Database = {
           id?: string
           name?: string
           phase?: string
+          phase_id?: string | null
           progress_percent?: number
           project_id?: string
           start_date?: string | null
@@ -636,6 +689,13 @@ export type Database = {
           weight?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "project_tasks_phase_id_fkey"
+            columns: ["phase_id"]
+            isOneToOne: false
+            referencedRelation: "project_phases"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_tasks_project_id_fkey"
             columns: ["project_id"]

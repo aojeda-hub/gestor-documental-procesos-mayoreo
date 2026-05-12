@@ -17,10 +17,10 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
-import type { Project, ProjectTask, SiloType } from '@/types/database';
+import type { Project, ProjectTask, ProjectPhase, SiloType } from '@/types/database';
 import { SILO_LABELS } from '@/types/database';
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog';
-import { ProjectTasksDialog } from '@/components/projects/ProjectTasksDialog';
+import { ProjectPhasesPanel } from '@/components/projects/ProjectPhasesPanel';
 import { ProjectKickoffDialog } from '@/components/projects/ProjectKickoffDialog';
 import { ProjectDocumentsDialog } from '@/components/projects/ProjectDocumentsDialog';
 import { ModernGantt } from '@/components/projects/ModernGantt';
@@ -53,7 +53,7 @@ function businessDaysBetween(start: Date, end: Date): number {
 export default function Projects() {
   const { hasRole } = useAuth();
   const { toast } = useToast();
-  const [projects, setProjects] = useState<(Project & { actual_progress: number | null; planned_progress: number | null })[]>([]);
+  const [projects, setProjects] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[] })[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSilo, setFilterSilo] = useState('all');
   const [search, setSearch] = useState('');
@@ -85,7 +85,13 @@ export default function Projects() {
 
       if (tasksError) throw tasksError;
 
-      // Calculate progress for each project
+      const { data: phasesData, error: phasesError } = await supabase
+        .from('project_phases')
+        .select('*')
+        .order('order_index');
+
+      if (phasesError) throw phasesError;
+
       const projectsWithProgress = (projectsData || []).map(project => {
         const projectTasks = (tasksData || []).filter(t => t.project_id === project.id);
         const totalWeight = projectTasks.reduce((sum, t) => sum + Number(t.weight), 0);
@@ -96,7 +102,6 @@ export default function Projects() {
 
         const actual_progress: number | null = totalWeight > 0 ? weightedProgress / totalWeight : null;
 
-        // Calculate planned progress using business days (Mon-Fri)
         let planned_progress: number | null = null;
         if (project.start_date && project.end_date) {
           const start = new Date(project.start_date);
@@ -112,7 +117,9 @@ export default function Projects() {
           }
         }
 
-        return { ...project, actual_progress, planned_progress };
+        const phases = ((phasesData || []) as ProjectPhase[]).filter(p => p.project_id === project.id);
+
+        return { ...project, actual_progress, planned_progress, phases };
       });
 
       setProjects(projectsWithProgress as any);
@@ -199,7 +206,7 @@ export default function Projects() {
               <TableRow>
                 <TableHead>Nombre del Proyecto</TableHead>
                 <TableHead>Silo</TableHead>
-                <TableHead>Fase Actual</TableHead>
+                <TableHead>Fases</TableHead>
                 <TableHead>Inicio</TableHead>
                 <TableHead>Cierre</TableHead>
                 <TableHead className="text-center">% Planificado</TableHead>
@@ -239,14 +246,25 @@ export default function Projects() {
                     <TableCell className="font-medium">{project.name}</TableCell>
                     <TableCell><Badge variant="outline">{SILO_LABELS[project.silo]}</Badge></TableCell>
                     <TableCell>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="secondary" className="cursor-help">{project.phase}</Badge>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[300px]">
-                          <p className="text-xs">{PHASE_DESCRIPTIONS[project.phase] || 'Sin descripción'}</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <div className="flex items-center gap-1">
+                        {(project.phases || []).map(ph => {
+                          const dot = ph.status === 'completada' ? 'bg-emerald-500'
+                            : ph.status === 'activa' ? 'bg-blue-500 ring-2 ring-blue-300'
+                            : 'bg-muted-foreground/30';
+                          return (
+                            <Tooltip key={ph.id}>
+                              <TooltipTrigger asChild>
+                                <span className={`h-2.5 w-2.5 rounded-full ${dot} cursor-help`} />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs font-semibold">{ph.order_index}. {ph.name}</p>
+                                <p className="text-[10px] capitalize text-muted-foreground">{ph.status}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          );
+                        })}
+                        <Badge variant="secondary" className="ml-2 text-[10px]">{project.phase}</Badge>
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm">{project.start_date || '-'}</TableCell>
                     <TableCell className="text-sm">{project.end_date || '-'}</TableCell>
@@ -359,12 +377,11 @@ export default function Projects() {
       )}
 
       {selectedProject && (
-        <ProjectTasksDialog
+        <ProjectPhasesPanel
           open={tasksDialogOpen}
           onOpenChange={setTasksDialogOpen}
           projectId={selectedProject.id}
           projectName={selectedProject.name}
-          projectPhase={selectedProject.phase}
           onTasksChange={fetchProjects}
         />
       )}

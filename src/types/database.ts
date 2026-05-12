@@ -108,6 +108,7 @@ export interface Project {
 export interface ProjectTask {
   id: string;
   project_id: string;
+  phase_id: string | null;
   name: string;
   phase: string;
   weight: number;
@@ -116,6 +117,22 @@ export interface ProjectTask {
   progress_percent: number;
   start_date?: string | null;
   end_date?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PhaseStatus = 'bloqueada' | 'activa' | 'completada';
+
+export interface ProjectPhase {
+  id: string;
+  project_id: string;
+  name: string;
+  order_index: number;
+  status: PhaseStatus;
+  planned_start: string | null;
+  planned_end: string | null;
+  actual_start: string | null;
+  actual_end: string | null;
   created_at: string;
   updated_at: string;
 }
