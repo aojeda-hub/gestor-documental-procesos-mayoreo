@@ -359,12 +359,11 @@ export default function Projects() {
       )}
 
       {selectedProject && (
-        <ProjectTasksDialog
+        <ProjectPhasesPanel
           open={tasksDialogOpen}
           onOpenChange={setTasksDialogOpen}
           projectId={selectedProject.id}
           projectName={selectedProject.name}
-          projectPhase={selectedProject.phase}
           onTasksChange={fetchProjects}
         />
       )}
