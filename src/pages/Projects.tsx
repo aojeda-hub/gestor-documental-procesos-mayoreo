@@ -85,7 +85,13 @@ export default function Projects() {
 
       if (tasksError) throw tasksError;
 
-      // Calculate progress for each project
+      const { data: phasesData, error: phasesError } = await supabase
+        .from('project_phases')
+        .select('*')
+        .order('order_index');
+
+      if (phasesError) throw phasesError;
+
       const projectsWithProgress = (projectsData || []).map(project => {
         const projectTasks = (tasksData || []).filter(t => t.project_id === project.id);
         const totalWeight = projectTasks.reduce((sum, t) => sum + Number(t.weight), 0);
@@ -96,7 +102,6 @@ export default function Projects() {
 
         const actual_progress: number | null = totalWeight > 0 ? weightedProgress / totalWeight : null;
 
-        // Calculate planned progress using business days (Mon-Fri)
         let planned_progress: number | null = null;
         if (project.start_date && project.end_date) {
           const start = new Date(project.start_date);
@@ -112,7 +117,9 @@ export default function Projects() {
           }
         }
 
-        return { ...project, actual_progress, planned_progress };
+        const phases = ((phasesData || []) as ProjectPhase[]).filter(p => p.project_id === project.id);
+
+        return { ...project, actual_progress, planned_progress, phases };
       });
 
       setProjects(projectsWithProgress as any);
