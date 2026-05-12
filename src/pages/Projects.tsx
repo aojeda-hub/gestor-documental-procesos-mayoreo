@@ -206,7 +206,7 @@ export default function Projects() {
               <TableRow>
                 <TableHead>Nombre del Proyecto</TableHead>
                 <TableHead>Silo</TableHead>
-                <TableHead>Fase Actual</TableHead>
+                <TableHead>Fases</TableHead>
                 <TableHead>Inicio</TableHead>
                 <TableHead>Cierre</TableHead>
                 <TableHead className="text-center">% Planificado</TableHead>
