@@ -86,19 +86,47 @@ export function ProjectTasksDialog({ open, onOpenChange, projectId, projectName,
       return;
     }
 
-    // Restriction: Only allow adding tasks to current phase unless it's 'Alineación' (planning)
-    // Actually, user says: "Al crear proyecto: definir todas las tareas planificadas por fase"
-    // and "No permitir agregar tareas a fases futuras o pasadas".
-    // I'll assume they can plan everything while in 'Alineación'.
-    // But once they move forward, they are locked to the current phase.
-    
-    // I need the current project phase. I'll pass it as a prop or fetch it.
-    // Let's assume I have a `projectPhase` prop.
-
+    // Ensure phases exist for this project
+    const ensurePhases = async () => {
+      const { data: existing, error: err } = await supabase
+        .from('project_phases')
+        .select('id')
+        .eq('project_id', projectId);
+      if (err) throw err;
+      if (existing && existing.length > 0) return;
+      // No phases, create the default ones
+      const phasesToInsert = PHASES.map((name, idx) => ({
+        project_id: projectId,
+        name,
+        order_index: idx + 1,
+        status: idx === 0 ? 'activa' : 'bloqueada',
+      }));
+      const { error: insertErr } = await supabase.from('project_phases').insert(phasesToInsert);
+      if (insertErr) throw insertErr;
+    };
     try {
-      const { error } = await supabase
-        .from('project_tasks')
-        .insert({ ...taskForm, project_id: projectId });
+      await ensurePhases();
+      // Find the phase id for the selected phase name
+      const { data: phaseData, error: phaseErr } = await supabase
+        .from('project_phases')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('name', taskForm.phase)
+        .single();
+      if (phaseErr) throw phaseErr;
+
+
+      const { error } = await supabase.from('project_tasks').insert({
+        project_id: projectId,
+        phase_id: phaseData.id,
+        phase: taskForm.phase,
+        name: taskForm.name,
+        weight: taskForm.weight,
+        status: taskForm.status,
+        progress_percent: taskForm.progress_percent,
+        start_date: taskForm.start_date || null,
+        end_date: taskForm.end_date || null,
+      });
 
       if (error) throw error;
       toast({ title: 'Tarea añadida' });
