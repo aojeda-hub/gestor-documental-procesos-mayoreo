@@ -19,10 +19,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   projectName: string;
+  projectPhase?: string;
   onTasksChange: () => void;
 }
 
 const PROGRESS_OPTIONS = [0, 25, 50, 75, 100];
+const DEFAULT_PHASES = ['Alineación', 'Diseño', 'Construcción', 'Implementación', 'Adopción'];
 
 const STATUS_META: Record<PhaseStatus, { label: string; cls: string; icon: any }> = {
   completada: { label: 'Completada', cls: 'bg-emerald-500/15 text-emerald-700 border-emerald-300', icon: CheckCircle2 },
