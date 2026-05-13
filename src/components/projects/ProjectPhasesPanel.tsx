@@ -19,10 +19,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   projectName: string;
+  projectPhase?: string;
   onTasksChange: () => void;
 }
 
 const PROGRESS_OPTIONS = [0, 25, 50, 75, 100];
+const DEFAULT_PHASES = ['Alineación', 'Diseño', 'Construcción', 'Implementación', 'Adopción'];
 
 const STATUS_META: Record<PhaseStatus, { label: string; cls: string; icon: any }> = {
   completada: { label: 'Completada', cls: 'bg-emerald-500/15 text-emerald-700 border-emerald-300', icon: CheckCircle2 },
@@ -30,7 +32,7 @@ const STATUS_META: Record<PhaseStatus, { label: string; cls: string; icon: any }
   bloqueada:  { label: 'Bloqueada',  cls: 'bg-muted text-muted-foreground border-border',          icon: Lock },
 };
 
-export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName, onTasksChange }: Props) {
+export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName, projectPhase, onTasksChange }: Props) {
   const { toast } = useToast();
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
@@ -44,15 +46,33 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [{ data: ph, error: e1 }, { data: tk, error: e2 }] = await Promise.all([
-        supabase.from('project_phases').select('*').eq('project_id', projectId).order('order_index'),
-        supabase.from('project_tasks').select('*').eq('project_id', projectId).order('created_at'),
-      ]);
+      let { data: ph, error: e1 } = await supabase
+        .from('project_phases').select('*').eq('project_id', projectId).order('order_index');
       if (e1) throw e1;
+
+      // Auto-seed default phases if none exist
+      if (!ph || ph.length === 0) {
+        const activeIdx = Math.max(0, DEFAULT_PHASES.indexOf(projectPhase || ''));
+        const toInsert = DEFAULT_PHASES.map((name, idx) => ({
+          project_id: projectId,
+          name,
+          order_index: idx + 1,
+          status: idx < activeIdx ? 'completada' : idx === activeIdx ? 'activa' : 'bloqueada',
+        }));
+        const { error: insErr } = await supabase.from('project_phases').insert(toInsert);
+        if (insErr) throw insErr;
+        const reload = await supabase
+          .from('project_phases').select('*').eq('project_id', projectId).order('order_index');
+        if (reload.error) throw reload.error;
+        ph = reload.data;
+      }
+
+      const { data: tk, error: e2 } = await supabase
+        .from('project_tasks').select('*').eq('project_id', projectId).order('created_at');
       if (e2) throw e2;
+
       setPhases((ph || []) as ProjectPhase[]);
       setTasks((tk || []) as ProjectTask[]);
-      // Auto-seleccionar fase activa si no hay seleccion previa
       const active = (ph || []).find((p: any) => p.status === 'activa');
       setSelectedPhaseId(prev => prev ?? active?.id ?? (ph?.[0]?.id ?? null));
     } catch (err: any) {

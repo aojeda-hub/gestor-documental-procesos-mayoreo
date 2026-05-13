@@ -382,6 +382,7 @@ export default function Projects() {
           onOpenChange={setTasksDialogOpen}
           projectId={selectedProject.id}
           projectName={selectedProject.name}
+          projectPhase={selectedProject.phase}
           onTasksChange={fetchProjects}
         />
       )}
