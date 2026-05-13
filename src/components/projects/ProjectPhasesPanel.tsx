@@ -32,7 +32,7 @@ const STATUS_META: Record<PhaseStatus, { label: string; cls: string; icon: any }
   bloqueada:  { label: 'Bloqueada',  cls: 'bg-muted text-muted-foreground border-border',          icon: Lock },
 };
 
-export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName, onTasksChange }: Props) {
+export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName, projectPhase, onTasksChange }: Props) {
   const { toast } = useToast();
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
