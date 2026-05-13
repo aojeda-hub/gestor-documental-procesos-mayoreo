@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { SILO_LABELS } from '@/types/database';
 import type { Project, SiloType } from '@/types/database';
 
@@ -42,6 +43,7 @@ const emptyForm = {
 
 export function ProjectFormDialog({ open, onOpenChange, project, onSave }: ProjectFormDialogProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
@@ -75,7 +77,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
       if (project) {
         ({ error } = await supabase.from('projects').update(payload).eq('id', project.id));
       } else {
-        ({ error } = await supabase.from('projects').insert(payload));
+        ({ error } = await supabase.from('projects').insert({ ...payload, created_by: user?.id }));
       }
 
       if (error) throw error;
