@@ -153,7 +153,20 @@ export default function Seguimientos() {
     const g: Record<Estado, Seguimiento[]> = {
       pendiente: [], en_revision: [], en_progreso: [], completado: [], cancelado: [],
     };
+    
+    const priorityWeight: Record<Prioridad, number> = {
+      critica: 4,
+      alta: 3,
+      media: 2,
+      baja: 1,
+    };
+
     items.forEach(i => g[i.estado].push(i));
+
+    (Object.keys(g) as Estado[]).forEach(estado => {
+      g[estado].sort((a, b) => priorityWeight[b.prioridad] - priorityWeight[a.prioridad]);
+    });
+
     return g;
   }, [items]);
 
