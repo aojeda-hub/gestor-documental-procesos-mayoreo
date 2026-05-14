@@ -9,31 +9,23 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Plus, Calendar, User, Tag, Trash2, Pencil, AlertCircle, StickyNote, Send, Maximize2 } from 'lucide-react';
+import { 
+  Plus, Calendar, User, Tag, Trash2, Pencil, 
+  AlertCircle, StickyNote, Send, Maximize2, 
+  LayoutGrid, Trello, ChevronLeft 
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { SeguimientoCardDialog } from '@/components/seguimientos/SeguimientoCardDialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BoardList } from '@/components/seguimientos/BoardList';
+import { CustomBoardView } from '@/components/seguimientos/CustomBoardView';
+import type { Seguimiento, SeguimientoBoard, SeguimientoColumn } from '@/types/database';
 
 type Estado = 'pendiente' | 'en_revision' | 'en_progreso' | 'completado' | 'cancelado';
 type Prioridad = 'baja' | 'media' | 'alta' | 'critica';
-
-interface Seguimiento {
-  id: string;
-  user_id: string;
-  titulo: string;
-  descripcion: string | null;
-  estado: Estado;
-  prioridad: Prioridad;
-  responsable: string | null;
-  categoria: string | null;
-  fecha_limite: string | null;
-  fecha_completado: string | null;
-  orden: number;
-  created_at: string;
-  updated_at: string;
-}
 
 const COLUMNS: { key: Estado; label: string; color: string }[] = [
   { key: 'pendiente', label: 'Pendiente', color: 'bg-slate-500' },
@@ -75,6 +67,11 @@ export default function Seguimientos() {
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
   const [cardOpen, setCardOpen] = useState(false);
   const [cardId, setCardId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('general');
+  const [boards, setBoards] = useState<SeguimientoBoard[]>([]);
+  const [columns, setColumns] = useState<SeguimientoColumn[]>([]);
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+  const [loadingBoards, setLoadingBoards] = useState(false);
 
   const openCard = (id: string) => { setCardId(id); setCardOpen(true); };
 
@@ -147,7 +144,19 @@ export default function Seguimientos() {
     if (notesFor) setNoteCounts(prev => ({ ...prev, [notesFor.id]: Math.max(0, (prev[notesFor.id] || 1) - 1) }));
   };
 
-  useEffect(() => { load(); }, [user]);
+  useEffect(() => { 
+    load(); 
+    loadBoards();
+  }, [user]);
+
+  const loadBoards = async () => {
+    if (!user) return;
+    setLoadingBoards(true);
+    const { data, error } = await supabase.from('seguimiento_boards').select('*').order('created_at', { ascending: false });
+    if (error) console.error('Error boards:', error);
+    else setBoards(data || []);
+    setLoadingBoards(false);
+  };
 
   const grouped = useMemo(() => {
     const g: Record<Estado, Seguimiento[]> = {
@@ -242,29 +251,45 @@ export default function Seguimientos() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6 container mx-auto p-4 sm:p-6 pb-20">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-semibold">Mis Seguimientos</h1>
-          <p className="text-sm text-muted-foreground">Gestión personal de incidencias y casos</p>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Seguimientos</h1>
+          <p className="text-slate-500 mt-1">Gestión de proyectos, tareas e iniciativas del equipo.</p>
         </div>
-        <Button onClick={() => openNew()} className="gap-2">
-          <Plus className="h-4 w-4" /> Nuevo seguimiento
+        <Button 
+          onClick={() => openNew()}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all duration-300 active:scale-95"
+        >
+          <Plus className="h-5 w-5 mr-2" />
+          Nuevo seguimiento
         </Button>
       </div>
 
-      {/* Métricas */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Total</div><div className="text-2xl font-semibold">{totals.total}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Activos</div><div className="text-2xl font-semibold text-blue-400">{totals.activos}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Completados</div><div className="text-2xl font-semibold text-emerald-400">{totals.completados}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Vencidos</div><div className="text-2xl font-semibold text-rose-400">{totals.vencidos}</div></Card>
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="bg-slate-100/50 p-1 mb-6">
+          <TabsTrigger value="general" className="gap-2 px-4 py-2">
+            <LayoutGrid className="h-4 w-4" />
+            General
+          </TabsTrigger>
+          <TabsTrigger value="custom" className="gap-2 px-4 py-2">
+            <Trello className="h-4 w-4" />
+            Tableros Personalizados
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Kanban */}
-      {loading ? (
-        <div className="text-center text-muted-foreground py-12">Cargando...</div>
-      ) : (
+        <TabsContent value="general" className="mt-0 outline-none">
+          {/* Métricas */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <Card className="p-4 border-slate-200 shadow-sm"><div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total</div><div className="text-2xl font-bold text-slate-900">{totals.total}</div></Card>
+            <Card className="p-4 border-slate-200 shadow-sm"><div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Activos</div><div className="text-2xl font-bold text-blue-600">{totals.activos}</div></Card>
+            <Card className="p-4 border-slate-200 shadow-sm"><div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Completados</div><div className="text-2xl font-bold text-emerald-600">{totals.completados}</div></Card>
+            <Card className="p-4 border-slate-200 shadow-sm"><div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vencidos</div><div className="text-2xl font-bold text-rose-600">{totals.vencidos}</div></Card>
+          </div>
+
+          {loading ? (
+            <div className="text-center text-slate-400 py-12">Cargando...</div>
+          ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           {COLUMNS.map(col => (
             <div
@@ -351,7 +376,25 @@ export default function Seguimientos() {
             </div>
           ))}
         </div>
-      )}
+          )}
+        </TabsContent>
+
+        <TabsContent value="custom" className="mt-0 outline-none">
+          {selectedBoardId ? (
+            <CustomBoardView 
+              board={boards.find(b => b.id === selectedBoardId)!} 
+              onBack={() => setSelectedBoardId(null)}
+              onOpenTask={openCard}
+            />
+          ) : (
+            <BoardList 
+              boards={boards} 
+              onSelectBoard={setSelectedBoardId} 
+              onRefresh={loadBoards} 
+            />
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

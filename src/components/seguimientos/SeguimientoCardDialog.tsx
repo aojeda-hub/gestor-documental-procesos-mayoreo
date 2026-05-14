@@ -12,8 +12,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
   Tag, Calendar, CheckSquare, Users, Paperclip, MapPin, StickyNote,
-  Plus, Trash2, X, Download, Send, Link2, Loader2,
+  Plus, Trash2, X, Download, Send, Link2, Loader2, Layout,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -53,14 +54,16 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
   const [newLink, setNewLink] = useState('');
   const [newLinkName, setNewLinkName] = useState('');
   const [uploading, setUploading] = useState(false);
-  const [editLoc, setEditLoc] = useState('');
-  const [editStart, setEditStart] = useState('');
   const [editEnd, setEditEnd] = useState('');
+  const [allBoards, setAllBoards] = useState<any[]>([]);
+  const [boardCols, setBoardCols] = useState<any[]>([]);
+  const [currentBoardId, setCurrentBoardId] = useState<string | null>(null);
+  const [currentColId, setCurrentColId] = useState<string | null>(null);
 
   const loadAll = async () => {
     if (!seguimientoId) return;
     setLoading(true);
-    const [s, cls, adj, et, mis, miem, prof, nts] = await Promise.all([
+    const results = await Promise.all([
       supabase.from('seguimientos' as any).select('*').eq('id', seguimientoId).single(),
       supabase.from('seguimiento_checklists' as any).select('*').eq('seguimiento_id', seguimientoId).order('orden'),
       supabase.from('seguimiento_adjuntos' as any).select('*').eq('seguimiento_id', seguimientoId).order('created_at', { ascending: false }),
@@ -69,11 +72,31 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
       supabase.from('seguimiento_miembros' as any).select('*').eq('seguimiento_id', seguimientoId),
       supabase.from('profiles').select('user_id, full_name, email').order('full_name'),
       supabase.from('seguimiento_notas' as any).select('*').eq('seguimiento_id', seguimientoId).order('created_at', { ascending: false }),
+      supabase.from('seguimiento_boards').select('*').order('nombre'),
     ]);
+
+    const [s, cls, adj, et, mis, miem, prof, nts, brds] = results;
+
     setSeg(s.data);
-    setEditLoc((s.data as any)?.ubicacion || '');
-    setEditStart((s.data as any)?.fecha_inicio || '');
-    setEditEnd((s.data as any)?.fecha_limite || '');
+    const segData = s.data as any;
+    setEditLoc(segData?.ubicacion || '');
+    setEditStart(segData?.fecha_inicio || '');
+    setEditEnd(segData?.fecha_limite || '');
+    setCurrentBoardId(segData?.board_id || null);
+    setCurrentColId(segData?.column_id || null);
+    setAllBoards((brds.data as any[]) || []);
+
+    if (segData?.board_id) {
+      const { data: colsData } = await supabase
+        .from('seguimiento_columns')
+        .select('*')
+        .eq('board_id', segData.board_id)
+        .order('orden');
+      setBoardCols(colsData || []);
+    } else {
+      setBoardCols([]);
+    }
+
     const clList = (cls.data as any[]) || [];
     setChecklists(clList);
     if (clList.length) {
@@ -262,6 +285,26 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
     return p?.full_name || p?.email || uid.slice(0, 8);
   };
 
+  const handleBoardChange = async (boardId: string) => {
+    const val = boardId === 'general' ? null : boardId;
+    const { error } = await supabase.from('seguimientos' as any).update({
+       board_id: val,
+       column_id: null
+    }).eq('id', seguimientoId);
+    if (error) return notify(error);
+    loadAll();
+    refreshOuter();
+  };
+
+  const handleColumnChange = async (colId: string) => {
+    const { error } = await supabase.from('seguimientos' as any).update({
+       column_id: colId
+    }).eq('id', seguimientoId);
+    if (error) return notify(error);
+    loadAll();
+    refreshOuter();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -413,6 +456,47 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
                   <Label className="text-xs">Ubicación</Label>
                   <Input value={editLoc} onChange={e => setEditLoc(e.target.value)} placeholder="Dirección o lugar" className="h-8" />
                   <Button size="sm" className="w-full" onClick={saveMeta}>Guardar</Button>
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5"><Layout className="h-3.5 w-3.5" />Tablero</Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 space-y-4">
+                  <div>
+                    <Label className="text-xs">Mover a Tablero</Label>
+                    <Select value={currentBoardId || 'general'} onValueChange={handleBoardChange}>
+                      <SelectTrigger className="h-8 mt-1">
+                        <SelectValue placeholder="General" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="general">Tablero General</SelectItem>
+                        {allBoards.map(b => (
+                          <SelectItem key={b.id} value={b.id}>{b.nombre}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {currentBoardId && (
+                    <div>
+                      <Label className="text-xs">Columna (Lista)</Label>
+                      <Select value={currentColId || ''} onValueChange={handleColumnChange}>
+                        <SelectTrigger className="h-8 mt-1">
+                          <SelectValue placeholder="Seleccionar lista..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {boardCols.length === 0 && <div className="p-2 text-xs text-muted-foreground">No hay listas en este tablero</div>}
+                          {boardCols.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    Mover una tarea entre tableros permite organizar el flujo de trabajo de forma colaborativa.
+                  </p>
                 </PopoverContent>
               </Popover>
             </div>

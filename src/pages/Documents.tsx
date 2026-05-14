@@ -388,6 +388,60 @@ export default function Documents() {
     }
   };
 
+  const handleDownloadDoc = async (doc: Document, fmt: 'pdf' | 'word') => {
+    const { data } = await supabase.from('document_versions').select('*')
+      .eq('document_id', doc.id).eq('is_current', true).maybeSingle();
+    const version = data as any;
+    
+    let url = fmt === 'pdf' ? version?.url_pdf : version?.url_word;
+    
+    // Si no hay archivo directo, intentar generar link de exportación desde Drive
+    if (!url && (doc.drive_link || version?.url_word)) {
+      const driveUrl = doc.drive_link || version?.url_word;
+      if (driveUrl) {
+        // Extraer el ID del documento (funciona para docs.google.com y drive.google.com)
+        const idMatch = driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        const docId = idMatch ? idMatch[1] : null;
+
+        if (docId) {
+          if (driveUrl.includes('docs.google.com/document/')) {
+            url = fmt === 'pdf' 
+              ? `https://docs.google.com/document/d/${docId}/export?format=pdf`
+              : `https://docs.google.com/document/d/${docId}/export?format=docx`;
+          } else if (driveUrl.includes('docs.google.com/spreadsheets/')) {
+            url = fmt === 'pdf'
+              ? `https://docs.google.com/spreadsheets/d/${docId}/export?format=pdf`
+              : `https://docs.google.com/spreadsheets/d/${docId}/export?format=xlsx`;
+          } else if (driveUrl.includes('docs.google.com/presentation/')) {
+            url = fmt === 'pdf'
+              ? `https://docs.google.com/presentation/d/${docId}/export/pdf`
+              : `https://docs.google.com/presentation/d/${docId}/export/pptx`;
+          } else if (driveUrl.includes('drive.google.com/file/')) {
+            // Para archivos generales de Drive (como PDFs ya subidos)
+            url = `https://drive.google.com/uc?export=download&id=${docId}`;
+          }
+        }
+      }
+    }
+
+    if (url) {
+      const link = document.createElement('a');
+      link.href = url;
+      // Intentar forzar descarga. Nota: Para enlaces externos como Google Drive, 
+      // el navegador igual podría abrirlo en pestaña nueva si el servidor lo requiere.
+      link.setAttribute('download', `${doc.title}.${fmt}`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      toast({ 
+        title: 'Sin archivo', 
+        description: `No hay archivo ${fmt === 'pdf' ? 'PDF' : 'Word'} disponible ni enlace de Drive compatible.`, 
+        variant: 'destructive' 
+      });
+    }
+  };
+
   const onCreateFromCard = (silo: SiloType, docType: DocType, initialTitle?: string) => {
     setFormSilo(silo);
     setFormType(docType);
@@ -435,14 +489,7 @@ export default function Documents() {
           onEditDoc={openDetails}
           onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
           onBulkDelete={(selectedDocs) => { setBulkDeleteDocs(selectedDocs); setShowBulkDeleteAlert(true); }}
-          onDownload={async (doc, fmt) => {
-            const { data } = await supabase.from('document_versions').select('*')
-              .eq('document_id', doc.id).eq('is_current', true).single();
-            const version = data as any;
-            const url = fmt === 'pdf' ? version?.url_pdf : version?.url_word;
-            if (url) window.open(url, '_blank');
-            else toast({ title: 'Sin archivo', description: `No hay archivo ${fmt === 'pdf' ? 'PDF' : 'Word'} disponible.`, variant: 'destructive' });
-          }}
+          onDownload={handleDownloadDoc}
           onCreateDoc={onCreateFromCard}
         />
       ) : (
@@ -532,14 +579,7 @@ export default function Documents() {
               onEditDoc={openDetails}
               onDeleteDoc={(doc) => { setSelectedDoc(doc); setShowDeleteAlert(true); }}
               onBulkDelete={(selectedDocs) => { setBulkDeleteDocs(selectedDocs); setShowBulkDeleteAlert(true); }}
-              onDownload={async (doc, fmt) => {
-                const { data } = await supabase.from('document_versions').select('*')
-                  .eq('document_id', doc.id).eq('is_current', true).single();
-                const version = data as any;
-                const url = fmt === 'pdf' ? version?.url_pdf : version?.url_word;
-                if (url) window.open(url, '_blank');
-                else toast({ title: 'Sin archivo', description: `No hay archivo ${fmt === 'pdf' ? 'PDF' : 'Word'} disponible.`, variant: 'destructive' });
-              }}
+              onDownload={handleDownloadDoc}
               onCreateDoc={(silo, docType, initialTitle) => onCreateFromCard('sinsilo' as SiloType, docType, initialTitle)}
             />
           )}

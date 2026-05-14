@@ -139,17 +139,41 @@ export default function DocumentPreviewDialog({
               {current && (
                 <Button size="sm" variant="outline" asChild>
                   <a href={current.url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Abrir
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Abrir original
                   </a>
                 </Button>
               )}
-              {current && current.key !== 'drive' && (
-                <Button size="sm" asChild>
-                  <a href={current.url} download>
-                    <Download className="h-3.5 w-3.5 mr-1.5" /> Descargar
-                  </a>
-                </Button>
-              )}
+              {current && (() => {
+                let downloadUrl = current.url;
+                const isGoogle = current.url.includes('docs.google.com') || current.url.includes('drive.google.com');
+                
+                if (isGoogle) {
+                  const idMatch = current.url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                  const docId = idMatch ? idMatch[1] : null;
+                  
+                  if (!docId) return null;
+
+                  if (current.url.includes('docs.google.com/document/')) {
+                    downloadUrl = `https://docs.google.com/document/d/${docId}/export?format=pdf`;
+                  } else if (current.url.includes('docs.google.com/spreadsheets/')) {
+                    downloadUrl = `https://docs.google.com/spreadsheets/d/${docId}/export?format=pdf`;
+                  } else if (current.url.includes('docs.google.com/presentation/')) {
+                    downloadUrl = `https://docs.google.com/presentation/d/${docId}/export/pdf`;
+                  } else if (current.url.includes('drive.google.com/file/')) {
+                    downloadUrl = `https://drive.google.com/uc?export=download&id=${docId}`;
+                  } else {
+                    return null;
+                  }
+                }
+
+                return (
+                  <Button size="sm" asChild>
+                    <a href={downloadUrl} download={`${doc?.title || 'documento'}.pdf`}>
+                      <Download className="h-3.5 w-3.5 mr-1.5" /> Descargar PDF
+                    </a>
+                  </Button>
+                );
+              })()}
             </div>
           </div>
 

@@ -43,6 +43,43 @@ export interface Document {
   url_file?: string | null;
 }
 
+export interface Seguimiento {
+  id: string;
+  user_id: string;
+  titulo: string;
+  descripcion: string | null;
+  estado: 'pendiente' | 'en_revision' | 'en_progreso' | 'completado' | 'cancelado';
+  prioridad: 'baja' | 'media' | 'alta' | 'critica';
+  responsable: string | null;
+  categoria: string | null;
+  fecha_limite: string | null;
+  fecha_completado: string | null;
+  orden: number;
+  created_at: string;
+  updated_at: string;
+  board_id?: string | null;
+  column_id?: string | null;
+}
+
+export interface SeguimientoBoard {
+  id: string;
+  created_by: string;
+  nombre: string;
+  descripcion: string | null;
+  color: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SeguimientoColumn {
+  id: string;
+  board_id: string;
+  nombre: string;
+  orden: number;
+  color: string;
+  created_at: string;
+}
+
 export interface DocumentVersion {
   id: string;
   document_id: string;
