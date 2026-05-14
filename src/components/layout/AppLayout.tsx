@@ -43,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Section label */}
         <div className="px-5 pb-2 pt-4">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-sidebar-primary">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-slate-900">
             Gestión Procesos
           </span>
         </div>
@@ -59,8 +59,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-sm"
+                    : "text-slate-900 font-medium hover:bg-slate-200/50"
                 )}>
                 <item.icon className="h-[18px] w-[18px]" />
                 {item.label}
@@ -71,12 +71,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Footer */}
         <div className="border-t border-sidebar-border px-5 py-4 space-y-3">
-          <p className="text-xs text-sidebar-foreground truncate">
+          <p className="text-xs text-slate-600 truncate font-medium">
             {user?.email || 'usuario@correo.com'}
           </p>
           <button
             onClick={signOut}
-            className="flex items-center gap-2 text-sm text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors"
+            className="flex items-center gap-2 text-sm text-slate-900 hover:text-red-600 font-semibold transition-colors"
           >
             <LogOut className="h-4 w-4" />
             Cerrar Sesión
