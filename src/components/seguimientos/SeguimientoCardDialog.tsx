@@ -55,6 +55,8 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
   const [newLinkName, setNewLinkName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [editEnd, setEditEnd] = useState('');
+  const [editLoc, setEditLoc] = useState('');
+  const [editStart, setEditStart] = useState('');
   const [allBoards, setAllBoards] = useState<any[]>([]);
   const [boardCols, setBoardCols] = useState<any[]>([]);
   const [currentBoardId, setCurrentBoardId] = useState<string | null>(null);
@@ -63,61 +65,74 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
   const loadAll = async () => {
     if (!seguimientoId) return;
     setLoading(true);
-    const results = await Promise.all([
-      supabase.from('seguimientos' as any).select('*').eq('id', seguimientoId).single(),
-      supabase.from('seguimiento_checklists' as any).select('*').eq('seguimiento_id', seguimientoId).order('orden'),
-      supabase.from('seguimiento_adjuntos' as any).select('*').eq('seguimiento_id', seguimientoId).order('created_at', { ascending: false }),
-      supabase.from('seguimiento_etiqueta_items' as any).select('*, etiqueta:seguimiento_etiquetas(*)').eq('seguimiento_id', seguimientoId),
-      supabase.from('seguimiento_etiquetas' as any).select('*').order('nombre'),
-      supabase.from('seguimiento_miembros' as any).select('*').eq('seguimiento_id', seguimientoId),
-      supabase.from('profiles').select('user_id, full_name, email').order('full_name'),
-      supabase.from('seguimiento_notas' as any).select('*').eq('seguimiento_id', seguimientoId).order('created_at', { ascending: false }),
-      supabase.from('seguimiento_boards').select('*').order('nombre'),
-    ]);
+    try {
+      const results = await Promise.all([
+        supabase.from('seguimientos' as any).select('*').eq('id', seguimientoId).single(),
+        supabase.from('seguimiento_checklists' as any).select('*').eq('seguimiento_id', seguimientoId).order('orden'),
+        supabase.from('seguimiento_adjuntos' as any).select('*').eq('seguimiento_id', seguimientoId).order('created_at', { ascending: false }),
+        supabase.from('seguimiento_etiqueta_items' as any).select('*, etiqueta:seguimiento_etiquetas(*)').eq('seguimiento_id', seguimientoId),
+        supabase.from('seguimiento_etiquetas' as any).select('*').order('nombre'),
+        supabase.from('seguimiento_miembros' as any).select('*').eq('seguimiento_id', seguimientoId),
+        supabase.from('profiles').select('user_id, full_name, email').order('full_name'),
+        supabase.from('seguimiento_notas' as any).select('*').eq('seguimiento_id', seguimientoId).order('created_at', { ascending: false }),
+        supabase.from('seguimiento_boards').select('*').order('nombre'),
+      ]);
 
-    const [s, cls, adj, et, mis, miem, prof, nts, brds] = results;
+      const [s, cls, adj, et, mis, miem, prof, nts, brds] = results;
 
-    setSeg(s.data);
-    const segData = s.data as any;
-    setEditLoc(segData?.ubicacion || '');
-    setEditStart(segData?.fecha_inicio || '');
-    setEditEnd(segData?.fecha_limite || '');
-    setCurrentBoardId(segData?.board_id || null);
-    setCurrentColId(segData?.column_id || null);
-    setAllBoards((brds.data as any[]) || []);
+      if (s.error) {
+        console.error('Error loading seguimiento:', s.error);
+        notify(s.error);
+        onOpenChange(false);
+        return;
+      }
 
-    if (segData?.board_id) {
-      const { data: colsData } = await supabase
-        .from('seguimiento_columns')
-        .select('*')
-        .eq('board_id', segData.board_id)
-        .order('orden');
-      setBoardCols(colsData || []);
-    } else {
-      setBoardCols([]);
+      setSeg(s.data);
+      const segData = s.data as any;
+      setEditLoc(segData?.ubicacion || '');
+      setEditStart(segData?.fecha_inicio || '');
+      setEditEnd(segData?.fecha_limite || '');
+      setCurrentBoardId(segData?.board_id || null);
+      setCurrentColId(segData?.column_id || null);
+      setAllBoards((brds.data as any[]) || []);
+
+      if (segData?.board_id) {
+        const { data: colsData } = await supabase
+          .from('seguimiento_columns')
+          .select('*')
+          .eq('board_id', segData.board_id)
+          .order('orden');
+        setBoardCols(colsData || []);
+      } else {
+        setBoardCols([]);
+      }
+
+      const clList = (cls.data as any[]) || [];
+      setChecklists(clList);
+      if (clList.length) {
+        const { data: itData } = await supabase
+          .from('seguimiento_checklist_items' as any)
+          .select('*')
+          .in('checklist_id', clList.map(c => c.id))
+          .order('orden');
+        const grouped: Record<string, any[]> = {};
+        ((itData as any[]) || []).forEach(it => {
+          (grouped[it.checklist_id] ||= []).push(it);
+        });
+        setItems(grouped);
+      } else setItems({});
+      setAdjuntos((adj.data as any[]) || []);
+      setEtiquetas((et.data as any[]) || []);
+      setMisEtiquetas((mis.data as any[]) || []);
+      setMiembros((miem.data as any[]) || []);
+      setPerfiles((prof.data as any[]) || []);
+      setNotas((nts.data as any[]) || []);
+    } catch (error) {
+      console.error('Error in loadAll:', error);
+      toast({ title: 'Error', description: 'No se pudo cargar la información de la tarea', variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
-
-    const clList = (cls.data as any[]) || [];
-    setChecklists(clList);
-    if (clList.length) {
-      const { data: itData } = await supabase
-        .from('seguimiento_checklist_items' as any)
-        .select('*')
-        .in('checklist_id', clList.map(c => c.id))
-        .order('orden');
-      const grouped: Record<string, any[]> = {};
-      ((itData as any[]) || []).forEach(it => {
-        (grouped[it.checklist_id] ||= []).push(it);
-      });
-      setItems(grouped);
-    } else setItems({});
-    setAdjuntos((adj.data as any[]) || []);
-    setEtiquetas((et.data as any[]) || []);
-    setMisEtiquetas((mis.data as any[]) || []);
-    setMiembros((miem.data as any[]) || []);
-    setPerfiles((prof.data as any[]) || []);
-    setNotas((nts.data as any[]) || []);
-    setLoading(false);
   };
 
   useEffect(() => { if (open) loadAll(); }, [open, seguimientoId]);
