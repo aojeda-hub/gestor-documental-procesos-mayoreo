@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,10 @@ interface RecentDoc {
 }
 
 export default function Dashboard() {
+  const { profile, hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
+  const isRMPersonal = hasRole('responsable_metodos') && profile?.silo === 'personal';
+
   const [totalDocs, setTotalDocs] = useState(0);
   const [totalIndicators, setTotalIndicators] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -49,30 +54,53 @@ export default function Dashboard() {
   useEffect(() => {
     const load = async () => {
       const [docsRes, indRes, usersRes, projRes, docsData, recentRes] = await Promise.all([
-        supabase.from('documents').select('id', { count: 'exact', head: true }),
+        supabase.from('documents').select('id, confidential'),
         supabase.from('indicators').select('id', { count: 'exact', head: true }),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('projects' as any).select('id', { count: 'exact', head: true }),
-        supabase.from('documents').select('silo'),
-        supabase.from('documents').select('id, title, silo, updated_at').order('updated_at', { ascending: false }).limit(5),
+        supabase.from('documents').select('silo, confidential'),
+        supabase.from('documents').select('id, title, silo, updated_at, confidential').order('updated_at', { ascending: false }),
       ]);
-      setTotalDocs(docsRes.count || 0);
+
+      const allowedDocs = (docsRes.data || []).filter((d: any) => {
+        if (d.confidential) {
+          return isAdmin || isRMPersonal;
+        }
+        return true;
+      });
+      setTotalDocs(allowedDocs.length);
       setTotalIndicators(indRes.count || 0);
       setTotalUsers(usersRes.count || 0);
       setTotalProjects(projRes.count || 0);
 
+      const allowedSiloDocs = (docsData.data || []).filter((d: any) => {
+        if (d.confidential) {
+          return isAdmin || isRMPersonal;
+        }
+        return true;
+      });
+
       const map = new Map<SiloType, number>();
-      (docsData.data || []).forEach((d: any) => {
+      allowedSiloDocs.forEach((d: any) => {
         map.set(d.silo, (map.get(d.silo) || 0) + 1);
       });
       const stats: SiloStat[] = Array.from(map.entries())
         .map(([silo, count]) => ({ silo, count }))
         .sort((a, b) => b.count - a.count);
       setSiloStats(stats);
-      setRecentDocs((recentRes.data || []) as RecentDoc[]);
+
+      const allowedRecent = (recentRes.data || [])
+        .filter((d: any) => {
+          if (d.confidential) {
+            return isAdmin || isRMPersonal;
+          }
+          return true;
+        })
+        .slice(0, 5);
+      setRecentDocs(allowedRecent as RecentDoc[]);
     };
     load();
-  }, []);
+  }, [isAdmin, isRMPersonal]);
 
   const siloIcons: Record<string, typeof FileText> = {
     documentos: FileText, indicadores: BarChart3, usuarios: Users,

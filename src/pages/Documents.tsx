@@ -122,8 +122,17 @@ export default function Documents() {
 
   useEffect(() => { fetchDocs(); }, []);
 
-  // Filter docs by active empresa
-  const empresaDocs = docs.filter(d => d.empresa === activeEmpresa);
+  // Filter docs by active empresa and confidentiality
+  const isRMPersonal = hasRole('responsable_metodos') && profile?.silo === 'personal';
+  const isAdmin = hasRole('admin');
+
+  const empresaDocs = docs.filter(d => {
+    if (d.empresa !== activeEmpresa) return false;
+    if (d.confidential) {
+      return isAdmin || isRMPersonal;
+    }
+    return true;
+  });
 
   const sanitizeFileName = (name: string) =>
     name
@@ -675,7 +684,7 @@ export default function Documents() {
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="flex flex-row items-center justify-between space-y-0">
             <DialogTitle>Detalles del Documento</DialogTitle>
             {currentVersion && (currentVersion.url_word || currentVersion.url_pdf || currentVersion.url_file) && (
@@ -684,99 +693,71 @@ export default function Documents() {
               </Button>
             )}
           </DialogHeader>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2"><Label>Título</Label><Input value={formTitle} onChange={e => setFormTitle(e.target.value)} disabled={!canEdit} /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Tipo</Label>
-                    <Select value={formType} onValueChange={v => setFormType(v as DocType)} disabled={!canEdit}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Silo</Label>
-                    <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)} disabled={!canEdit}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
+          <div className="space-y-6 mt-4">
+            <div className="space-y-4">
+              <div className="space-y-2"><Label>Título</Label><Input value={formTitle} onChange={e => setFormTitle(e.target.value)} disabled={!canEdit} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select value={formType} onValueChange={v => setFormType(v as DocType)} disabled={!canEdit}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
-                <div className="flex items-center gap-2"><Switch checked={formConfidential} onCheckedChange={setFormConfidential} disabled={!canEdit} /><Label>Confidencial</Label></div>
+                <div className="space-y-2">
+                  <Label>Silo</Label>
+                  <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)} disabled={!canEdit}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2"><Switch checked={formConfidential} onCheckedChange={setFormConfidential} disabled={!canEdit} /><Label>Confidencial</Label></div>
 
-                {currentVersion && (
-                  <div className="border-y py-4 space-y-4">
-                    <h3 className="text-sm font-semibold flex items-center gap-2 text-primary"><Upload className="h-4 w-4" /> Versión Actual (v{currentVersion.version_number})</h3>
-                    <div className="space-y-2"><Label>Descripción</Label><Textarea value={vDesc} onChange={e => setVDesc(e.target.value)} disabled={!canEdit} /></div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2"><Label>Autores</Label><Input value={vAuthors} onChange={e => setVAuthors(e.target.value)} disabled={!canEdit} /></div>
-                      <div className="space-y-2"><Label>Aprobador</Label><Input value={vApprover} onChange={e => setVApprover(e.target.value)} disabled={!canEdit} /></div>
-                    </div>
-                    {canEdit && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1"><Label className="text-[10px]">Actualizar Word</Label><Input type="file" className="h-8 text-[10px]" onChange={e => setWordFile(e.target.files?.[0] || null)} /></div>
-                        <div className="space-y-1"><Label className="text-[10px]">Actualizar PDF</Label><Input type="file" className="h-8 text-[10px]" onChange={e => setPdfFile(e.target.files?.[0] || null)} /></div>
-                        <div className="space-y-1 col-span-2"><Label className="text-[10px]">Otros Archivos</Label><Input type="file" className="h-8 text-[10px]" onChange={e => setGenericFile(e.target.files?.[0] || null)} /></div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {canEdit && (
-                  <div className="flex gap-2">
-                    <Button className="flex-1" onClick={handleUpdateDoc} disabled={!formTitle || isUpdating}>
-                      {isUpdating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</> : 'Guardar Cambios'}
-                    </Button>
-                    <Button variant="destructive" onClick={() => setShowDeleteAlert(true)}>Eliminar</Button>
-                  </div>
-                )}
+              <div className="space-y-2">
+                <Label>Enlace Google Drive</Label>
+                <Input 
+                  placeholder="https://docs.google.com/document/d/..." 
+                  value={vDriveUrl} 
+                  onChange={e => setVDriveUrl(e.target.value)} 
+                  disabled={!canEdit} 
+                />
               </div>
 
-              <div className="border-t pt-4">
-                <h3 className="mb-4 text-sm font-semibold flex items-center gap-2"><FileText className="h-4 w-4" /> Historial de Versiones</h3>
-                {versions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic text-center py-4">Sin versiones.</p>
-                ) : (
-                  <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                    {versions.map(v => (
-                      <div key={v.id} className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4 text-xs">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold">v{v.version_number}</span>
-                            {v.is_current && <Badge variant="default" className="text-[10px] h-4">Actual</Badge>}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {v.url_pdf && <a href={v.url_pdf} target="_blank" className="text-primary hover:underline">PDF</a>}
-                            {v.url_word && <a href={v.url_word} target="_blank" className="text-primary hover:underline">Word</a>}
-                            {v.url_file && <a href={v.url_file} target="_blank" className="text-primary hover:underline">Ver</a>}
-                          </div>
-                        </div>
-                        <div className="text-[10px] text-muted-foreground italic truncate">"{v.description}"</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {canEdit && (
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={handleUpdateDoc} disabled={!formTitle || isUpdating}>
+                    {isUpdating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</> : 'Guardar Cambios'}
+                  </Button>
+                  <Button variant="destructive" onClick={() => setShowDeleteAlert(true)}>Eliminar</Button>
+                </div>
+              )}
             </div>
 
-            <div className="hidden lg:flex flex-col border rounded-lg bg-muted/20 min-h-[400px]">
-              <div className="p-3 border-b flex items-center justify-between rounded-t-lg">
-                <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Previsualización</span>
-              </div>
-              <div className="flex-1 flex items-center justify-center p-4">
-                {currentVersion?.url_pdf ? (
-                  <iframe src={currentVersion.url_pdf} className="w-full h-full rounded border shadow-sm" title="Preview" />
-                ) : currentVersion?.url_file?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                  <img src={currentVersion.url_file} className="max-w-full max-h-full object-contain shadow-sm" alt="Preview" />
-                ) : (
-                  <div className="text-center space-y-2">
-                    <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto" />
-                    <p className="text-sm text-muted-foreground">Previsualización no disponible</p>
-                  </div>
-                )}
-              </div>
+            <div className="border-t pt-4">
+              <h3 className="mb-4 text-sm font-semibold flex items-center gap-2"><FileText className="h-4 w-4" /> Historial de Versiones</h3>
+              {versions.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic text-center py-4">Sin versiones.</p>
+              ) : (
+                <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+                  {versions.map(v => (
+                    <div key={v.id} className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">v{v.version_number}</span>
+                          {v.is_current && <Badge variant="default" className="text-[10px] h-4">Actual</Badge>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {v.url_pdf && <a href={v.url_pdf} target="_blank" className="text-primary hover:underline">PDF</a>}
+                          {v.url_word && <a href={v.url_word} target="_blank" className="text-primary hover:underline">Word</a>}
+                          {v.url_file && <a href={v.url_file} target="_blank" className="text-primary hover:underline">Ver</a>}
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground italic truncate">"{v.description}"</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </DialogContent>

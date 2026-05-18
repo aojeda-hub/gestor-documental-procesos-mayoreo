@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, BarChart3, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export default function StatsCards() {
+  const { profile, hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
+  const isRMPersonal = hasRole('responsable_metodos') && profile?.silo === 'personal';
+
   const [totalDocs, setTotalDocs] = useState(0);
   const [totalIndicators, setTotalIndicators] = useState(0);
   const [pendingAlerts, setPendingAlerts] = useState(0);
@@ -12,18 +17,33 @@ export default function StatsCards() {
   useEffect(() => {
     const load = async () => {
       const [docs, inds, alerts, versions] = await Promise.all([
-        supabase.from('documents').select('id', { count: 'exact', head: true }),
+        supabase.from('documents').select('id, confidential'),
         supabase.from('indicators').select('id', { count: 'exact', head: true }),
         supabase.from('review_alerts').select('id', { count: 'exact', head: true }).eq('acknowledged', false),
-        supabase.from('document_versions').select('document_id').eq('is_current', true),
+        supabase.from('document_versions').select('document_id, documents(confidential)').eq('is_current', true),
       ]);
-      setTotalDocs(docs.count || 0);
+
+      const allowedDocs = (docs.data || []).filter((d: any) => {
+        if (d.confidential) {
+          return isAdmin || isRMPersonal;
+        }
+        return true;
+      });
+      setTotalDocs(allowedDocs.length);
       setTotalIndicators(inds.count || 0);
       setPendingAlerts(alerts.count || 0);
-      setCurrentVersions(new Set((versions.data || []).map(v => v.document_id)).size);
+
+      const allowedVersions = (versions.data || []).filter((v: any) => {
+        const docConfidential = (v.documents as any)?.confidential;
+        if (docConfidential) {
+          return isAdmin || isRMPersonal;
+        }
+        return true;
+      });
+      setCurrentVersions(new Set(allowedVersions.map(v => v.document_id)).size);
     };
     load();
-  }, []);
+  }, [isAdmin, isRMPersonal]);
 
   const stats = [
     { label: 'Documentos', value: totalDocs, icon: FileText, color: 'text-primary' },
