@@ -23,6 +23,7 @@ import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog';
 import { ProjectPhasesPanel } from '@/components/projects/ProjectPhasesPanel';
 import { ProjectKickoffDialog } from '@/components/projects/ProjectKickoffDialog';
 import { ProjectDocumentsDialog } from '@/components/projects/ProjectDocumentsDialog';
+import { ProjectSummaryDialog } from '@/components/projects/ProjectSummaryDialog';
 import { ModernGantt } from '@/components/projects/ModernGantt';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -64,7 +65,8 @@ export default function Projects() {
   const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
   const [docsDialogOpen, setDocsDialogOpen] = useState(false);
   const [certificaErpOpen, setCertificaErpOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[] }) | null>(null);
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
 
   const canEdit = hasRole('admin') || hasRole('editor');
@@ -243,7 +245,14 @@ export default function Projects() {
 
                 return (
                   <TableRow key={project.id}>
-                    <TableCell className="font-medium">{project.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <button 
+                        onClick={() => { setSelectedProject(project); setSummaryDialogOpen(true); }}
+                        className="hover:underline text-left font-semibold text-primary transition-all hover:text-primary/80 focus:outline-none"
+                      >
+                        {project.name}
+                      </button>
+                    </TableCell>
                     <TableCell><Badge variant="outline">{SILO_LABELS[project.silo]}</Badge></TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -395,6 +404,12 @@ export default function Projects() {
           projectName={selectedProject.name}
         />
       )}
+
+      <ProjectSummaryDialog
+        open={summaryDialogOpen}
+        onOpenChange={setSummaryDialogOpen}
+        project={selectedProject}
+      />
     </div>
   );
 }
