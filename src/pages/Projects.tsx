@@ -312,14 +312,16 @@ export default function Projects() {
                         >
                           <ListChecks className="h-4 w-4 text-blue-600" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => { setSelectedProject(project); setDocsDialogOpen(true); }}
-                          title="Documentos de soporte"
-                        >
-                          <Paperclip className="h-4 w-4 text-emerald-600" />
-                        </Button>
+                        {!hasRole('viewer') && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => { setSelectedProject(project); setDocsDialogOpen(true); }}
+                            title="Documentos de soporte"
+                          >
+                            <Paperclip className="h-4 w-4 text-emerald-600" />
+                          </Button>
+                        )}
                         {canEdit && (
                           <>
                             <Button 

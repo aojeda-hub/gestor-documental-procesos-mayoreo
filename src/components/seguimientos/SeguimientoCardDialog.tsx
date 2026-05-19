@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
   Tag, Calendar, CheckSquare, Users, Paperclip, MapPin, StickyNote,
-  Plus, Trash2, X, Download, Send, Link2, Loader2, Layout,
+  Plus, Trash2, X, Download, Send, Link2, Loader2, Layout, ExternalLink,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -579,7 +579,9 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
                       {a.enlace ? <Link2 className="h-4 w-4 text-blue-400" /> : <Paperclip className="h-4 w-4 text-muted-foreground" />}
                       <span className="text-sm flex-1 truncate">{a.nombre}</span>
                       <span className="text-[11px] text-muted-foreground">{format(new Date(a.created_at), "d MMM", { locale: es })}</span>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => downloadAdj(a)}><Download className="h-3 w-3" /></Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" title={a.enlace ? "Abrir enlace" : "Descargar"} onClick={() => downloadAdj(a)}>
+                        {a.enlace ? <ExternalLink className="h-3 w-3" /> : <Download className="h-3 w-3" />}
+                      </Button>
                       <Button size="icon" variant="ghost" className="h-7 w-7 text-rose-400 opacity-0 group-hover:opacity-100" onClick={() => delAdj(a)}><Trash2 className="h-3 w-3" /></Button>
                     </Card>
                   ))}

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,8 @@ const STATUS_META: Record<PhaseStatus, { label: string; cls: string; icon: any }
 
 export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName, projectPhase, onTasksChange }: Props) {
   const { toast } = useToast();
+  const { hasRole } = useAuth();
+  const isViewer = hasRole('viewer');
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [loading, setLoading] = useState(false);
@@ -109,7 +112,7 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
     return wp / w;
   }, [tasks]);
 
-  const canEditPhase = (p: ProjectPhase | null) => p?.status === 'activa';
+  const canEditPhase = (p: ProjectPhase | null) => p?.status === 'activa' && !isViewer;
 
   const addTask = async () => {
     if (!selectedPhase || !canEditPhase(selectedPhase) || !newTaskName.trim()) return;

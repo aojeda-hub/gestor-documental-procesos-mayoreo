@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,8 @@ const AGENDA_ITEMS = [
 
 export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: ProjectKickoffDialogProps) {
   const { toast } = useToast();
+  const { hasRole } = useAuth();
+  const isViewer = hasRole('viewer');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>({
     date: '',
@@ -233,19 +236,19 @@ export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: Pr
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Fecha</Label>
-                  <Input type="date" value={data.date} onChange={e => setData({...data, date: e.target.value})} />
+                  <Input type="date" value={data.date} onChange={e => setData({...data, date: e.target.value})} disabled={isViewer} />
                 </div>
                 <div className="space-y-2">
                   <Label>Hora</Label>
-                  <Input type="time" value={data.time} onChange={e => setData({...data, time: e.target.value})} />
+                  <Input type="time" value={data.time} onChange={e => setData({...data, time: e.target.value})} disabled={isViewer} />
                 </div>
                 <div className="space-y-2">
                   <Label>Duración (Horas)</Label>
-                  <Input type="number" value={data.duration} onChange={e => setData({...data, duration: e.target.value})} />
+                  <Input type="number" value={data.duration} onChange={e => setData({...data, duration: e.target.value})} disabled={isViewer} />
                 </div>
                 <div className="space-y-2">
                   <Label>Lugar / Enlace</Label>
-                  <Input value={data.location} onChange={e => setData({...data, location: e.target.value})} />
+                  <Input value={data.location} onChange={e => setData({...data, location: e.target.value})} disabled={isViewer} />
                 </div>
               </div>
             </section>
@@ -255,29 +258,31 @@ export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: Pr
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Líder del Proyecto</Label>
-                  <Input value={data.leader} onChange={e => setData({...data, leader: e.target.value})} />
+                  <Input value={data.leader} onChange={e => setData({...data, leader: e.target.value})} disabled={isViewer} />
                 </div>
                 <div className="space-y-2">
                   <Label>Sponsor</Label>
-                  <Input value={data.sponsor} onChange={e => setData({...data, sponsor: e.target.value})} />
+                  <Input value={data.sponsor} onChange={e => setData({...data, sponsor: e.target.value})} disabled={isViewer} />
                 </div>
               </div>
               
               <div className="space-y-2">
                 <Label>Equipo (Integrantes)</Label>
-                <div className="flex gap-2">
-                  <Input 
-                    value={newMember} 
-                    onChange={e => setNewMember(e.target.value)} 
-                    placeholder="Nombre del integrante..."
-                    onKeyDown={e => e.key === 'Enter' && addItem('team', newMember, setNewMember)}
-                  />
-                  <Button size="icon" onClick={() => addItem('team', newMember, setNewMember)}><Plus className="h-4 w-4"/></Button>
-                </div>
+                {!isViewer && (
+                  <div className="flex gap-2">
+                    <Input 
+                      value={newMember} 
+                      onChange={e => setNewMember(e.target.value)} 
+                      placeholder="Nombre del integrante..."
+                      onKeyDown={e => e.key === 'Enter' && addItem('team', newMember, setNewMember)}
+                    />
+                    <Button size="icon" onClick={() => addItem('team', newMember, setNewMember)}><Plus className="h-4 w-4"/></Button>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2 mt-2">
                   {data.team.map((m: string, i: number) => (
                     <span key={i} className="bg-white border rounded-full px-3 py-1 text-sm flex items-center gap-2 shadow-sm">
-                      {m} <X className="h-3 w-3 cursor-pointer text-red-500" onClick={() => removeItem('team', i)} />
+                      {m} {!isViewer && <X className="h-3 w-3 cursor-pointer text-red-500" onClick={() => removeItem('team', i)} />}
                     </span>
                   ))}
                 </div>
@@ -286,19 +291,21 @@ export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: Pr
 
             <section className="space-y-4 bg-muted/30 p-4 rounded-xl border">
               <h3 className="font-semibold text-lg border-b pb-2">Stakeholders</h3>
-              <div className="flex gap-2">
-                <Input 
-                  value={newStakeholder} 
-                  onChange={e => setNewStakeholder(e.target.value)} 
-                  placeholder="Ej: Director TI..."
-                  onKeyDown={e => e.key === 'Enter' && addItem('stakeholders', newStakeholder, setNewStakeholder)}
-                />
-                <Button size="icon" onClick={() => addItem('stakeholders', newStakeholder, setNewStakeholder)}><Plus className="h-4 w-4"/></Button>
-              </div>
+              {!isViewer && (
+                <div className="flex gap-2">
+                  <Input 
+                    value={newStakeholder} 
+                    onChange={e => setNewStakeholder(e.target.value)} 
+                    placeholder="Ej: Director TI..."
+                    onKeyDown={e => e.key === 'Enter' && addItem('stakeholders', newStakeholder, setNewStakeholder)}
+                  />
+                  <Button size="icon" onClick={() => addItem('stakeholders', newStakeholder, setNewStakeholder)}><Plus className="h-4 w-4"/></Button>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2 mt-2">
                 {data.stakeholders.map((s: string, i: number) => (
                   <span key={i} className="bg-slate-100 border rounded-full px-3 py-1 text-sm flex items-center gap-2">
-                    {s} <X className="h-3 w-3 cursor-pointer text-red-500" onClick={() => removeItem('stakeholders', i)} />
+                    {s} {!isViewer && <X className="h-3 w-3 cursor-pointer text-red-500" onClick={() => removeItem('stakeholders', i)} />}
                   </span>
                 ))}
               </div>
@@ -312,7 +319,7 @@ export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: Pr
               <div className="space-y-3">
                 {AGENDA_ITEMS.map(item => (
                   <div key={item.id} className="flex items-center gap-3">
-                    <Checkbox id={item.id} checked={data.agenda[item.id]} onCheckedChange={() => toggleAgenda(item.id)} />
+                    <Checkbox id={item.id} checked={data.agenda[item.id]} onCheckedChange={() => toggleAgenda(item.id)} disabled={isViewer} />
                     <Label htmlFor={item.id} className="cursor-pointer text-sm">{item.label}</Label>
                   </div>
                 ))}
@@ -322,8 +329,9 @@ export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: Pr
                 <Textarea 
                   value={data.others} 
                   onChange={e => setData({...data, others: e.target.value})} 
-                  placeholder="Detalles adicionales..."
+                  placeholder={isViewer ? "" : "Detalles adicionales..."}
                   className="h-20"
+                  disabled={isViewer}
                 />
               </div>
             </section>
@@ -337,6 +345,7 @@ export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: Pr
                     value={data.agreements} 
                     onChange={e => setData({...data, agreements: e.target.value})} 
                     className="h-24"
+                    disabled={isViewer}
                   />
                 </div>
                 <div className="space-y-2">
@@ -345,6 +354,7 @@ export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: Pr
                     value={data.next_steps} 
                     onChange={e => setData({...data, next_steps: e.target.value})} 
                     className="h-24"
+                    disabled={isViewer}
                   />
                 </div>
               </div>
@@ -353,10 +363,12 @@ export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: Pr
         </div>
 
         <DialogFooter className="border-t pt-4">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={save} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
-            {loading ? 'Guardando...' : 'Guardar Datos de Kickoff'}
-          </Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>{isViewer ? 'Cerrar' : 'Cancelar'}</Button>
+          {!isViewer && (
+            <Button onClick={save} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
+              {loading ? 'Guardando...' : 'Guardar Datos de Kickoff'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

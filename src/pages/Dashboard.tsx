@@ -39,9 +39,10 @@ interface RecentDoc {
 }
 
 export default function Dashboard() {
-  const { profile, hasRole } = useAuth();
+  const { profile, hasRole, roles } = useAuth();
   const isAdmin = hasRole('admin');
   const isRMPersonal = hasRole('responsable_metodos') && profile?.silo === 'personal';
+  const isViewerOnly = roles.includes('viewer') && !roles.includes('admin') && !roles.includes('editor') && !roles.includes('responsable_metodos');
 
   const [totalDocs, setTotalDocs] = useState(0);
   const [totalIndicators, setTotalIndicators] = useState(0);
@@ -52,6 +53,13 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (isViewerOnly) {
+      navigate('/proyectos');
+    }
+  }, [isViewerOnly, navigate]);
+
+  useEffect(() => {
+    if (isViewerOnly) return;
     const load = async () => {
       const [docsRes, indRes, usersRes, projRes, docsData, recentRes] = await Promise.all([
         supabase.from('documents').select('id, confidential'),
