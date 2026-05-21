@@ -494,6 +494,88 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
     toast.success(`Exportados ${rows.length} casos`);
   };
 
+  const PLANTILLA_HEADERS = ["Módulo", "Título", "Ruta de acceso", "Resultado esperado", "Resultado obtenido", "Estado", "Entorno", "Responsable"];
+
+  const descargarPlantilla = () => {
+    const ejemplo = [{
+      "Módulo": "Nómina", "Título": "Ejemplo: Cálculo de quincena",
+      "Ruta de acceso": "Nómina > Procesos > Cálculo",
+      "Resultado esperado": "Totales coinciden con cálculo manual",
+      "Resultado obtenido": "", "Estado": "Pendiente", "Entorno": "QA", "Responsable": "Nombre Apellido",
+    }];
+    exportToCsv(`plantilla-certificacion.csv`, ejemplo, PLANTILLA_HEADERS);
+    toast.success("Plantilla descargada. Llénala y luego usa Importar.");
+  };
+
+  const parseCsv = (text: string): string[][] => {
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    const rows: string[][] = []; let row: string[] = []; let field = ""; let inQ = false;
+    // detect delimiter: semicolon preferred (matches export), else comma
+    const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
+    const delim = firstLine.includes(";") ? ";" : ",";
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQ) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; } else { inQ = false; }
+        } else field += ch;
+      } else {
+        if (ch === '"') inQ = true;
+        else if (ch === delim) { row.push(field); field = ""; }
+        else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
+        else if (ch === '\r') { /* skip */ }
+        else field += ch;
+      }
+    }
+    if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+    return rows.filter(r => r.some(c => c.trim().length > 0));
+  };
+
+  const estadoFromLabel = (s: string): TestEstado => {
+    const v = (s ?? "").trim().toLowerCase();
+    if (v.startsWith("compl")) return "completada";
+    if (v.startsWith("en")) return "en_curso";
+    return "pendiente";
+  };
+  const entornoFromLabel = (s: string): TestEntorno => ((s ?? "").trim().toUpperCase() === "PRD" ? "PRD" : "QA");
+
+  const importar = async (file: File) => {
+    if (!user) { toast.error("Sesión requerida"); return; }
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (rows.length < 2) { toast.error("El archivo está vacío"); return; }
+      const headers = rows[0].map(h => h.trim().toLowerCase());
+      const idx = (name: string) => headers.findIndex(h => h === name.toLowerCase());
+      const iMod = idx("Módulo"); const iTit = idx("Título");
+      const iRuta = idx("Ruta de acceso"); const iEsp = idx("Resultado esperado");
+      const iObt = idx("Resultado obtenido"); const iEst = idx("Estado");
+      const iEnt = idx("Entorno"); const iResp = idx("Responsable");
+      if (iTit < 0) { toast.error("Falta la columna 'Título' en el archivo"); return; }
+      const startOrden = (casos?.length ?? 0) + 1;
+      const payload = rows.slice(1).map((r, k) => ({
+        script_id: scriptId,
+        modulo: iMod >= 0 ? (r[iMod]?.trim() || null) : null,
+        titulo: (r[iTit]?.trim() || "Sin título"),
+        ruta_acceso: iRuta >= 0 ? (r[iRuta]?.trim() || null) : null,
+        resultado_esperado: iEsp >= 0 ? (r[iEsp]?.trim() || null) : null,
+        resultado_obtenido: iObt >= 0 ? (r[iObt]?.trim() || null) : null,
+        estado: iEst >= 0 ? estadoFromLabel(r[iEst] ?? "") : ("pendiente" as TestEstado),
+        entorno: iEnt >= 0 ? entornoFromLabel(r[iEnt] ?? "") : ("QA" as TestEntorno),
+        responsable: iResp >= 0 ? (r[iResp]?.trim() || null) : null,
+        orden: startOrden + k,
+        created_by: user.id,
+      }));
+      if (payload.length === 0) { toast.error("No se encontraron filas"); return; }
+      const { error } = await supabase.from("test_casos").insert(payload);
+      if (error) { toast.error(error.message); return; }
+      await qc.invalidateQueries({ queryKey: ["cert-casos", scriptId] });
+      toast.success(`Importados ${payload.length} casos`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al importar");
+    }
+  };
+
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
@@ -504,6 +586,20 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
           <Badge className="bg-green-200 text-black border-green-400" variant="outline">Completadas: {stats.completadas}</Badge>
         </div>
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={descargarPlantilla} title="Descargar plantilla CSV vacía">
+            <FileText className="h-4 w-4" /> Plantilla
+          </Button>
+          <label className="inline-flex">
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importar(f); e.currentTarget.value = ""; }}
+            />
+            <Button size="sm" variant="outline" asChild>
+              <span className="cursor-pointer"><Upload className="h-4 w-4" /> Importar</span>
+            </Button>
+          </label>
           <Button size="sm" variant="outline" onClick={exportar} disabled={!casos || casos.length === 0}><Download className="h-4 w-4" /> Exportar</Button>
           <Button size="sm" onClick={agregar}><Plus className="h-4 w-4" /> Caso</Button>
         </div>
