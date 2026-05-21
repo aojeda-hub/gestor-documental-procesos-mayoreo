@@ -9,6 +9,7 @@ import {
 import { SILO_LABELS, ROLE_LABELS } from '@/types/database';
 import logo from '@/assets/logo.png';
 import Chatbot from '../chat/Chatbot';
+import { NotificationsBell } from '../notifications/NotificationsBell';
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: LayoutDashboard },
