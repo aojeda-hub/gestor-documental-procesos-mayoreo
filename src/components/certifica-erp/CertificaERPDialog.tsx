@@ -180,6 +180,43 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
     finally { setSubmitting(false); }
   };
 
+  const startEdit = (p: ProyectoRow) => {
+    setEditing(p);
+    setEditNombre(p.nombre);
+    setEditDescripcion(p.descripcion ?? "");
+  };
+
+  const guardarEdicion = async () => {
+    if (!editing) return;
+    if (editNombre.trim().length < 3) { toast.error("Mínimo 3 caracteres"); return; }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("proyectos").update({
+        nombre: editNombre.trim(),
+        descripcion: editDescripcion.trim() || null,
+      }).eq("id", editing.id);
+      if (error) throw error;
+      toast.success("Proyecto actualizado");
+      setEditing(null);
+      await qc.invalidateQueries({ queryKey: ["cert-proyectos", compania!.id] });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+    finally { setSubmitting(false); }
+  };
+
+  const confirmarEliminar = async () => {
+    if (!deleting) return;
+    try {
+      const { error } = await supabase.from("proyectos").delete().eq("id", deleting.id);
+      if (error) throw error;
+      toast.success("Proyecto eliminado");
+      setDeleting(null);
+      await qc.invalidateQueries({ queryKey: ["cert-proyectos", compania!.id] });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+  };
+
+  const canManage = (p: ProyectoRow) => isAdmin || (!!user && p.created_by === user.id);
+
+
   if (isLoading) return <div className="h-32 animate-pulse rounded bg-muted/40" />;
   if (!compania) return <Card className="p-12 text-center"><p className="text-muted-foreground">Compañía no encontrada</p></Card>;
 
