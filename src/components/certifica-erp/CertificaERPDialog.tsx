@@ -599,7 +599,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
           <label className="inline-flex">
             <input
               type="file"
-              accept=".csv,text/csv"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) importar(f); e.currentTarget.value = ""; }}
             />
