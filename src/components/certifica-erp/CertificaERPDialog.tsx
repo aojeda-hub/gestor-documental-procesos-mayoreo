@@ -496,39 +496,39 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
 
   const PLANTILLA_HEADERS = ["Módulo", "Título", "Ruta de acceso", "Resultado esperado", "Resultado obtenido", "Estado", "Entorno", "Responsable"];
 
-  const descargarPlantilla = () => {
+  const descargarPlantilla = async () => {
+    const XLSX = await import("xlsx");
     const ejemplo = [{
-      "Módulo": "Nómina", "Título": "Ejemplo: Cálculo de quincena",
+      "Módulo": "Nómina",
+      "Título": "Ejemplo: Cálculo de quincena",
       "Ruta de acceso": "Nómina > Procesos > Cálculo",
       "Resultado esperado": "Totales coinciden con cálculo manual",
-      "Resultado obtenido": "", "Estado": "Pendiente", "Entorno": "QA", "Responsable": "Nombre Apellido",
+      "Resultado obtenido": "",
+      "Estado": "Pendiente",
+      "Entorno": "QA",
+      "Responsable": "Nombre Apellido",
     }];
-    exportToCsv(`plantilla-certificacion.csv`, ejemplo, PLANTILLA_HEADERS);
+    const ws = XLSX.utils.json_to_sheet(ejemplo, { header: PLANTILLA_HEADERS });
+    ws["!cols"] = [{ wch: 14 }, { wch: 36 }, { wch: 28 }, { wch: 32 }, { wch: 32 }, { wch: 14 }, { wch: 10 }, { wch: 20 }];
+    // Hoja de instrucciones / valores válidos
+    const ayuda = [
+      ["Campo", "Valores permitidos / formato"],
+      ["Módulo", "Texto libre (ej. Nómina, Ventas, Compras, Inventario, Contabilidad)"],
+      ["Título", "Obligatorio. Nombre del caso de prueba"],
+      ["Ruta de acceso", "Ruta del menú o módulo donde se ejecuta"],
+      ["Resultado esperado", "Lo que debe ocurrir"],
+      ["Resultado obtenido", "Lo que realmente ocurrió (puede dejarse vacío)"],
+      ["Estado", "Pendiente | En curso | Completada"],
+      ["Entorno", "QA | PRD"],
+      ["Responsable", "Nombre del responsable de la prueba"],
+    ];
+    const wsAyuda = XLSX.utils.aoa_to_sheet(ayuda);
+    wsAyuda["!cols"] = [{ wch: 22 }, { wch: 70 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Casos");
+    XLSX.utils.book_append_sheet(wb, wsAyuda, "Instrucciones");
+    XLSX.writeFile(wb, "plantilla-certificacion.xlsx");
     toast.success("Plantilla descargada. Llénala y luego usa Importar.");
-  };
-
-  const parseCsv = (text: string): string[][] => {
-    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-    const rows: string[][] = []; let row: string[] = []; let field = ""; let inQ = false;
-    // detect delimiter: semicolon preferred (matches export), else comma
-    const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
-    const delim = firstLine.includes(";") ? ";" : ",";
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
-      if (inQ) {
-        if (ch === '"') {
-          if (text[i + 1] === '"') { field += '"'; i++; } else { inQ = false; }
-        } else field += ch;
-      } else {
-        if (ch === '"') inQ = true;
-        else if (ch === delim) { row.push(field); field = ""; }
-        else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
-        else if (ch === '\r') { /* skip */ }
-        else field += ch;
-      }
-    }
-    if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
-    return rows.filter(r => r.some(c => c.trim().length > 0));
   };
 
   const estadoFromLabel = (s: string): TestEstado => {
@@ -542,31 +542,37 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
   const importar = async (file: File) => {
     if (!user) { toast.error("Sesión requerida"); return; }
     try {
-      const text = await file.text();
-      const rows = parseCsv(text);
-      if (rows.length < 2) { toast.error("El archivo está vacío"); return; }
-      const headers = rows[0].map(h => h.trim().toLowerCase());
-      const idx = (name: string) => headers.findIndex(h => h === name.toLowerCase());
-      const iMod = idx("Módulo"); const iTit = idx("Título");
-      const iRuta = idx("Ruta de acceso"); const iEsp = idx("Resultado esperado");
-      const iObt = idx("Resultado obtenido"); const iEst = idx("Estado");
-      const iEnt = idx("Entorno"); const iResp = idx("Responsable");
-      if (iTit < 0) { toast.error("Falta la columna 'Título' en el archivo"); return; }
+      const XLSX = await import("xlsx");
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      // Buscar hoja "Casos" o usar la primera
+      const sheetName = wb.SheetNames.find((n) => n.toLowerCase() === "casos") ?? wb.SheetNames[0];
+      if (!sheetName) { toast.error("El archivo no tiene hojas"); return; }
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: false });
+      if (rows.length === 0) { toast.error("El archivo está vacío"); return; }
+      const norm = (s: unknown) => String(s ?? "").trim();
       const startOrden = (casos?.length ?? 0) + 1;
-      const payload = rows.slice(1).map((r, k) => ({
-        script_id: scriptId,
-        modulo: iMod >= 0 ? (r[iMod]?.trim() || null) : null,
-        titulo: (r[iTit]?.trim() || "Sin título"),
-        ruta_acceso: iRuta >= 0 ? (r[iRuta]?.trim() || null) : null,
-        resultado_esperado: iEsp >= 0 ? (r[iEsp]?.trim() || null) : null,
-        resultado_obtenido: iObt >= 0 ? (r[iObt]?.trim() || null) : null,
-        estado: iEst >= 0 ? estadoFromLabel(r[iEst] ?? "") : ("pendiente" as TestEstado),
-        entorno: iEnt >= 0 ? entornoFromLabel(r[iEnt] ?? "") : ("QA" as TestEntorno),
-        responsable: iResp >= 0 ? (r[iResp]?.trim() || null) : null,
-        orden: startOrden + k,
-        created_by: user.id,
-      }));
-      if (payload.length === 0) { toast.error("No se encontraron filas"); return; }
+      const payload = rows
+        .map((r, k) => {
+          const tit = norm(r["Título"] ?? r["Titulo"] ?? r["titulo"]);
+          if (!tit) return null;
+          return {
+            script_id: scriptId,
+            modulo: norm(r["Módulo"] ?? r["Modulo"]) || null,
+            titulo: tit,
+            ruta_acceso: norm(r["Ruta de acceso"] ?? r["Ruta"]) || null,
+            resultado_esperado: norm(r["Resultado esperado"]) || null,
+            resultado_obtenido: norm(r["Resultado obtenido"]) || null,
+            estado: estadoFromLabel(norm(r["Estado"])),
+            entorno: entornoFromLabel(norm(r["Entorno"])),
+            responsable: norm(r["Responsable"]) || null,
+            orden: startOrden + k,
+            created_by: user.id,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+      if (payload.length === 0) { toast.error("No se encontraron filas con Título"); return; }
       const { error } = await supabase.from("test_casos").insert(payload);
       if (error) { toast.error(error.message); return; }
       await qc.invalidateQueries({ queryKey: ["cert-casos", scriptId] });
@@ -575,6 +581,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
       toast.error(e instanceof Error ? e.message : "Error al importar");
     }
   };
+
 
   return (
     <Card className="overflow-hidden">
