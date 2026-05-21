@@ -129,11 +129,16 @@ function CompaniasList({ navigate }: { navigate: (v: CertView) => void }) {
 /* ============================ COMPAÑÍA VIEW ============================ */
 function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
   const [open, setOpen] = useState(false);
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editing, setEditing] = useState<ProyectoRow | null>(null);
+  const [editNombre, setEditNombre] = useState("");
+  const [editDescripcion, setEditDescripcion] = useState("");
+  const [deleting, setDeleting] = useState<ProyectoRow | null>(null);
 
   const { data: compania, isLoading } = useQuery({
     queryKey: ["cert-compania", slug],
@@ -150,12 +155,13 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
     enabled: !!compania?.id,
     queryFn: async () => {
       const { data, error } = await supabase.from("proyectos")
-        .select("id, compania_id, nombre, descripcion, archivado, created_at")
+        .select("id, compania_id, nombre, descripcion, archivado, created_at, created_by")
         .eq("compania_id", compania!.id).order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ProyectoRow[];
     },
   });
+
 
   const crearProyecto = async () => {
     if (!user || !compania) return;
