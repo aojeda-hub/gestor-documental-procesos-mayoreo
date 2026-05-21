@@ -256,10 +256,26 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {(proyectos ?? []).map((p) => (
             <Card key={p.id} onClick={() => navigate({ name: "proyecto", id: p.id })}
-              className="group cursor-pointer p-5 transition-all hover:border-primary hover:shadow-md">
+              className="group relative cursor-pointer p-5 transition-all hover:border-primary hover:shadow-md">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary"><FolderKanban className="h-4 w-4" /></div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-1">
+                  {canManage(p) && (
+                    <>
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7"
+                        onClick={(e) => { e.stopPropagation(); startEdit(p); }}
+                        title="Editar"
+                      ><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); setDeleting(p); }}
+                        title="Eliminar"
+                      ><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
               </div>
               <div className="mt-3 line-clamp-2 text-base font-semibold group-hover:text-primary">{p.nombre}</div>
               {p.descripcion && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.descripcion}</p>}
@@ -268,6 +284,35 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
           ))}
         </div>
       )}
+
+      <InnerDialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        <InnerDialogContent>
+          <InnerDialogHeader><InnerDialogTitle>Editar proyecto</InnerDialogTitle></InnerDialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2"><Label>Nombre *</Label><Input value={editNombre} onChange={(e) => setEditNombre(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Descripción</Label><Textarea rows={3} value={editDescripcion} onChange={(e) => setEditDescripcion(e.target.value)} /></div>
+          </div>
+          <InnerDialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={submitting}>Cancelar</Button>
+            <Button onClick={guardarEdicion} disabled={submitting}>{submitting && <Loader2 className="h-4 w-4 animate-spin" />} Guardar</Button>
+          </InnerDialogFooter>
+        </InnerDialogContent>
+      </InnerDialog>
+
+      <AlertDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar proyecto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará "{deleting?.nombre}" junto con sus incidencias y scripts asociados. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarEliminar} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
