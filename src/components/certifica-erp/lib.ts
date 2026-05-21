@@ -37,7 +37,7 @@ export function getImagePublicUrl(path: string): string {
 
 // --- Companias / Test ---
 export type CompaniaRow = { id: string; nombre: string; slug: string; orden: number; activo: boolean };
-export type ProyectoRow = { id: string; compania_id: string; nombre: string; descripcion: string | null; archivado: boolean; created_at: string };
+export type ProyectoRow = { id: string; compania_id: string; nombre: string; descripcion: string | null; archivado: boolean; created_at: string; created_by: string | null };
 
 export const TEST_ESTADOS = ["pendiente", "en_curso", "completada"] as const;
 export type TestEstado = (typeof TEST_ESTADOS)[number];
