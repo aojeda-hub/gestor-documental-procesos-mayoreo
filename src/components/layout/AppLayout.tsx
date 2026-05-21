@@ -101,6 +101,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <h2 className="text-lg font-semibold">
             {navItems.find(n => n.to === location.pathname)?.label || 'Sistema'}
           </h2>
+          <div className="ml-auto">
+            <NotificationsBell />
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
