@@ -129,11 +129,16 @@ function CompaniasList({ navigate }: { navigate: (v: CertView) => void }) {
 /* ============================ COMPAÑÍA VIEW ============================ */
 function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
   const [open, setOpen] = useState(false);
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editing, setEditing] = useState<ProyectoRow | null>(null);
+  const [editNombre, setEditNombre] = useState("");
+  const [editDescripcion, setEditDescripcion] = useState("");
+  const [deleting, setDeleting] = useState<ProyectoRow | null>(null);
 
   const { data: compania, isLoading } = useQuery({
     queryKey: ["cert-compania", slug],
@@ -150,12 +155,13 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
     enabled: !!compania?.id,
     queryFn: async () => {
       const { data, error } = await supabase.from("proyectos")
-        .select("id, compania_id, nombre, descripcion, archivado, created_at")
+        .select("id, compania_id, nombre, descripcion, archivado, created_at, created_by")
         .eq("compania_id", compania!.id).order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ProyectoRow[];
     },
   });
+
 
   const crearProyecto = async () => {
     if (!user || !compania) return;
@@ -173,6 +179,43 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
     } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
     finally { setSubmitting(false); }
   };
+
+  const startEdit = (p: ProyectoRow) => {
+    setEditing(p);
+    setEditNombre(p.nombre);
+    setEditDescripcion(p.descripcion ?? "");
+  };
+
+  const guardarEdicion = async () => {
+    if (!editing) return;
+    if (editNombre.trim().length < 3) { toast.error("Mínimo 3 caracteres"); return; }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("proyectos").update({
+        nombre: editNombre.trim(),
+        descripcion: editDescripcion.trim() || null,
+      }).eq("id", editing.id);
+      if (error) throw error;
+      toast.success("Proyecto actualizado");
+      setEditing(null);
+      await qc.invalidateQueries({ queryKey: ["cert-proyectos", compania!.id] });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+    finally { setSubmitting(false); }
+  };
+
+  const confirmarEliminar = async () => {
+    if (!deleting) return;
+    try {
+      const { error } = await supabase.from("proyectos").delete().eq("id", deleting.id);
+      if (error) throw error;
+      toast.success("Proyecto eliminado");
+      setDeleting(null);
+      await qc.invalidateQueries({ queryKey: ["cert-proyectos", compania!.id] });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+  };
+
+  const canManage = (p: ProyectoRow) => isAdmin || (!!user && p.created_by === user.id);
+
 
   if (isLoading) return <div className="h-32 animate-pulse rounded bg-muted/40" />;
   if (!compania) return <Card className="p-12 text-center"><p className="text-muted-foreground">Compañía no encontrada</p></Card>;
@@ -213,10 +256,26 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {(proyectos ?? []).map((p) => (
             <Card key={p.id} onClick={() => navigate({ name: "proyecto", id: p.id })}
-              className="group cursor-pointer p-5 transition-all hover:border-primary hover:shadow-md">
+              className="group relative cursor-pointer p-5 transition-all hover:border-primary hover:shadow-md">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary"><FolderKanban className="h-4 w-4" /></div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-1">
+                  {canManage(p) && (
+                    <>
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7"
+                        onClick={(e) => { e.stopPropagation(); startEdit(p); }}
+                        title="Editar"
+                      ><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); setDeleting(p); }}
+                        title="Eliminar"
+                      ><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
               </div>
               <div className="mt-3 line-clamp-2 text-base font-semibold group-hover:text-primary">{p.nombre}</div>
               {p.descripcion && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.descripcion}</p>}
@@ -225,6 +284,35 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
           ))}
         </div>
       )}
+
+      <InnerDialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        <InnerDialogContent>
+          <InnerDialogHeader><InnerDialogTitle>Editar proyecto</InnerDialogTitle></InnerDialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2"><Label>Nombre *</Label><Input value={editNombre} onChange={(e) => setEditNombre(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Descripción</Label><Textarea rows={3} value={editDescripcion} onChange={(e) => setEditDescripcion(e.target.value)} /></div>
+          </div>
+          <InnerDialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={submitting}>Cancelar</Button>
+            <Button onClick={guardarEdicion} disabled={submitting}>{submitting && <Loader2 className="h-4 w-4 animate-spin" />} Guardar</Button>
+          </InnerDialogFooter>
+        </InnerDialogContent>
+      </InnerDialog>
+
+      <AlertDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar proyecto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará "{deleting?.nombre}" junto con sus incidencias y scripts asociados. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarEliminar} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
