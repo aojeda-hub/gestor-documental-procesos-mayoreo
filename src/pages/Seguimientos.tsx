@@ -73,8 +73,19 @@ export default function Seguimientos() {
   const [columns, setColumns] = useState<SeguimientoColumn[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
   const [loadingBoards, setLoadingBoards] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const openCard = (id: string) => { setCardId(id); setCardOpen(true); };
+
+  // Abrir tarjeta desde notificación (?card=<id>)
+  useEffect(() => {
+    const cardParam = searchParams.get('card');
+    if (cardParam) {
+      openCard(cardParam);
+      searchParams.delete('card');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const load = async () => {
     if (!user) return;
