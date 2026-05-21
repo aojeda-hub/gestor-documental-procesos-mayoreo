@@ -217,6 +217,20 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
       seguimiento_id: seguimientoId, member_user_id: userId,
     });
     if (error) return notify(error);
+    // Notificación al miembro agregado
+    if (user && userId !== user.id) {
+      const actor = perfiles.find(p => p.user_id === user.id);
+      const actorName = actor?.full_name || actor?.email || 'Alguien';
+      await supabase.from('notificaciones' as any).insert({
+        user_id: userId,
+        created_by: user.id,
+        tipo: 'seguimiento_miembro',
+        titulo: 'Fuiste agregado a un seguimiento',
+        mensaje: `${actorName} te agregó a "${seg?.titulo || 'un seguimiento'}" para colaborar.`,
+        link: '/seguimientos',
+        metadata: { seguimiento_id: seguimientoId },
+      });
+    }
     loadAll();
   };
   const removeMember = async (id: string) => {
