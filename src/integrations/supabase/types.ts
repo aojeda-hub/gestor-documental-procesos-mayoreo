@@ -1478,6 +1478,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_seguimiento_member: {
+        Args: { _seguimiento_id: string; _user_id: string }
+        Returns: boolean
+      }
       soft_delete_documento: { Args: { doc_id: string }; Returns: boolean }
       user_has_silo: {
         Args: {
