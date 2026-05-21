@@ -885,6 +885,36 @@ export type Database = {
           },
         ]
       }
+      seguimiento_boards: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string
+          descripcion: string | null
+          id: string
+          nombre: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by: string
+          descripcion?: string | null
+          id?: string
+          nombre: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string
+          descripcion?: string | null
+          id?: string
+          nombre?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       seguimiento_checklist_items: {
         Row: {
           checklist_id: string
@@ -948,6 +978,41 @@ export type Database = {
             columns: ["seguimiento_id"]
             isOneToOne: false
             referencedRelation: "seguimientos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seguimiento_columns: {
+        Row: {
+          board_id: string
+          color: string | null
+          created_at: string
+          id: string
+          nombre: string
+          orden: number
+        }
+        Insert: {
+          board_id: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          nombre: string
+          orden?: number
+        }
+        Update: {
+          board_id?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          nombre?: string
+          orden?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seguimiento_columns_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "seguimiento_boards"
             referencedColumns: ["id"]
           },
         ]
@@ -1078,7 +1143,9 @@ export type Database = {
       }
       seguimientos: {
         Row: {
+          board_id: string | null
           categoria: string | null
+          column_id: string | null
           created_at: string
           descripcion: string | null
           estado: Database["public"]["Enums"]["seguimiento_estado"]
@@ -1095,7 +1162,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          board_id?: string | null
           categoria?: string | null
+          column_id?: string | null
           created_at?: string
           descripcion?: string | null
           estado?: Database["public"]["Enums"]["seguimiento_estado"]
@@ -1112,7 +1181,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          board_id?: string | null
           categoria?: string | null
+          column_id?: string | null
           created_at?: string
           descripcion?: string | null
           estado?: Database["public"]["Enums"]["seguimiento_estado"]
@@ -1128,7 +1199,22 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "seguimientos_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "seguimiento_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seguimientos_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "seguimiento_columns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       test_casos: {
         Row: {
