@@ -290,6 +290,8 @@ function ProyectoView({ id, navigate }: { id: string; navigate: (v: CertView) =>
 }
 
 function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate: (v: CertView) => void }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
   const { data: incidencias } = useQuery({
     queryKey: ["cert-proyecto-incidencias", proyectoId],
     queryFn: async () => {
@@ -312,6 +314,122 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
     toast.success(`Exportadas ${rows.length} incidencias`);
   };
 
+  const INC_HEADERS = ["Título", "Descripción", "Módulo", "Prioridad", "Estado", "Sistema", "Código transacción", "Nombre transacción", "Responsable", "Fecha (YYYY-MM-DD)", "Fecha ocurrencia (YYYY-MM-DD)"];
+
+  const descargarPlantillaInc = async () => {
+    const XLSX = await import("xlsx");
+    const ejemplo = [{
+      "Título": "Ejemplo: Error al generar reporte de ventas",
+      "Descripción": "Al intentar generar el reporte mensual el sistema muestra un error 500.",
+      "Módulo": "Ventas",
+      "Prioridad": "Alta",
+      "Estado": "Pendiente",
+      "Sistema": "Softland ERP",
+      "Código transacción": "VEN-001",
+      "Nombre transacción": "Generar reporte",
+      "Responsable": "Nombre Apellido",
+      "Fecha (YYYY-MM-DD)": format(new Date(), "yyyy-MM-dd"),
+      "Fecha ocurrencia (YYYY-MM-DD)": format(new Date(), "yyyy-MM-dd"),
+    }];
+    const ws = XLSX.utils.json_to_sheet(ejemplo, { header: INC_HEADERS });
+    ws["!cols"] = [{ wch: 38 }, { wch: 50 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 28 }];
+    const ayuda = [
+      ["Campo", "Valores permitidos / formato"],
+      ["Título", "Obligatorio. Resumen breve de la incidencia"],
+      ["Descripción", "Obligatorio. Detalle completo"],
+      ["Módulo", "Nómina | Ventas | Compras | Inventario | Contabilidad"],
+      ["Prioridad", "Baja | Media | Alta"],
+      ["Estado", "Pendiente | En curso | Solventado"],
+      ["Sistema", "Nombre del sistema donde ocurrió"],
+      ["Código transacción", "Código interno (opcional)"],
+      ["Nombre transacción", "Nombre legible de la transacción (opcional)"],
+      ["Responsable", "Persona responsable (opcional)"],
+      ["Fecha (YYYY-MM-DD)", "Fecha de registro. Si se deja vacía se usa hoy"],
+      ["Fecha ocurrencia (YYYY-MM-DD)", "Fecha en que ocurrió la incidencia (opcional)"],
+    ];
+    const wsAyuda = XLSX.utils.aoa_to_sheet(ayuda);
+    wsAyuda["!cols"] = [{ wch: 32 }, { wch: 70 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Incidencias");
+    XLSX.utils.book_append_sheet(wb, wsAyuda, "Instrucciones");
+    XLSX.writeFile(wb, "plantilla-incidencias.xlsx");
+    toast.success("Plantilla descargada. Llénala y luego usa Importar.");
+  };
+
+  const moduloFromLabel = (s: string): Modulo => {
+    const v = (s ?? "").trim().toLowerCase();
+    if (v.startsWith("nóm") || v.startsWith("nom")) return "nomina";
+    if (v.startsWith("vent")) return "ventas";
+    if (v.startsWith("comp")) return "compras";
+    if (v.startsWith("inv")) return "inventario";
+    if (v.startsWith("cont")) return "contabilidad";
+    return "ventas";
+  };
+  const prioridadFromLabel = (s: string): Prioridad => {
+    const v = (s ?? "").trim().toLowerCase();
+    if (v.startsWith("alt")) return "alta";
+    if (v.startsWith("baj")) return "baja";
+    return "media";
+  };
+  const estadoIncFromLabel = (s: string): Estado => {
+    const v = (s ?? "").trim().toLowerCase();
+    if (v.startsWith("solv") || v.startsWith("res") || v.startsWith("compl")) return "resuelto";
+    if (v.startsWith("en")) return "en_curso";
+    return "pendiente";
+  };
+  const parseDate = (s: string): string | null => {
+    const v = (s ?? "").toString().trim();
+    if (!v) return null;
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return null;
+    return format(d, "yyyy-MM-dd");
+  };
+
+  const importarInc = async (file: File) => {
+    if (!user) { toast.error("Sesión requerida"); return; }
+    try {
+      const XLSX = await import("xlsx");
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const sheetName = wb.SheetNames.find((n) => n.toLowerCase() === "incidencias") ?? wb.SheetNames[0];
+      if (!sheetName) { toast.error("El archivo no tiene hojas"); return; }
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: false });
+      if (rows.length === 0) { toast.error("El archivo está vacío"); return; }
+      const norm = (s: unknown) => String(s ?? "").trim();
+      const today = format(new Date(), "yyyy-MM-dd");
+      const payload = rows
+        .map((r) => {
+          const tit = norm(r["Título"] ?? r["Titulo"]);
+          const desc = norm(r["Descripción"] ?? r["Descripcion"]);
+          if (!tit) return null;
+          return {
+            proyecto_id: proyectoId,
+            titulo: tit,
+            descripcion: desc || tit,
+            modulo: moduloFromLabel(norm(r["Módulo"] ?? r["Modulo"])),
+            prioridad: prioridadFromLabel(norm(r["Prioridad"])),
+            estado: estadoIncFromLabel(norm(r["Estado"])),
+            sistema_nombre: norm(r["Sistema"]) || null,
+            codigo_transaccion: norm(r["Código transacción"] ?? r["Codigo transaccion"]) || null,
+            nombre_transaccion: norm(r["Nombre transacción"] ?? r["Nombre transaccion"]) || null,
+            responsable: norm(r["Responsable"]) || null,
+            fecha: parseDate(norm(r["Fecha (YYYY-MM-DD)"] ?? r["Fecha"])) ?? today,
+            fecha_ocurrencia: parseDate(norm(r["Fecha ocurrencia (YYYY-MM-DD)"] ?? r["Fecha ocurrencia"])),
+            created_by: user.id,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+      if (payload.length === 0) { toast.error("No se encontraron filas con Título"); return; }
+      const { error } = await supabase.from("incidencias").insert(payload);
+      if (error) { toast.error(error.message); return; }
+      await qc.invalidateQueries({ queryKey: ["cert-proyecto-incidencias", proyectoId] });
+      toast.success(`Importadas ${payload.length} incidencias`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al importar");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -319,13 +437,28 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
           <h2 className="text-lg font-semibold">Incidencias en sistemas</h2>
           <p className="text-sm text-muted-foreground">Cada incidencia indica el sistema donde ocurrió.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={descargarPlantillaInc} title="Descargar plantilla Excel vacía">
+            <FileText className="h-4 w-4" /> Plantilla
+          </Button>
+          <label className="inline-flex">
+            <input
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importarInc(f); e.currentTarget.value = ""; }}
+            />
+            <Button variant="outline" asChild>
+              <span className="cursor-pointer"><Upload className="h-4 w-4" /> Importar</span>
+            </Button>
+          </label>
           <Button variant="outline" onClick={exportar} disabled={!incidencias || incidencias.length === 0}>
             <Download className="h-4 w-4" /> Exportar
           </Button>
           <Button onClick={() => navigate({ name: "nueva", proyectoId })}><Plus className="h-4 w-4" /> Nueva incidencia</Button>
         </div>
       </div>
+
 
       {incidencias && incidencias.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
