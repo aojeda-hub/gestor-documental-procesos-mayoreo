@@ -14,14 +14,16 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit2, Eye, Trash2 } from 'lucide-react';
 import { IndicatorSheet } from '@/components/indicators/IndicatorSheet';
-import type { Indicator, SiloType, IndicatorType, FrequencyType } from '@/types/database';
-import { SILO_LABELS, INDICATOR_TYPE_LABELS, FREQUENCY_LABELS } from '@/types/database';
+import type { Indicator, SiloType, IndicatorType, FrequencyType, IndicatorStatus } from '@/types/database';
+import { SILO_LABELS, INDICATOR_TYPE_LABELS, FREQUENCY_LABELS, INDICATOR_STATUS_OPTIONS } from '@/types/database';
 
 const emptyForm = {
   name: '', silo: 'compras' as SiloType, related_process: '', indicator_type: 'eficiencia' as IndicatorType,
   definition: '', formula: '', unit: '', frequency: 'mensual' as FrequencyType,
   data_source: '', responsible: '', goals: '', action_plan: '',
+  estado: 'Construccion' as IndicatorStatus,
 };
+
 
 export default function Indicators() {
   const { user, hasRole } = useAuth();
@@ -56,7 +58,9 @@ export default function Indicators() {
       indicator_type: ind.indicator_type, definition: ind.definition || '', formula: ind.formula || '',
       unit: ind.unit || '', frequency: ind.frequency, data_source: ind.data_source || '',
       responsible: ind.responsible || '', goals: ind.goals || '', action_plan: ind.action_plan || '',
+      estado: (ind.estado || 'Construccion') as IndicatorStatus,
     });
+
     setDialogOpen(true);
   };
 
@@ -127,8 +131,10 @@ export default function Indicators() {
                 <TableHead>Frecuencia</TableHead>
                 <TableHead>Responsable</TableHead>
                 <TableHead>Metas</TableHead>
+                <TableHead>Estado</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
+
             </TableHeader>
             <TableBody>
               {loading ? (
@@ -160,8 +166,10 @@ export default function Indicators() {
                   <TableCell>{FREQUENCY_LABELS[ind.frequency]}</TableCell>
                   <TableCell>{ind.responsible}</TableCell>
                   <TableCell className="max-w-[120px] truncate">{ind.goals}</TableCell>
-                   <TableCell>
+                  <TableCell><Badge variant="outline">{ind.estado || 'Construccion'}</Badge></TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-1">
+
                       <Button size="sm" variant="ghost" onClick={() => openView(ind)} title="Ver Ficha">
                         <Eye className="h-4 w-4 text-blue-600" />
                       </Button>
@@ -264,7 +272,17 @@ export default function Indicators() {
                 <Textarea value={form.action_plan} onChange={e => setField('action_plan', e.target.value)} />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>Estado</Label>
+              <Select value={form.estado} onValueChange={v => setField('estado', v)}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar estado" /></SelectTrigger>
+                <SelectContent>
+                  {INDICATOR_STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <Button className="w-full" onClick={handleSave} disabled={!form.name}>Guardar</Button>
+
           </div>
         </DialogContent>
       </Dialog>

@@ -94,6 +94,16 @@ export interface DocumentVersion {
   created_at: string;
 }
 
+export type IndicatorStatus = 'Construccion' | 'Revision' | 'Pendiente aprobación RC' | 'Publicado SIM' | 'Publicado SIM/Fabric';
+
+export const INDICATOR_STATUS_OPTIONS: IndicatorStatus[] = [
+  'Construccion',
+  'Revision',
+  'Pendiente aprobación RC',
+  'Publicado SIM',
+  'Publicado SIM/Fabric',
+];
+
 export interface Indicator {
   id: string;
   name: string;
@@ -108,10 +118,12 @@ export interface Indicator {
   responsible: string | null;
   goals: string | null;
   action_plan: string | null;
+  estado: IndicatorStatus;
   created_by: string | null;
   created_at: string;
   updated_at: string;
 }
+
 
 export interface ReviewAlert {
   id: string;
