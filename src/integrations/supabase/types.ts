@@ -927,6 +927,35 @@ export type Database = {
           },
         ]
       }
+      seguimiento_board_miembros: {
+        Row: {
+          board_id: string
+          created_at: string
+          id: string
+          member_user_id: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          id?: string
+          member_user_id: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          id?: string
+          member_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seguimiento_board_miembros_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "seguimiento_boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seguimiento_boards: {
         Row: {
           color: string | null
@@ -1479,6 +1508,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_board_member: {
+        Args: { _board_id: string; _user_id: string }
         Returns: boolean
       }
       is_seguimiento_member: {

@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -23,6 +27,8 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
   const [loading, setLoading] = useState(true);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
+  const [editing, setEditing] = useState<Seguimiento | null>(null);
+  const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'media' as any, responsable: '', fecha_limite: '' });
 
   const loadData = async () => {
     setLoading(true);
@@ -99,6 +105,39 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
     else loadData();
   };
 
+  const deleteTask = async (taskId: string) => {
+    if (!confirm('¿Eliminar esta tarea?')) return;
+    const { error } = await supabase.from('seguimientos').delete().eq('id', taskId);
+    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    else { toast({ title: 'Tarea eliminada' }); loadData(); }
+  };
+
+  const openEdit = (task: Seguimiento) => {
+    setEditing(task);
+    setEditForm({
+      titulo: task.titulo,
+      descripcion: task.descripcion || '',
+      prioridad: task.prioridad,
+      responsable: task.responsable || '',
+      fecha_limite: task.fecha_limite || '',
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !editForm.titulo.trim()) return;
+    const { error } = await supabase.from('seguimientos').update({
+      titulo: editForm.titulo.trim(),
+      descripcion: editForm.descripcion.trim() || null,
+      prioridad: editForm.prioridad,
+      responsable: editForm.responsable.trim() || null,
+      fecha_limite: editForm.fecha_limite || null,
+    }).eq('id', editing.id);
+    if (error) return toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    toast({ title: 'Tarea actualizada' });
+    setEditing(null);
+    loadData();
+  };
+
   const groupedTasks = useMemo(() => {
     const g: Record<string, Seguimiento[]> = {};
     columns.forEach(c => g[c.id] = []);
@@ -163,10 +202,21 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
                   className="p-3 shadow-sm hover:shadow-md transition-all cursor-pointer border-slate-200/80 group"
                   onClick={() => onOpenTask(task.id)}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <h5 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition-colors">
+                  <div className="flex justify-between items-start mb-2 gap-2">
+                    <h5 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition-colors flex-1">
                       {task.titulo}
                     </h5>
+                    <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" title="Abrir" onClick={() => onOpenTask(task.id)}>
+                        <Maximize2 className="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" title="Editar" onClick={() => openEdit(task)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-500" title="Eliminar" onClick={() => deleteTask(task.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                   {task.prioridad !== 'baja' && (
                     <Badge className={cn(
@@ -238,6 +288,50 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
           </div>
         ) : null}
       </div>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar tarea</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Título *</Label>
+              <Input value={editForm.titulo} onChange={e => setEditForm({ ...editForm, titulo: e.target.value })} />
+            </div>
+            <div>
+              <Label>Descripción</Label>
+              <Textarea value={editForm.descripcion} onChange={e => setEditForm({ ...editForm, descripcion: e.target.value })} rows={3} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Prioridad</Label>
+                <Select value={editForm.prioridad} onValueChange={(v: any) => setEditForm({ ...editForm, prioridad: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="baja">Baja</SelectItem>
+                    <SelectItem value="media">Media</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="critica">Crítica</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Responsable</Label>
+                <Input value={editForm.responsable} onChange={e => setEditForm({ ...editForm, responsable: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>Fecha límite</Label>
+              <Input type="date" value={editForm.fecha_limite} onChange={e => setEditForm({ ...editForm, fecha_limite: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+            <Button onClick={saveEdit}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
