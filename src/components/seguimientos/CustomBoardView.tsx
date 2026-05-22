@@ -105,6 +105,39 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
     else loadData();
   };
 
+  const deleteTask = async (taskId: string) => {
+    if (!confirm('¿Eliminar esta tarea?')) return;
+    const { error } = await supabase.from('seguimientos').delete().eq('id', taskId);
+    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    else { toast({ title: 'Tarea eliminada' }); loadData(); }
+  };
+
+  const openEdit = (task: Seguimiento) => {
+    setEditing(task);
+    setEditForm({
+      titulo: task.titulo,
+      descripcion: task.descripcion || '',
+      prioridad: task.prioridad,
+      responsable: task.responsable || '',
+      fecha_limite: task.fecha_limite || '',
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !editForm.titulo.trim()) return;
+    const { error } = await supabase.from('seguimientos').update({
+      titulo: editForm.titulo.trim(),
+      descripcion: editForm.descripcion.trim() || null,
+      prioridad: editForm.prioridad,
+      responsable: editForm.responsable.trim() || null,
+      fecha_limite: editForm.fecha_limite || null,
+    }).eq('id', editing.id);
+    if (error) return toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    toast({ title: 'Tarea actualizada' });
+    setEditing(null);
+    loadData();
+  };
+
   const groupedTasks = useMemo(() => {
     const g: Record<string, Seguimiento[]> = {};
     columns.forEach(c => g[c.id] = []);
