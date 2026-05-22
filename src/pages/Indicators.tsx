@@ -166,7 +166,8 @@ export default function Indicators() {
                   <TableCell>{FREQUENCY_LABELS[ind.frequency]}</TableCell>
                   <TableCell>{ind.responsible}</TableCell>
                   <TableCell className="max-w-[120px] truncate">{ind.goals}</TableCell>
-                   <TableCell>
+                  <TableCell><Badge variant="outline">{ind.estado || 'Construccion'}</Badge></TableCell>
+
                     <div className="flex items-center gap-1">
                       <Button size="sm" variant="ghost" onClick={() => openView(ind)} title="Ver Ficha">
                         <Eye className="h-4 w-4 text-blue-600" />
