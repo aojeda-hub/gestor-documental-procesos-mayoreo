@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import {
   ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
   MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
-  ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog,
+  ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog, Database,
   ExternalLink, CheckSquare, X, FileSpreadsheet,
 } from 'lucide-react';
 import { DOC_TYPE_LABELS } from '@/types/database';
