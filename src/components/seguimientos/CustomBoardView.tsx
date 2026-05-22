@@ -202,10 +202,21 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
                   className="p-3 shadow-sm hover:shadow-md transition-all cursor-pointer border-slate-200/80 group"
                   onClick={() => onOpenTask(task.id)}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <h5 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition-colors">
+                  <div className="flex justify-between items-start mb-2 gap-2">
+                    <h5 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition-colors flex-1">
                       {task.titulo}
                     </h5>
+                    <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" title="Abrir" onClick={() => onOpenTask(task.id)}>
+                        <Maximize2 className="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" title="Editar" onClick={() => openEdit(task)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-500" title="Eliminar" onClick={() => deleteTask(task.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                   {task.prioridad !== 'baja' && (
                     <Badge className={cn(
