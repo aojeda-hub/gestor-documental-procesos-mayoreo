@@ -268,7 +268,17 @@ export default function Indicators() {
                 <Textarea value={form.action_plan} onChange={e => setField('action_plan', e.target.value)} />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>Estado</Label>
+              <Select value={form.estado} onValueChange={v => setField('estado', v)}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar estado" /></SelectTrigger>
+                <SelectContent>
+                  {INDICATOR_STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <Button className="w-full" onClick={handleSave} disabled={!form.name}>Guardar</Button>
+
           </div>
         </DialogContent>
       </Dialog>
