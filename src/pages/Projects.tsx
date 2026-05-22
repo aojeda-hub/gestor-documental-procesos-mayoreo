@@ -191,11 +191,9 @@ export default function Projects() {
           <Button variant="outline" onClick={() => setCertificaErpOpen(true)}>
             <FileCheck2 className="mr-2 h-4 w-4" /> CertificaERP
           </Button>
-          {canEdit && (
-            <Button onClick={() => { setSelectedProject(null); setFormDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Proyecto
-            </Button>
-          )}
+          <Button onClick={() => { setSelectedProject(null); setFormDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" /> Nuevo Proyecto
+          </Button>
         </div>
       </div>
 
