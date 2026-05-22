@@ -420,6 +420,7 @@ export type Database = {
           created_by: string | null
           data_source: string | null
           definition: string | null
+          estado: Database["public"]["Enums"]["indicator_status"]
           formula: string | null
           frequency: Database["public"]["Enums"]["frequency_type"]
           goals: string | null
@@ -438,6 +439,7 @@ export type Database = {
           created_by?: string | null
           data_source?: string | null
           definition?: string | null
+          estado?: Database["public"]["Enums"]["indicator_status"]
           formula?: string | null
           frequency: Database["public"]["Enums"]["frequency_type"]
           goals?: string | null
@@ -456,6 +458,7 @@ export type Database = {
           created_by?: string | null
           data_source?: string | null
           definition?: string | null
+          estado?: Database["public"]["Enums"]["indicator_status"]
           formula?: string | null
           frequency?: Database["public"]["Enums"]["frequency_type"]
           goals?: string | null
@@ -1518,6 +1521,12 @@ export type Database = {
         | "anual"
       incidencia_estado: "pendiente" | "en_curso" | "resuelto"
       incidencia_prioridad: "baja" | "media" | "alta"
+      indicator_status:
+        | "Construccion"
+        | "Revision"
+        | "Pendiente aprobación RC"
+        | "Publicado SIM"
+        | "Publicado SIM/Fabric"
       indicator_type:
         | "eficiencia"
         | "eficacia"
@@ -1705,6 +1714,13 @@ export const Constants = {
       ],
       incidencia_estado: ["pendiente", "en_curso", "resuelto"],
       incidencia_prioridad: ["baja", "media", "alta"],
+      indicator_status: [
+        "Construccion",
+        "Revision",
+        "Pendiente aprobación RC",
+        "Publicado SIM",
+        "Publicado SIM/Fabric",
+      ],
       indicator_type: [
         "eficiencia",
         "eficacia",

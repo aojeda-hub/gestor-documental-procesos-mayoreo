@@ -14,14 +14,16 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit2, Eye, Trash2 } from 'lucide-react';
 import { IndicatorSheet } from '@/components/indicators/IndicatorSheet';
-import type { Indicator, SiloType, IndicatorType, FrequencyType } from '@/types/database';
-import { SILO_LABELS, INDICATOR_TYPE_LABELS, FREQUENCY_LABELS } from '@/types/database';
+import type { Indicator, SiloType, IndicatorType, FrequencyType, IndicatorStatus } from '@/types/database';
+import { SILO_LABELS, INDICATOR_TYPE_LABELS, FREQUENCY_LABELS, INDICATOR_STATUS_OPTIONS } from '@/types/database';
 
 const emptyForm = {
   name: '', silo: 'compras' as SiloType, related_process: '', indicator_type: 'eficiencia' as IndicatorType,
   definition: '', formula: '', unit: '', frequency: 'mensual' as FrequencyType,
   data_source: '', responsible: '', goals: '', action_plan: '',
+  estado: 'Construccion' as IndicatorStatus,
 };
+
 
 export default function Indicators() {
   const { user, hasRole } = useAuth();
@@ -56,7 +58,9 @@ export default function Indicators() {
       indicator_type: ind.indicator_type, definition: ind.definition || '', formula: ind.formula || '',
       unit: ind.unit || '', frequency: ind.frequency, data_source: ind.data_source || '',
       responsible: ind.responsible || '', goals: ind.goals || '', action_plan: ind.action_plan || '',
+      estado: (ind.estado || 'Construccion') as IndicatorStatus,
     });
+
     setDialogOpen(true);
   };
 
