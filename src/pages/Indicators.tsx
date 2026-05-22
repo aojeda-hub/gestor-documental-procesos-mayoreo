@@ -131,8 +131,10 @@ export default function Indicators() {
                 <TableHead>Frecuencia</TableHead>
                 <TableHead>Responsable</TableHead>
                 <TableHead>Metas</TableHead>
+                <TableHead>Estado</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
+
             </TableHeader>
             <TableBody>
               {loading ? (
