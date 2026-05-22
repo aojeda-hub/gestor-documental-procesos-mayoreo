@@ -26,6 +26,7 @@ const SILO_ICONS: Record<SiloType, typeof ShoppingCart> = {
   mercadeo: Megaphone,
   sistemas: Monitor,
   procesos: Cog,
+  datos_maestros: Database,
   sinsilo: FileText,
 };
 
