@@ -1,0 +1,1 @@
+ALTER TYPE public.silo_type ADD VALUE IF NOT EXISTS 'datos_maestros';
