@@ -27,6 +27,8 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
   const [loading, setLoading] = useState(true);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
+  const [editing, setEditing] = useState<Seguimiento | null>(null);
+  const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'media' as any, responsable: '', fecha_limite: '' });
 
   const loadData = async () => {
     setLoading(true);
