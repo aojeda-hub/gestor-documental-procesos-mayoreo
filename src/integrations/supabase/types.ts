@@ -1590,6 +1590,7 @@ export type Database = {
         | "sistemas"
         | "procesos"
         | "sinsilo"
+        | "datos_maestros"
       test_caso_estado: "pendiente" | "en_curso" | "completada"
       test_entorno: "QA" | "PRD"
     }
@@ -1781,6 +1782,7 @@ export const Constants = {
         "sistemas",
         "procesos",
         "sinsilo",
+        "datos_maestros",
       ],
       test_caso_estado: ["pendiente", "en_curso", "completada"],
       test_entorno: ["QA", "PRD"],

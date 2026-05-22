@@ -1,6 +1,6 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog, FileText, type LucideIcon } from 'lucide-react';
+import { ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog, FileText, Database, type LucideIcon } from 'lucide-react';
 import type { SiloType } from '@/types/database';
 
 const SILO_CONFIG: Record<SiloType, { icon: LucideIcon; description: string }> = {
@@ -12,6 +12,7 @@ const SILO_CONFIG: Record<SiloType, { icon: LucideIcon; description: string }> =
   mercadeo: { icon: Megaphone, description: 'Estrategias de marketing, campañas y análisis de mercado.' },
   sistemas: { icon: Monitor, description: 'Infraestructura tecnológica, soporte y desarrollo de sistemas.' },
   procesos: { icon: Cog, description: 'Documentación de procesos organizacionales, manuales y procedimientos.' },
+  datos_maestros: { icon: Database, description: 'Gestión de datos maestros, catálogos y definiciones de referencia.' },
   sinsilo: { icon: FileText, description: 'Documentos que aún no han sido asignados a un silo específico.' },
 };
 

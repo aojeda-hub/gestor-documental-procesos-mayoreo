@@ -1,5 +1,5 @@
 export type DocType = 'norma' | 'manual' | 'procedimiento' | 'anexo' | 'formato' | 'diagrama' | 'instructivo' | 'politica' | 'descripcion_cargo' | 'libro' | 'presentacion_clave' | 'presentacion' | 'gestion_beneficios' | 'sintipo';
-export type SiloType = 'compras' | 'logistica' | 'ventas' | 'personal' | 'control' | 'mercadeo' | 'sistemas' | 'procesos' | 'sinsilo';
+export type SiloType = 'compras' | 'logistica' | 'ventas' | 'personal' | 'control' | 'mercadeo' | 'sistemas' | 'procesos' | 'datos_maestros' | 'sinsilo';
 export type EmpresaType = 'mayoreo' | 'beconsult' | 'epa';
 export type IndicatorType = 'eficiencia' | 'eficacia' | 'efectividad' | 'calidad' | 'productividad' | 'cumplimiento';
 export type FrequencyType = 'diario' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'semestral' | 'anual';
@@ -212,6 +212,7 @@ export const SILO_LABELS: Record<SiloType, string> = {
   mercadeo: 'Mercadeo',
   sistemas: 'Sistemas',
   procesos: 'Procesos',
+  datos_maestros: 'Datos Maestros',
   sinsilo: 'Sin Silo',
 };
 
