@@ -288,6 +288,50 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
           </div>
         ) : null}
       </div>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar tarea</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Título *</Label>
+              <Input value={editForm.titulo} onChange={e => setEditForm({ ...editForm, titulo: e.target.value })} />
+            </div>
+            <div>
+              <Label>Descripción</Label>
+              <Textarea value={editForm.descripcion} onChange={e => setEditForm({ ...editForm, descripcion: e.target.value })} rows={3} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Prioridad</Label>
+                <Select value={editForm.prioridad} onValueChange={(v: any) => setEditForm({ ...editForm, prioridad: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="baja">Baja</SelectItem>
+                    <SelectItem value="media">Media</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="critica">Crítica</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Responsable</Label>
+                <Input value={editForm.responsable} onChange={e => setEditForm({ ...editForm, responsable: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>Fecha límite</Label>
+              <Input type="date" value={editForm.fecha_limite} onChange={e => setEditForm({ ...editForm, fecha_limite: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+            <Button onClick={saveEdit}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
