@@ -269,13 +269,15 @@ export default function Seguimientos() {
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Seguimientos</h1>
           <p className="text-slate-500 mt-1">Gestión de proyectos, tareas e iniciativas del equipo.</p>
         </div>
-        <Button 
-          onClick={() => openNew()}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all duration-300 active:scale-95"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Nuevo seguimiento
-        </Button>
+        {!(activeTab === 'custom' && selectedBoardId) && (
+          <Button 
+            onClick={() => openNew()}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all duration-300 active:scale-95"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Nuevo seguimiento
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
