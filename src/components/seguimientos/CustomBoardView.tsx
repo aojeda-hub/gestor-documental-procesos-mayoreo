@@ -38,6 +38,11 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const dragMovedRef = useRef(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    titulo: '', descripcion: '', estado: 'pendiente' as any, prioridad: 'media' as any,
+    responsable: '', categoria: '', fecha_limite: '', column_id: ''
+  });
 
   const loadData = async () => {
     setLoading(true);
