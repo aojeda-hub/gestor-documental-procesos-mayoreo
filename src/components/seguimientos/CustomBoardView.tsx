@@ -1,18 +1,22 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2 } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2, Palette } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Seguimiento, SeguimientoBoard, SeguimientoColumn } from '@/types/database';
+
+const COLUMN_COLORS = ['#64748b', '#4f46e5', '#2563eb', '#0891b2', '#059669', '#ca8a04', '#ea580c', '#dc2626', '#db2777', '#7c3aed'];
+const DEFAULT_COLUMN_COLOR = COLUMN_COLORS[0];
 
 interface CustomBoardViewProps {
   board: SeguimientoBoard;
@@ -27,8 +31,12 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
   const [loading, setLoading] = useState(true);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
+  const [newColumnColor, setNewColumnColor] = useState(DEFAULT_COLUMN_COLOR);
   const [editing, setEditing] = useState<Seguimiento | null>(null);
   const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'media' as any, responsable: '', fecha_limite: '' });
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const dragMovedRef = useRef(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -63,12 +71,23 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
     const { error } = await supabase.from('seguimiento_columns').insert({
       board_id: board.id,
       nombre: newColumnName,
-      orden: columns.length
+      orden: columns.length,
+      color: newColumnColor
     });
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
     else {
       setNewColumnName('');
+      setNewColumnColor(DEFAULT_COLUMN_COLOR);
       setAddingColumn(false);
+      loadData();
+    }
+  };
+
+  const handleUpdateColumnColor = async (id: string, color: string) => {
+    setColumns(curr => curr.map(col => col.id === id ? { ...col, color } : col));
+    const { error } = await supabase.from('seguimiento_columns').update({ color }).eq('id', id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
       loadData();
     }
   };
@@ -80,20 +99,29 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
     else loadData();
   };
 
-  const addTaskToColumn = async (columnId: string) => {
+  const addNewSeguimiento = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabase.from('seguimientos').insert({
-      titulo: 'Nueva tarea',
+    const targetColumn = columns[0];
+    if (!targetColumn) {
+      toast({ title: 'Crea una lista primero', description: 'Necesitas al menos una lista para ubicar el seguimiento.', variant: 'destructive' });
+      return;
+    }
+
+    const { data, error } = await supabase.from('seguimientos').insert({
+      titulo: 'Nuevo seguimiento',
       user_id: user.id,
       board_id: board.id,
-      column_id: columnId,
+      column_id: targetColumn.id,
       estado: 'pendiente' // Default status required by schema but we use column_id for view
-    });
+    }).select('*').single();
 
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else loadData();
+    else {
+      setTasks(curr => [data as Seguimiento, ...curr]);
+      onOpenTask((data as Seguimiento).id);
+    }
   };
 
   const moveTask = async (taskId: string, targetColumnId: string) => {
