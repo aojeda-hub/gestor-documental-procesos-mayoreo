@@ -105,30 +105,49 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
     else loadData();
   };
 
-  const addNewSeguimiento = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
+  const openCreate = () => {
     const targetColumn = columns[0];
     if (!targetColumn) {
       toast({ title: 'Crea una lista primero', description: 'Necesitas al menos una lista para ubicar el seguimiento.', variant: 'destructive' });
       return;
     }
+    setCreateForm({
+      titulo: '', descripcion: '', estado: 'pendiente', prioridad: 'media',
+      responsable: '', categoria: '', fecha_limite: '', column_id: targetColumn.id,
+    });
+    setCreateOpen(true);
+  };
+
+  const submitCreate = async () => {
+    if (!createForm.titulo.trim()) {
+      toast({ title: 'Título requerido', variant: 'destructive' });
+      return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
     const { data, error } = await supabase.from('seguimientos').insert({
-      titulo: 'Nuevo seguimiento',
+      titulo: createForm.titulo.trim(),
+      descripcion: createForm.descripcion.trim() || null,
+      estado: createForm.estado,
+      prioridad: createForm.prioridad,
+      responsable: createForm.responsable.trim() || null,
+      categoria: createForm.categoria.trim() || null,
+      fecha_limite: createForm.fecha_limite || null,
       user_id: user.id,
       board_id: board.id,
-      column_id: targetColumn.id,
-      estado: 'pendiente' // Default status required by schema but we use column_id for view
-    }).select('*').single();
+      column_id: createForm.column_id,
+    } as any).select('*').single();
 
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else {
-      setTasks(curr => [data as Seguimiento, ...curr]);
-      onOpenTask((data as Seguimiento).id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
     }
+    toast({ title: 'Seguimiento creado' });
+    setCreateOpen(false);
+    setTasks(curr => [data as Seguimiento, ...curr]);
   };
+
 
   const moveTask = async (taskId: string, targetColumnId: string) => {
     const prev = tasks;
