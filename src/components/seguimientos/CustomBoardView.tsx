@@ -37,7 +37,21 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
   const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'media' as any, responsable: '', fecha_limite: '' });
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [dragOverCardId, setDragOverCardId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);
   const dragMovedRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollSpeedRef = useRef<number>(0);
+  const scrollIntervalRef = useRef<any>(null);
+  const dragEnterCountersRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, []);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     titulo: '', descripcion: '', estado: 'pendiente' as any, prioridad: 'media' as any,
@@ -57,7 +71,9 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
     const { data: tks, error: errTks } = await supabase
       .from('seguimientos')
       .select('*')
-      .eq('board_id', board.id);
+      .eq('board_id', board.id)
+      .order('orden', { ascending: true })
+      .order('created_at', { ascending: false });
 
     if (errCols || errTks) {
       toast({ title: 'Error', description: 'No se pudieron cargar los datos del tablero.', variant: 'destructive' });
@@ -126,6 +142,8 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    const colTasksCount = tasks.filter(t => t.column_id === createForm.column_id).length;
+
     const { data, error } = await supabase.from('seguimientos').insert({
       titulo: createForm.titulo.trim(),
       descripcion: createForm.descripcion.trim() || null,
@@ -137,6 +155,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
       user_id: user.id,
       board_id: board.id,
       column_id: createForm.column_id,
+      orden: colTasksCount,
     } as any).select('*').single();
 
     if (error) {
@@ -145,46 +164,232 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
     }
     toast({ title: 'Seguimiento creado' });
     setCreateOpen(false);
-    setTasks(curr => [data as Seguimiento, ...curr]);
+    setTasks(curr => [...curr, data as Seguimiento]);
   };
 
 
-  const moveTask = async (taskId: string, targetColumnId: string) => {
-    const prev = tasks;
-    setTasks(curr => curr.map(t => t.id === taskId ? { ...t, column_id: targetColumnId } : t));
-    const { error } = await supabase.from('seguimientos').update({
-      board_id: board.id,
-      column_id: targetColumnId
-    }).eq('id', taskId);
+  const moveTaskToPosition = async (
+    taskId: string, 
+    targetColId: string, 
+    targetTaskId: string | null, 
+    position: 'before' | 'after'
+  ) => {
+    const movedTask = tasks.find(t => t.id === taskId);
+    if (!movedTask) return;
+
+    // 1. Separate tasks of target column
+    const otherColsTasks = tasks.filter(t => t.column_id !== targetColId && t.id !== taskId);
+    const targetColTasks = tasks.filter(t => t.column_id === targetColId && t.id !== taskId);
     
-    if (error) {
-      setTasks(prev);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    // Update target column ID
+    const updatedMovedTask = { ...movedTask, column_id: targetColId };
+
+    // 2. Insert at target position
+    if (targetTaskId === null) {
+      targetColTasks.push(updatedMovedTask);
+    } else {
+      const targetIdx = targetColTasks.findIndex(t => t.id === targetTaskId);
+      if (targetIdx === -1) {
+        targetColTasks.push(updatedMovedTask);
+      } else {
+        const insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
+        targetColTasks.splice(insertIdx, 0, updatedMovedTask);
+      }
     }
+
+    // 3. Re-assign clean sequential orders for target column
+    const orderedTargetColTasks = targetColTasks.map((t, idx) => ({ ...t, orden: idx }));
+
+    // 4. Re-assign clean sequential orders for source column if changed
+    let orderedSourceColTasks: Seguimiento[] = [];
+    if (movedTask.column_id !== targetColId && movedTask.column_id) {
+      const sourceColId = movedTask.column_id;
+      const sourceColTasks = tasks.filter(t => t.column_id === sourceColId && t.id !== taskId);
+      orderedSourceColTasks = sourceColTasks.map((t, idx) => ({ ...t, orden: idx }));
+    }
+
+    // 5. Merge state tasks back together
+    const newTasks = [
+      ...otherColsTasks,
+      ...orderedTargetColTasks,
+      ...orderedSourceColTasks
+    ];
+
+    // Instantly update state for UI responsiveness
+    setTasks(newTasks);
+
+    // 6. Gather all tasks whose column_id or orden changed, and persist to Supabase
+    const updates: { id: string; board_id: string; column_id: string; orden: number }[] = [];
+    
+    orderedTargetColTasks.forEach(t => {
+      const original = tasks.find(o => o.id === t.id);
+      if (!original || original.column_id !== t.column_id || original.orden !== t.orden) {
+        updates.push({
+          id: t.id,
+          board_id: board.id,
+          column_id: t.column_id!,
+          orden: t.orden!
+        });
+      }
+    });
+
+    orderedSourceColTasks.forEach(t => {
+      const original = tasks.find(o => o.id === t.id);
+      if (!original || original.orden !== t.orden) {
+        updates.push({
+          id: t.id,
+          board_id: board.id,
+          column_id: t.column_id!,
+          orden: t.orden!
+        });
+      }
+    });
+
+    if (updates.length > 0) {
+      const promises = updates.map(update => 
+        supabase.from('seguimientos').update({
+          column_id: update.column_id,
+          orden: update.orden
+        }).eq('id', update.id)
+      );
+
+      const results = await Promise.all(promises);
+      const errorResult = results.find(r => r.error);
+      if (errorResult) {
+        toast({ title: 'Error al reordenar', description: errorResult.error.message, variant: 'destructive' });
+        loadData(); // Revert to DB state
+      }
+    }
+  };
+
+  const handleCardDragOver = (e: React.DragEvent, targetTaskId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (draggedId === targetTaskId) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relativeY = e.clientY - rect.top;
+    const isTopHalf = relativeY < rect.height / 2;
+    
+    const pos = isTopHalf ? 'before' : 'after';
+    if (dragOverCardId !== targetTaskId) setDragOverCardId(targetTaskId);
+    if (dropPosition !== pos) setDropPosition(pos);
+  };
+
+  const handleCardDragLeave = () => {
+    setDragOverCardId(null);
+    setDropPosition(null);
+  };
+
+  const handleCardDrop = (e: React.DragEvent, targetColId: string, targetTaskId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const taskId = e.dataTransfer.getData('text/plain') || draggedId;
+    
+    setDragOverCardId(null);
+    setDropPosition(null);
+    setDragOverCol(null);
+    setDraggedId(null);
+    stopAutoScroll();
+
+    if (!taskId || taskId === targetTaskId) return;
+    
+    dragMovedRef.current = true;
+    moveTaskToPosition(taskId, targetColId, targetTaskId, dropPosition || 'after');
+  };
+
+  const handleContainerDragOver = (e: React.DragEvent) => {
+    if (!containerRef.current) return;
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+
+    const edgeSize = 100; // px zone at the edges
+    const maxSpeed = 15;  // scroll speed factor
+
+    let speed = 0;
+    if (x < edgeSize) {
+      // Scroll left - speed increases as we get closer to the left edge
+      speed = -maxSpeed * (1 - Math.max(0, x) / edgeSize);
+    } else if (x > width - edgeSize) {
+      // Scroll right - speed increases as we get closer to the right edge
+      speed = maxSpeed * (1 - Math.max(0, width - x) / edgeSize);
+    }
+
+    scrollSpeedRef.current = speed;
+
+    if (speed !== 0) {
+      if (!scrollIntervalRef.current) {
+        scrollIntervalRef.current = setInterval(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollLeft += scrollSpeedRef.current;
+          }
+        }, 16);
+      }
+    } else {
+      stopAutoScroll();
+    }
+  };
+
+  const stopAutoScroll = () => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+    scrollSpeedRef.current = 0;
   };
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     dragMovedRef.current = false;
     setDraggedId(taskId);
+    dragEnterCountersRef.current = {};
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', taskId);
   };
-  const handleDragEnd = () => { setDraggedId(null); setDragOverCol(null); };
+  const handleDragEnd = () => { 
+    setDraggedId(null); 
+    setDragOverCol(null); 
+    setDragOverCardId(null);
+    setDropPosition(null);
+    dragEnterCountersRef.current = {};
+    stopAutoScroll();
+  };
   const handleDragOver = (e: React.DragEvent, colId: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (dragOverCol !== colId) setDragOverCol(colId);
+  };
+  const handleDragEnter = (e: React.DragEvent, colId: string) => {
+    e.preventDefault();
+    const counters = dragEnterCountersRef.current;
+    counters[colId] = (counters[colId] || 0) + 1;
+    if (dragOverCol !== colId) {
+      setDragOverCol(colId);
+    }
+  };
+  const handleDragLeave = (e: React.DragEvent, colId: string) => {
+    e.preventDefault();
+    const counters = dragEnterCountersRef.current;
+    counters[colId] = Math.max(0, (counters[colId] || 0) - 1);
+    if (counters[colId] === 0) {
+      setDragOverCol(prev => prev === colId ? null : prev);
+    }
   };
   const handleDrop = (e: React.DragEvent, colId: string) => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData('text/plain') || draggedId;
+    dragEnterCountersRef.current = {};
     setDragOverCol(null);
     setDraggedId(null);
+    setDragOverCardId(null);
+    setDropPosition(null);
+    stopAutoScroll();
     if (!taskId) return;
-    const task = tasks.find(t => t.id === taskId);
-    if (!task || task.column_id === colId) return;
+    
     dragMovedRef.current = true;
-    moveTask(taskId, colId);
+    moveTaskToPosition(taskId, colId, null, 'after');
   };
 
   const handleTaskClick = (taskId: string) => {
@@ -268,16 +473,25 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
         </div>
       </div>
 
-      <div className="flex gap-6 overflow-x-auto pb-6 items-start min-h-[60vh]">
+      <div 
+        ref={containerRef}
+        onDragOver={handleContainerDragOver}
+        onDragLeave={stopAutoScroll}
+        className="flex gap-6 overflow-x-auto pb-6 items-start min-h-[60vh] select-none"
+      >
         {columns.map(col => (
           <div
             key={col.id}
             onDragOver={(e) => handleDragOver(e, col.id)}
-            onDragLeave={() => setDragOverCol(curr => curr === col.id ? null : curr)}
+            onDragEnter={(e) => handleDragEnter(e, col.id)}
+            onDragLeave={(e) => handleDragLeave(e, col.id)}
             onDrop={(e) => handleDrop(e, col.id)}
             className={cn(
-              "w-80 shrink-0 flex flex-col bg-slate-100/50 rounded-xl border p-3 transition-colors",
-              dragOverCol === col.id ? "border-indigo-400 bg-indigo-50/60" : "border-slate-200/60"
+              "w-80 shrink-0 flex flex-col bg-slate-100/50 rounded-xl border p-3 transition-all duration-200",
+              draggedId !== null && "ring-1 ring-slate-200/50",
+              dragOverCol === col.id 
+                ? "border-indigo-400 bg-indigo-50/60 shadow-lg shadow-indigo-100/40 translate-y-[-2px]" 
+                : "border-slate-200/60 shadow-sm"
             )}
           >
             <div className="flex items-center justify-between mb-3 px-1">
@@ -329,67 +543,87 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
 
             <div className="space-y-3 flex-1">
               {groupedTasks[col.id]?.map(task => (
-                <Card 
-                  key={task.id} 
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, task.id)}
-                  onDragEnd={handleDragEnd}
-                  className={cn(
-                    "p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-slate-200/80 group",
-                    draggedId === task.id && "opacity-40"
-                  )}
-                  onClick={() => handleTaskClick(task.id)}
+                <div
+                  key={task.id}
+                  onDragOver={(e) => handleCardDragOver(e, task.id)}
+                  onDragLeave={handleCardDragLeave}
+                  onDrop={(e) => handleCardDrop(e, col.id, task.id)}
+                  className="transition-all duration-200"
                 >
-                  <div className="flex justify-between items-start mb-2 gap-2">
-                    <h5 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition-colors flex-1">
-                      {task.titulo}
-                    </h5>
-                    <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" title="Abrir" onClick={() => onOpenTask(task.id)}>
-                        <Maximize2 className="h-3 w-3" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" title="Editar" onClick={() => openEdit(task)}>
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-500" title="Eliminar" onClick={() => deleteTask(task.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                  {task.prioridad !== 'baja' && (
-                    <Badge className={cn(
-                      "text-[10px] uppercase tracking-wider mb-2",
-                      task.prioridad === 'critica' ? "bg-rose-100 text-rose-700" :
-                      task.prioridad === 'alta' ? "bg-amber-100 text-amber-700" :
-                      "bg-blue-100 text-blue-700"
-                    )}>
-                      {task.prioridad}
-                    </Badge>
+                  {dragOverCardId === task.id && dropPosition === 'before' && (
+                    <div className="h-1 bg-indigo-500 rounded-full my-1.5 animate-pulse transition-all duration-200" />
                   )}
-                  
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-slate-400 hover:text-indigo-600">
-                            <ArrowLeftRight className="h-3 w-3 mr-1" /> Mover
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          {columns.filter(c => c.id !== col.id).map(c => (
-                            <DropdownMenuItem key={c.id} onClick={() => moveTask(task.id, c.id)}>
-                              A {c.nombre}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                  <Card 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, task.id)}
+                    onDragEnd={handleDragEnd}
+                    className={cn(
+                      "p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-slate-200/80 group",
+                      draggedId === task.id && "opacity-40"
+                    )}
+                    onClick={() => handleTaskClick(task.id)}
+                  >
+                    <div className="flex justify-between items-start mb-2 gap-2">
+                      <h5 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition-colors flex-1">
+                        {task.titulo}
+                      </h5>
+                      <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="ghost" className="h-6 w-6" title="Abrir" onClick={() => onOpenTask(task.id)}>
+                          <Maximize2 className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-6 w-6" title="Editar" onClick={() => openEdit(task)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-500" title="Eliminar" onClick={() => deleteTask(task.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </Card>
+                    {task.prioridad !== 'baja' && (
+                      <Badge className={cn(
+                        "text-[10px] uppercase tracking-wider mb-2",
+                        task.prioridad === 'critica' ? "bg-rose-100 text-rose-700" :
+                        task.prioridad === 'alta' ? "bg-amber-100 text-amber-700" :
+                        "bg-blue-100 text-blue-700"
+                      )}>
+                        {task.prioridad}
+                      </Badge>
+                    )}
+                    
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-slate-400 hover:text-indigo-600">
+                              <ArrowLeftRight className="h-3 w-3 mr-1" /> Mover
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            {columns.filter(c => c.id !== col.id).map(c => (
+                              <DropdownMenuItem key={c.id} onClick={() => moveTaskToPosition(task.id, c.id, null, 'after')}>
+                                A {c.nombre}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </Card>
+                  {dragOverCardId === task.id && dropPosition === 'after' && (
+                    <div className="h-1 bg-indigo-500 rounded-full my-1.5 animate-pulse transition-all duration-200" />
+                  )}
+                </div>
               ))}
               
               {groupedTasks[col.id]?.length === 0 && (
-                <div className="text-center text-xs text-slate-400 py-6 border border-dashed border-slate-200 rounded-lg">
+                <div className={cn(
+                  "text-center text-xs py-8 border border-dashed rounded-xl transition-all duration-300",
+                  draggedId !== null 
+                    ? dragOverCol === col.id 
+                      ? "border-indigo-400 text-indigo-600 bg-indigo-100/30 scale-[0.98]"
+                      : "border-slate-300 text-slate-500 bg-slate-50/30"
+                    : "border-slate-200 text-slate-400"
+                )}>
                   Arrastra seguimientos aquí
                 </div>
               )}

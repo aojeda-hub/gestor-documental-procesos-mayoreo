@@ -220,7 +220,7 @@ export default function Admin() {
 
       <Tabs defaultValue="usuarios" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
+          <TabsTrigger value="usuarios">Administración de usuarios</TabsTrigger>
           <TabsTrigger value="desarrollos">Desarrollos a la medida</TabsTrigger>
         </TabsList>
         <TabsContent value="usuarios" className="space-y-4">

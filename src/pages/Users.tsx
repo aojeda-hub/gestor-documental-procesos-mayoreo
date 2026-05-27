@@ -7,9 +7,12 @@ import { Button } from '@/components/ui/button';
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
-import { Search, UserPlus, Filter, ShieldPlus, Loader2 } from 'lucide-react';
+import { Search, UserPlus, Filter, ShieldPlus, Loader2, Users as UsersIcon, Shield, Settings } from 'lucide-react';
 import { UserRole, SiloType } from '@/types/database';
 import { useToast } from '@/components/ui/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import RolesList from '@/components/users/RolesList';
+import PermissionsList from '@/components/users/PermissionsList';
 
 interface UserWithRoles {
   id: string;
@@ -23,7 +26,7 @@ interface UserWithRoles {
   email: string;
 }
 
-export default function Users() {
+function UserList() {
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -58,7 +61,6 @@ export default function Users() {
     setSeeding(false);
     fetchUsers();
   };
-
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -181,13 +183,9 @@ export default function Users() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Gestión de Usuarios</h1>
-          <p className="text-muted-foreground italic">Administre las cuentas de usuario y sus permisos de acceso.</p>
-        </div>
-        <div className="flex gap-2 w-fit">
+        <div className="flex gap-2 w-full md:w-auto ml-auto">
           <Button variant="outline" onClick={handleSeedResponsables} disabled={seeding}>
             {seeding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldPlus className="h-4 w-4 mr-2" />}
             Crear Responsables Iniciales
@@ -223,6 +221,36 @@ export default function Users() {
         onSave={handleSave}
         loading={saving}
       />
+    </div>
+  );
+}
+
+export default function Users() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Administración de usuarios</h1>
+          <p className="text-muted-foreground italic">Administre las cuentas de usuario y sus permisos de acceso.</p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="usuarios" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="usuarios" className="gap-2"><UsersIcon className="h-4 w-4"/> Usuarios</TabsTrigger>
+          <TabsTrigger value="roles" className="gap-2"><Shield className="h-4 w-4"/> Roles</TabsTrigger>
+          <TabsTrigger value="permisos" className="gap-2"><Settings className="h-4 w-4"/> Permisos</TabsTrigger>
+        </TabsList>
+        <TabsContent value="usuarios">
+          <UserList />
+        </TabsContent>
+        <TabsContent value="roles">
+          <RolesList />
+        </TabsContent>
+        <TabsContent value="permisos">
+          <PermissionsList />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
