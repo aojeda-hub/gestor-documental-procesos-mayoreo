@@ -122,7 +122,7 @@ export default function BPA() {
     return (
       <nav className="flex items-center space-x-1 text-sm text-muted-foreground mb-6 bg-muted/30 p-3 rounded-lg border">
         <button onClick={() => setNavState(defaultState)} className="hover:text-primary transition-colors flex items-center gap-1 font-medium">
-          <FolderTree className="h-4 w-4" /> BPA
+          <FolderTree className="h-4 w-4" /> SIG
         </button>
         {navState.silo && (
           <>
