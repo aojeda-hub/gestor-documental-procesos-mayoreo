@@ -128,6 +128,7 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
     const prev = tasks;
     setTasks(curr => curr.map(t => t.id === taskId ? { ...t, column_id: targetColumnId } : t));
     const { error } = await supabase.from('seguimientos').update({
+      board_id: board.id,
       column_id: targetColumnId
     }).eq('id', taskId);
     
@@ -137,15 +138,13 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
     }
   };
 
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
-
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
-    setDraggingId(taskId);
+    dragMovedRef.current = false;
+    setDraggedId(taskId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', taskId);
   };
-  const handleDragEnd = () => { setDraggingId(null); setDragOverCol(null); };
+  const handleDragEnd = () => { setDraggedId(null); setDragOverCol(null); };
   const handleDragOver = (e: React.DragEvent, colId: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -153,12 +152,13 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
   };
   const handleDrop = (e: React.DragEvent, colId: string) => {
     e.preventDefault();
-    const taskId = e.dataTransfer.getData('text/plain') || draggingId;
+    const taskId = e.dataTransfer.getData('text/plain') || draggedId;
     setDragOverCol(null);
-    setDraggingId(null);
+    setDraggedId(null);
     if (!taskId) return;
     const task = tasks.find(t => t.id === taskId);
     if (!task || task.column_id === colId) return;
+    dragMovedRef.current = true;
     moveTask(taskId, colId);
   };
 
