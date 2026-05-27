@@ -97,12 +97,41 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
   };
 
   const moveTask = async (taskId: string, targetColumnId: string) => {
+    const prev = tasks;
+    setTasks(curr => curr.map(t => t.id === taskId ? { ...t, column_id: targetColumnId } : t));
     const { error } = await supabase.from('seguimientos').update({
       column_id: targetColumnId
     }).eq('id', taskId);
     
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else loadData();
+    if (error) {
+      setTasks(prev);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggingId(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', taskId);
+  };
+  const handleDragEnd = () => { setDraggingId(null); setDragOverCol(null); };
+  const handleDragOver = (e: React.DragEvent, colId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverCol !== colId) setDragOverCol(colId);
+  };
+  const handleDrop = (e: React.DragEvent, colId: string) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('text/plain') || draggingId;
+    setDragOverCol(null);
+    setDraggingId(null);
+    if (!taskId) return;
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || task.column_id === colId) return;
+    moveTask(taskId, colId);
   };
 
   const deleteTask = async (taskId: string) => {
