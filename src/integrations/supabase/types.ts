@@ -14,6 +14,125 @@ export type Database = {
   }
   public: {
     Tables: {
+      actividades_bpa: {
+        Row: {
+          activo: boolean | null
+          created_at: string | null
+          descripcion: string | null
+          id_actividad: number
+          id_proceso: number
+          nombre: string
+          orden: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          created_at?: string | null
+          descripcion?: string | null
+          id_actividad?: number
+          id_proceso: number
+          nombre: string
+          orden?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          created_at?: string | null
+          descripcion?: string | null
+          id_actividad?: number
+          id_proceso?: number
+          nombre?: string
+          orden?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "actividades_bpa_id_proceso_fkey"
+            columns: ["id_proceso"]
+            isOneToOne: false
+            referencedRelation: "procesos_bpa"
+            referencedColumns: ["id_proceso"]
+          },
+        ]
+      }
+      bpa_documentos_relacion: {
+        Row: {
+          fecha_asociacion: string | null
+          heredado: boolean | null
+          id_actividad: number | null
+          id_documento: string
+          id_grupo: number | null
+          id_proceso: number | null
+          id_relacion: string
+          id_silo: number | null
+          id_tarea: number | null
+          notas: string | null
+          usuario_asociacion: string | null
+        }
+        Insert: {
+          fecha_asociacion?: string | null
+          heredado?: boolean | null
+          id_actividad?: number | null
+          id_documento: string
+          id_grupo?: number | null
+          id_proceso?: number | null
+          id_relacion?: string
+          id_silo?: number | null
+          id_tarea?: number | null
+          notas?: string | null
+          usuario_asociacion?: string | null
+        }
+        Update: {
+          fecha_asociacion?: string | null
+          heredado?: boolean | null
+          id_actividad?: number | null
+          id_documento?: string
+          id_grupo?: number | null
+          id_proceso?: number | null
+          id_relacion?: string
+          id_silo?: number | null
+          id_tarea?: number | null
+          notas?: string | null
+          usuario_asociacion?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bpa_documentos_relacion_id_actividad_fkey"
+            columns: ["id_actividad"]
+            isOneToOne: false
+            referencedRelation: "actividades_bpa"
+            referencedColumns: ["id_actividad"]
+          },
+          {
+            foreignKeyName: "bpa_documentos_relacion_id_grupo_fkey"
+            columns: ["id_grupo"]
+            isOneToOne: false
+            referencedRelation: "grupos_bpa"
+            referencedColumns: ["id_grupo"]
+          },
+          {
+            foreignKeyName: "bpa_documentos_relacion_id_proceso_fkey"
+            columns: ["id_proceso"]
+            isOneToOne: false
+            referencedRelation: "procesos_bpa"
+            referencedColumns: ["id_proceso"]
+          },
+          {
+            foreignKeyName: "bpa_documentos_relacion_id_silo_fkey"
+            columns: ["id_silo"]
+            isOneToOne: false
+            referencedRelation: "silos"
+            referencedColumns: ["id_silo"]
+          },
+          {
+            foreignKeyName: "bpa_documentos_relacion_id_tarea_fkey"
+            columns: ["id_tarea"]
+            isOneToOne: false
+            referencedRelation: "tareas_bpa"
+            referencedColumns: ["id_tarea"]
+          },
+        ]
+      }
       companias: {
         Row: {
           activo: boolean
@@ -307,6 +426,47 @@ export type Database = {
         }
         Relationships: []
       }
+      grupos_bpa: {
+        Row: {
+          activo: boolean | null
+          created_at: string | null
+          descripcion: string | null
+          id_grupo: number
+          id_silo: number
+          nombre: string
+          orden: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          created_at?: string | null
+          descripcion?: string | null
+          id_grupo?: number
+          id_silo: number
+          nombre: string
+          orden?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          created_at?: string | null
+          descripcion?: string | null
+          id_grupo?: number
+          id_silo?: number
+          nombre?: string
+          orden?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grupos_bpa_id_silo_fkey"
+            columns: ["id_silo"]
+            isOneToOne: false
+            referencedRelation: "silos"
+            referencedColumns: ["id_silo"]
+          },
+        ]
+      }
       incidencia_imagenes: {
         Row: {
           created_at: string
@@ -562,6 +722,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      procesos_bpa: {
+        Row: {
+          activo: boolean | null
+          codigo: string | null
+          created_at: string | null
+          descripcion: string | null
+          id_grupo: number
+          id_proceso: number
+          nombre: string
+          orden: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          codigo?: string | null
+          created_at?: string | null
+          descripcion?: string | null
+          id_grupo: number
+          id_proceso?: number
+          nombre: string
+          orden?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          codigo?: string | null
+          created_at?: string | null
+          descripcion?: string | null
+          id_grupo?: number
+          id_proceso?: number
+          nombre?: string
+          orden?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procesos_bpa_id_grupo_fkey"
+            columns: ["id_grupo"]
+            isOneToOne: false
+            referencedRelation: "grupos_bpa"
+            referencedColumns: ["id_grupo"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1287,6 +1491,80 @@ export type Database = {
           },
         ]
       }
+      silos: {
+        Row: {
+          activo: boolean | null
+          created_at: string | null
+          descripcion: string | null
+          id_silo: number
+          nombre: string
+          orden: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          created_at?: string | null
+          descripcion?: string | null
+          id_silo?: number
+          nombre: string
+          orden?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          created_at?: string | null
+          descripcion?: string | null
+          id_silo?: number
+          nombre?: string
+          orden?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      tareas_bpa: {
+        Row: {
+          activo: boolean | null
+          codigo: string | null
+          created_at: string | null
+          descripcion: string | null
+          id_actividad: number
+          id_tarea: number
+          nombre: string
+          orden: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          codigo?: string | null
+          created_at?: string | null
+          descripcion?: string | null
+          id_actividad: number
+          id_tarea?: number
+          nombre: string
+          orden?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          codigo?: string | null
+          created_at?: string | null
+          descripcion?: string | null
+          id_actividad?: number
+          id_tarea?: number
+          nombre?: string
+          orden?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tareas_bpa_id_actividad_fkey"
+            columns: ["id_actividad"]
+            isOneToOne: false
+            referencedRelation: "actividades_bpa"
+            referencedColumns: ["id_actividad"]
+          },
+        ]
+      }
       test_casos: {
         Row: {
           created_at: string
@@ -1517,6 +1795,19 @@ export type Database = {
       is_seguimiento_member: {
         Args: { _seguimiento_id: string; _user_id: string }
         Returns: boolean
+      }
+      obtener_documentos_por_nodo: {
+        Args: { p_id_nodo: number; p_tipo_nodo: string }
+        Returns: {
+          estado: string
+          fecha_asociacion: string
+          heredado: boolean
+          id_documento: string
+          nombre_documento: string
+          tipo_documento: string
+          url: string
+          version: string
+        }[]
       }
       soft_delete_documento: { Args: { doc_id: string }; Returns: boolean }
       user_has_silo: {

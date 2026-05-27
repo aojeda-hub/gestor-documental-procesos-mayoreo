@@ -97,12 +97,41 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
   };
 
   const moveTask = async (taskId: string, targetColumnId: string) => {
+    const prev = tasks;
+    setTasks(curr => curr.map(t => t.id === taskId ? { ...t, column_id: targetColumnId } : t));
     const { error } = await supabase.from('seguimientos').update({
       column_id: targetColumnId
     }).eq('id', taskId);
     
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else loadData();
+    if (error) {
+      setTasks(prev);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggingId(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', taskId);
+  };
+  const handleDragEnd = () => { setDraggingId(null); setDragOverCol(null); };
+  const handleDragOver = (e: React.DragEvent, colId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverCol !== colId) setDragOverCol(colId);
+  };
+  const handleDrop = (e: React.DragEvent, colId: string) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('text/plain') || draggingId;
+    setDragOverCol(null);
+    setDraggingId(null);
+    if (!taskId) return;
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || task.column_id === colId) return;
+    moveTask(taskId, colId);
   };
 
   const deleteTask = async (taskId: string) => {
@@ -172,7 +201,16 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
 
       <div className="flex gap-6 overflow-x-auto pb-6 items-start min-h-[60vh]">
         {columns.map(col => (
-          <div key={col.id} className="w-80 shrink-0 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200/60 p-3">
+          <div
+            key={col.id}
+            onDragOver={(e) => handleDragOver(e, col.id)}
+            onDragLeave={() => setDragOverCol(curr => curr === col.id ? null : curr)}
+            onDrop={(e) => handleDrop(e, col.id)}
+            className={cn(
+              "w-80 shrink-0 flex flex-col bg-slate-100/50 rounded-xl border p-3 transition-colors",
+              dragOverCol === col.id ? "border-indigo-400 bg-indigo-50/60" : "border-slate-200/60"
+            )}
+          >
             <div className="flex items-center justify-between mb-3 px-1">
               <h4 className="font-bold text-slate-700 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-slate-400" />
@@ -199,7 +237,13 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
               {groupedTasks[col.id]?.map(task => (
                 <Card 
                   key={task.id} 
-                  className="p-3 shadow-sm hover:shadow-md transition-all cursor-pointer border-slate-200/80 group"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, task.id)}
+                  onDragEnd={handleDragEnd}
+                  className={cn(
+                    "p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-slate-200/80 group",
+                    draggingId === task.id && "opacity-40"
+                  )}
                   onClick={() => onOpenTask(task.id)}
                 >
                   <div className="flex justify-between items-start mb-2 gap-2">
