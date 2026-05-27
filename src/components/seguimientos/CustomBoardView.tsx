@@ -1,34 +1,43 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2 } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2, Palette } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Seguimiento, SeguimientoBoard, SeguimientoColumn } from '@/types/database';
+
+const COLUMN_COLORS = ['#64748b', '#4f46e5', '#2563eb', '#0891b2', '#059669', '#ca8a04', '#ea580c', '#dc2626', '#db2777', '#7c3aed'];
+const DEFAULT_COLUMN_COLOR = COLUMN_COLORS[0];
 
 interface CustomBoardViewProps {
   board: SeguimientoBoard;
   onBack: () => void;
   onOpenTask: (id: string) => void;
+  refreshKey?: number;
 }
 
-export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewProps) {
+export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: CustomBoardViewProps) {
   const { toast } = useToast();
   const [columns, setColumns] = useState<SeguimientoColumn[]>([]);
   const [tasks, setTasks] = useState<Seguimiento[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
+  const [newColumnColor, setNewColumnColor] = useState(DEFAULT_COLUMN_COLOR);
   const [editing, setEditing] = useState<Seguimiento | null>(null);
   const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'media' as any, responsable: '', fecha_limite: '' });
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const dragMovedRef = useRef(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -56,19 +65,30 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
 
   useEffect(() => {
     loadData();
-  }, [board.id]);
+  }, [board.id, refreshKey]);
 
   const handleAddColumn = async () => {
     if (!newColumnName.trim()) return;
     const { error } = await supabase.from('seguimiento_columns').insert({
       board_id: board.id,
       nombre: newColumnName,
-      orden: columns.length
+      orden: columns.length,
+      color: newColumnColor
     });
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
     else {
       setNewColumnName('');
+      setNewColumnColor(DEFAULT_COLUMN_COLOR);
       setAddingColumn(false);
+      loadData();
+    }
+  };
+
+  const handleUpdateColumnColor = async (id: string, color: string) => {
+    setColumns(curr => curr.map(col => col.id === id ? { ...col, color } : col));
+    const { error } = await supabase.from('seguimiento_columns').update({ color }).eq('id', id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
       loadData();
     }
   };
@@ -80,26 +100,36 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
     else loadData();
   };
 
-  const addTaskToColumn = async (columnId: string) => {
+  const addNewSeguimiento = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabase.from('seguimientos').insert({
-      titulo: 'Nueva tarea',
+    const targetColumn = columns[0];
+    if (!targetColumn) {
+      toast({ title: 'Crea una lista primero', description: 'Necesitas al menos una lista para ubicar el seguimiento.', variant: 'destructive' });
+      return;
+    }
+
+    const { data, error } = await supabase.from('seguimientos').insert({
+      titulo: 'Nuevo seguimiento',
       user_id: user.id,
       board_id: board.id,
-      column_id: columnId,
+      column_id: targetColumn.id,
       estado: 'pendiente' // Default status required by schema but we use column_id for view
-    });
+    }).select('*').single();
 
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    else loadData();
+    else {
+      setTasks(curr => [data as Seguimiento, ...curr]);
+      onOpenTask((data as Seguimiento).id);
+    }
   };
 
   const moveTask = async (taskId: string, targetColumnId: string) => {
     const prev = tasks;
     setTasks(curr => curr.map(t => t.id === taskId ? { ...t, column_id: targetColumnId } : t));
     const { error } = await supabase.from('seguimientos').update({
+      board_id: board.id,
       column_id: targetColumnId
     }).eq('id', taskId);
     
@@ -109,15 +139,13 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
     }
   };
 
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
-
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
-    setDraggingId(taskId);
+    dragMovedRef.current = false;
+    setDraggedId(taskId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', taskId);
   };
-  const handleDragEnd = () => { setDraggingId(null); setDragOverCol(null); };
+  const handleDragEnd = () => { setDraggedId(null); setDragOverCol(null); };
   const handleDragOver = (e: React.DragEvent, colId: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -125,13 +153,22 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
   };
   const handleDrop = (e: React.DragEvent, colId: string) => {
     e.preventDefault();
-    const taskId = e.dataTransfer.getData('text/plain') || draggingId;
+    const taskId = e.dataTransfer.getData('text/plain') || draggedId;
     setDragOverCol(null);
-    setDraggingId(null);
+    setDraggedId(null);
     if (!taskId) return;
     const task = tasks.find(t => t.id === taskId);
     if (!task || task.column_id === colId) return;
+    dragMovedRef.current = true;
     moveTask(taskId, colId);
+  };
+
+  const handleTaskClick = (taskId: string) => {
+    if (dragMovedRef.current) {
+      dragMovedRef.current = false;
+      return;
+    }
+    onOpenTask(taskId);
   };
 
   const deleteTask = async (taskId: string) => {
@@ -180,7 +217,7 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={onBack} className="text-slate-500">
             <ChevronLeft className="h-4 w-4 mr-1" /> Volver
@@ -190,13 +227,21 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
             <p className="text-sm text-slate-500">Tablero personalizado compartido</p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={() => setAddingColumn(true)}
-          className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-        >
-          <Plus className="h-4 w-4 mr-2" /> Añadir Lista
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button 
+            onClick={addNewSeguimiento}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20"
+          >
+            <Plus className="h-4 w-4 mr-2" /> Nuevo seguimiento
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setAddingColumn(true)}
+            className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+          >
+            <Plus className="h-4 w-4 mr-2" /> Añadir lista
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-6 overflow-x-auto pb-6 items-start min-h-[60vh]">
@@ -213,7 +258,7 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
           >
             <div className="flex items-center justify-between mb-3 px-1">
               <h4 className="font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: col.color || DEFAULT_COLUMN_COLOR }} />
                 {col.nombre}
                 <Badge variant="secondary" className="ml-2 bg-slate-200 text-slate-600 text-[10px]">
                   {groupedTasks[col.id]?.length || 0}
@@ -226,6 +271,31 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                    <Popover>
+                      <PopoverTrigger className="flex w-full items-center px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground rounded-sm">
+                        <Palette className="h-4 w-4 mr-2" /> Cambiar color
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-52 p-3">
+                        <Label className="text-xs">Color de lista</Label>
+                        <div className="grid grid-cols-5 gap-2 mt-2">
+                          {COLUMN_COLORS.map(color => (
+                            <button
+                              key={color}
+                              type="button"
+                              aria-label={`Usar color ${color}`}
+                              onClick={() => handleUpdateColumnColor(col.id, color)}
+                              className={cn(
+                                "h-8 w-8 rounded-full border border-white shadow-sm ring-offset-2 ring-offset-background transition-transform hover:scale-105",
+                                (col.color || DEFAULT_COLUMN_COLOR) === color && "ring-2 ring-indigo-500"
+                              )}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleDeleteColumn(col.id)} className="text-rose-600">
                     <Trash2 className="h-4 w-4 mr-2" /> Eliminar Lista
                   </DropdownMenuItem>
@@ -242,9 +312,9 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
                   onDragEnd={handleDragEnd}
                   className={cn(
                     "p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-slate-200/80 group",
-                    draggingId === task.id && "opacity-40"
+                    draggedId === task.id && "opacity-40"
                   )}
-                  onClick={() => onOpenTask(task.id)}
+                  onClick={() => handleTaskClick(task.id)}
                 >
                   <div className="flex justify-between items-start mb-2 gap-2">
                     <h5 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition-colors flex-1">
@@ -294,14 +364,11 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
                 </Card>
               ))}
               
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="w-full justify-start text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 h-9"
-                onClick={() => addTaskToColumn(col.id)}
-              >
-                <Plus className="h-4 w-4 mr-2" /> Añadir tarjeta
-              </Button>
+              {groupedTasks[col.id]?.length === 0 && (
+                <div className="text-center text-xs text-slate-400 py-6 border border-dashed border-slate-200 rounded-lg">
+                  Arrastra seguimientos aquí
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -316,6 +383,24 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
               className="mb-3 border-indigo-100 focus:ring-indigo-500"
               onKeyDown={(e) => e.key === 'Enter' && handleAddColumn()}
             />
+            <div className="mb-3 space-y-2">
+              <Label className="text-xs text-slate-500">Color de lista</Label>
+              <div className="flex flex-wrap gap-2">
+                {COLUMN_COLORS.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    aria-label={`Seleccionar color ${color}`}
+                    onClick={() => setNewColumnColor(color)}
+                    className={cn(
+                      "h-7 w-7 rounded-full border border-white shadow-sm ring-offset-2 ring-offset-white transition-transform hover:scale-105",
+                      newColumnColor === color && "ring-2 ring-indigo-500"
+                    )}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={handleAddColumn} className="bg-indigo-600 hover:bg-indigo-700">Añadir lista</Button>
               <Button size="sm" variant="ghost" onClick={() => setAddingColumn(false)}>Cancelar</Button>

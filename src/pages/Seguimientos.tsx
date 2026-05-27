@@ -73,9 +73,15 @@ export default function Seguimientos() {
   const [columns, setColumns] = useState<SeguimientoColumn[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
   const [loadingBoards, setLoadingBoards] = useState(false);
+  const [customBoardRefresh, setCustomBoardRefresh] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const openCard = (id: string) => { setCardId(id); setCardOpen(true); };
+
+  const handleCardChanged = () => {
+    load();
+    setCustomBoardRefresh(prev => prev + 1);
+  };
 
   // Abrir tarjeta desde notificación (?card=<id>)
   useEffect(() => {
@@ -269,13 +275,15 @@ export default function Seguimientos() {
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Seguimientos</h1>
           <p className="text-slate-500 mt-1">Gestión de proyectos, tareas e iniciativas del equipo.</p>
         </div>
-        <Button 
-          onClick={() => openNew()}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all duration-300 active:scale-95"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Nuevo seguimiento
-        </Button>
+        {!(activeTab === 'custom' && selectedBoardId) && (
+          <Button 
+            onClick={() => openNew()}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all duration-300 active:scale-95"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Nuevo seguimiento
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -397,6 +405,7 @@ export default function Seguimientos() {
               board={boards.find(b => b.id === selectedBoardId)!} 
               onBack={() => setSelectedBoardId(null)}
               onOpenTask={openCard}
+              refreshKey={customBoardRefresh}
             />
           ) : (
             <BoardList 
@@ -534,7 +543,7 @@ export default function Seguimientos() {
           seguimientoId={cardId}
           open={cardOpen}
           onOpenChange={setCardOpen}
-          onChanged={load}
+          onChanged={handleCardChanged}
         />
       )}
     </div>
