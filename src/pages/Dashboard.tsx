@@ -275,7 +275,7 @@ export default function Dashboard() {
         {/* Quick Access */}
         <Card className="rounded-2xl p-5 border-0 shadow-sm bg-gradient-to-br from-[hsl(220_30%_12%)] to-[hsl(220_40%_18%)] text-white">
           <p className="text-xs text-white/60 font-medium">Acceso Rápido</p>
-          <h3 className="font-bold text-xl mt-1">Mapa BPA</h3>
+          <h3 className="font-bold text-xl mt-1">SIG — Sistema Integrado de Gestión</h3>
           <p className="text-sm text-white/70 mt-2">
             Visualiza la red de procesos e interacciones del negocio.
           </p>
@@ -284,7 +284,7 @@ export default function Dashboard() {
             className="mt-6 w-full rounded-full bg-white text-[hsl(220_60%_15%)] hover:bg-white/90 gap-2"
           >
             <Network className="h-4 w-4" />
-            Ir al BPA
+            Ir al SIG
           </Button>
         </Card>
       </div>
