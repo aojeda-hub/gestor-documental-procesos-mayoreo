@@ -53,7 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 space-y-0.5 px-3">
           {navItems.map(item => {
             const isViewerOnly = roles.includes('viewer') && !roles.includes('admin') && !roles.includes('editor') && !roles.includes('responsable_metodos');
-            if (isViewerOnly && item.to !== '/proyectos' && item.to !== '/seguimientos' && item.to !== '/bpa') {
+            if (isViewerOnly && item.to !== '/proyectos' && item.to !== '/seguimientos') {
               return null;
             }
             if (item.adminOnly && !roles.includes('admin')) return null;
