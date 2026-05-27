@@ -71,7 +71,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
   const handleSave = async () => {
     setLoading(true);
     try {
-      const payload = { ...form };
+      const payload = { ...form, specific_goals: form.specific_goals.map(g => g.trim()).filter(Boolean) };
       let error;
 
       if (project) {
