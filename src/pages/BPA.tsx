@@ -61,9 +61,21 @@ export default function BPA() {
       else next.add(silo);
       return next;
     });
+    // If collapsing the currently selected silo, clear selection so it actually hides
+    setNavState(prev => {
+      if (prev.silo === silo && expandedSilos.has(silo)) {
+        return defaultState;
+      }
+      return prev;
+    });
   };
 
   const selectSilo = (silo: string) => {
+    setExpandedSilos(prev => {
+      const next = new Set(prev);
+      next.add(silo);
+      return next;
+    });
     setNavState({ level: "silo", silo, grupo: null, proceso: null, actividad: null, tarea: null });
   };
 
