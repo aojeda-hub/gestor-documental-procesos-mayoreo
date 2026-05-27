@@ -99,6 +99,7 @@ export default function Seguimientos() {
     const { data, error } = await supabase
       .from('seguimientos' as any)
       .select('*')
+      .is('board_id', null)
       .order('orden', { ascending: true })
       .order('created_at', { ascending: false });
     if (error) toast({ title: 'Error al cargar', description: error.message, variant: 'destructive' });
