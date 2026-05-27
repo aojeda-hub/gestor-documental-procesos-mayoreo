@@ -382,6 +382,24 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
               className="mb-3 border-indigo-100 focus:ring-indigo-500"
               onKeyDown={(e) => e.key === 'Enter' && handleAddColumn()}
             />
+            <div className="mb-3 space-y-2">
+              <Label className="text-xs text-slate-500">Color de lista</Label>
+              <div className="flex flex-wrap gap-2">
+                {COLUMN_COLORS.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    aria-label={`Seleccionar color ${color}`}
+                    onClick={() => setNewColumnColor(color)}
+                    className={cn(
+                      "h-7 w-7 rounded-full border border-white shadow-sm ring-offset-2 ring-offset-white transition-transform hover:scale-105",
+                      newColumnColor === color && "ring-2 ring-indigo-500"
+                    )}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={handleAddColumn} className="bg-indigo-600 hover:bg-indigo-700">Añadir lista</Button>
               <Button size="sm" variant="ghost" onClick={() => setAddingColumn(false)}>Cancelar</Button>
