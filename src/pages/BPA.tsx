@@ -194,7 +194,7 @@ export default function BPA() {
               </DialogTrigger>
               <DialogContent className="max-w-[95vw] lg:max-w-6xl w-full max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Mapa de Procesos (BPA)</DialogTitle>
+                  <DialogTitle>Mapa de Procesos (SIG)</DialogTitle>
                 </DialogHeader>
                 <div className="mt-4 border rounded-xl overflow-hidden bg-muted/20 p-2 flex items-center justify-center min-h-[50vh]">
                   <img 
