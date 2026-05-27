@@ -69,7 +69,7 @@ export default function Projects() {
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
 
-  const canEdit = hasRole('admin') || hasRole('editor');
+  const canEdit = hasRole('admin') || hasRole('editor') || hasRole('responsable_metodos') || hasRole('viewer');
 
   const fetchProjects = async () => {
     setLoading(true);
