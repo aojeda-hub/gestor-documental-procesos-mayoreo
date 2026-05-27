@@ -185,43 +185,6 @@ export default function BPA() {
               <FolderTree className="h-4 w-4" />
               Estructura SIG
             </CardTitle>
-            
-            <Dialog>
-              <DialogTrigger asChild>
-                <button className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-transparent hover:border-primary/20 bg-background/50" title="Ver imagen del mapa de procesos">
-                  <Eye className="h-4 w-4" />
-                </button>
-              </DialogTrigger>
-              <DialogContent className="max-w-[95vw] lg:max-w-6xl w-full max-h-[95vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Mapa de Procesos (SIG)</DialogTitle>
-                </DialogHeader>
-                <div className="mt-4 border rounded-xl overflow-hidden bg-muted/20 p-2 flex items-center justify-center min-h-[50vh]">
-                  <img 
-                    src="/mapa-bpa.png.jpeg" 
-                    alt="Mapa BPA" 
-                    className="max-w-full h-auto object-contain rounded-lg shadow-sm" 
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.nextElementSibling?.classList.remove('hidden');
-                      target.nextElementSibling?.classList.add('flex');
-                    }} 
-                  />
-                  <div className="hidden flex-col items-center justify-center text-center text-muted-foreground p-12 bg-muted/10 rounded-lg w-full h-full min-h-[400px] border border-dashed">
-                    <Eye className="h-12 w-12 opacity-20 mb-4" />
-                    <p className="mb-3 font-medium text-lg">La imagen no se encuentra en el sistema</p>
-                    <p className="text-sm max-w-md">
-                      Para que la imagen se muestre aquí, por favor guarda la imagen que compartiste en el chat con el nombre:
-                      <br/>
-                      <code className="bg-primary/10 text-primary px-2 py-1 rounded mt-3 inline-block font-mono font-bold text-base shadow-sm">mapa-bpa.png.jpeg</code>
-                      <br/><br/>
-                      Y colócala dentro de la carpeta <strong className="text-foreground">public</strong> de tu proyecto.
-                    </p>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         </CardHeader>
         <ScrollArea className="h-[calc(100vh-220px)]">
