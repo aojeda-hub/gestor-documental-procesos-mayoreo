@@ -485,6 +485,75 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nuevo seguimiento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Título *</Label>
+              <Input
+                autoFocus
+                placeholder="Título del seguimiento"
+                value={createForm.titulo}
+                onChange={e => setCreateForm({ ...createForm, titulo: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Descripción</Label>
+              <Textarea rows={3} value={createForm.descripcion} onChange={e => setCreateForm({ ...createForm, descripcion: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Estado</Label>
+                <Select value={createForm.estado} onValueChange={(v: any) => setCreateForm({ ...createForm, estado: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendiente">Pendiente</SelectItem>
+                    <SelectItem value="en_progreso">En progreso</SelectItem>
+                    <SelectItem value="en_revision">En revisión</SelectItem>
+                    <SelectItem value="completado">Completado</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Prioridad</Label>
+                <Select value={createForm.prioridad} onValueChange={(v: any) => setCreateForm({ ...createForm, prioridad: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="baja">Baja</SelectItem>
+                    <SelectItem value="media">Media</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="critica">Crítica</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Responsable</Label>
+                <Input value={createForm.responsable} onChange={e => setCreateForm({ ...createForm, responsable: e.target.value })} />
+              </div>
+              <div>
+                <Label>Categoría</Label>
+                <Input value={createForm.categoria} onChange={e => setCreateForm({ ...createForm, categoria: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>Fecha límite</Label>
+              <Input type="date" value={createForm.fecha_limite} onChange={e => setCreateForm({ ...createForm, fecha_limite: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+            <Button onClick={submitCreate} className="bg-indigo-600 hover:bg-indigo-700">Crear</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
