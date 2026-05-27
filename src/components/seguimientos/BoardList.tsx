@@ -141,6 +141,11 @@ export function BoardList({ boards, onSelectBoard, onRefresh }: BoardListProps) 
               <DropdownMenuContent align="end">
                 {isOwner(board) && (
                   <DropdownMenuItem onClick={(e) => openMembers(board, e as any)}>
+                    <Share2 className="h-4 w-4 mr-2" /> Compartir tablero
+                  </DropdownMenuItem>
+                )}
+                {isOwner(board) && (
+                  <DropdownMenuItem onClick={(e) => openMembers(board, e as any)}>
                     <Users className="h-4 w-4 mr-2" /> Gestionar miembros
                   </DropdownMenuItem>
                 )}
