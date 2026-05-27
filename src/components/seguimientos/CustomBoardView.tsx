@@ -177,10 +177,17 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
     const movedTask = tasks.find(t => t.id === taskId);
     if (!movedTask) return;
 
-    // 1. Separate tasks of target column
-    const otherColsTasks = tasks.filter(t => t.column_id !== targetColId && t.id !== taskId);
+    const sourceColId = movedTask.column_id;
+    const sourceChanged = sourceColId && sourceColId !== targetColId;
+
+    // 1. Separate tasks: exclude target col, source col (if changed), and moved task
+    const otherColsTasks = tasks.filter(t =>
+      t.column_id !== targetColId &&
+      (!sourceChanged || t.column_id !== sourceColId) &&
+      t.id !== taskId
+    );
     const targetColTasks = tasks.filter(t => t.column_id === targetColId && t.id !== taskId);
-    
+
     // Update target column ID
     const updatedMovedTask = { ...movedTask, column_id: targetColId };
 
@@ -202,8 +209,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
 
     // 4. Re-assign clean sequential orders for source column if changed
     let orderedSourceColTasks: Seguimiento[] = [];
-    if (movedTask.column_id !== targetColId && movedTask.column_id) {
-      const sourceColId = movedTask.column_id;
+    if (sourceChanged) {
       const sourceColTasks = tasks.filter(t => t.column_id === sourceColId && t.id !== taskId);
       orderedSourceColTasks = sourceColTasks.map((t, idx) => ({ ...t, orden: idx }));
     }
