@@ -202,7 +202,7 @@ export default function BPA() {
         <ScrollArea className="h-[calc(100vh-220px)]">
           <div className="p-3 space-y-1">
             {bpaData.silos.map(silo => {
-              const isExpanded = expandedSilos.has(silo.nombre) || navState.silo === silo.nombre;
+              const isExpanded = expandedSilos.has(silo.nombre);
               const isSelected = navState.silo === silo.nombre;
               return (
               <div key={silo.nombre} className="space-y-1">
