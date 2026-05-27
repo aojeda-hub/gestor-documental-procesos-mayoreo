@@ -183,7 +183,7 @@ export default function BPA() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-wide text-primary">
               <FolderTree className="h-4 w-4" />
-              Estructura BPA
+              Estructura SIG
             </CardTitle>
             
             <Dialog>
