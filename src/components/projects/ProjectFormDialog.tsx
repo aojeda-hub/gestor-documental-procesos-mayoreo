@@ -71,7 +71,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
   const handleSave = async () => {
     setLoading(true);
     try {
-      const payload = { ...form };
+      const payload = { ...form, specific_goals: form.specific_goals.map(g => g.trim()).filter(Boolean) };
       let error;
 
       if (project) {
@@ -202,14 +202,39 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="specific_goals">Objetivos Específicos (Uno por línea)</Label>
-            <Textarea 
-              id="specific_goals" 
-              value={form.specific_goals.join('\n')} 
-              onChange={e => setField('specific_goals', e.target.value.split('\n').filter(line => line.trim() !== ''))} 
-              placeholder="1. Objetivo A&#10;2. Objetivo B"
-              className="h-24"
-            />
+            <Label>Objetivos Específicos</Label>
+            <div className="space-y-2">
+              {form.specific_goals.map((goal, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <Input
+                    value={goal}
+                    onChange={e => {
+                      const next = [...form.specific_goals];
+                      next[idx] = e.target.value;
+                      setField('specific_goals', next);
+                    }}
+                    placeholder={`Objetivo ${idx + 1}`}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setField('specific_goals', form.specific_goals.filter((_, i) => i !== idx))}
+                    title="Eliminar"
+                  >
+                    ✕
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setField('specific_goals', [...form.specific_goals, ''])}
+              >
+                + Agregar objetivo
+              </Button>
+            </div>
           </div>
 
           <Button onClick={handleSave} disabled={loading || !form.name} className="w-full">

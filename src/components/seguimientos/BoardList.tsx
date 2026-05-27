@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, MoreVertical, Trash2, Users, X, Check } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Users, X, Check, Share2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
@@ -84,11 +84,12 @@ export function BoardList({ boards, onSelectBoard, onRefresh }: BoardListProps) 
           user_id: userId,
           created_by: user.id,
           tipo: 'seguimiento_miembro',
-          titulo: 'Fuiste agregado a un tablero',
+          titulo: 'Tablero compartido contigo',
           mensaje: `Fuiste agregado al tablero "${membersBoard.nombre}" para colaborar.`,
           link: '/seguimientos',
           metadata: { board_id: membersBoard.id },
         });
+        toast({ title: 'Tablero compartido', description: 'Se notificó al miembro.' });
       }
     }
   };
@@ -139,6 +140,11 @@ export function BoardList({ boards, onSelectBoard, onRefresh }: BoardListProps) 
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {isOwner(board) && (
+                  <DropdownMenuItem onClick={(e) => openMembers(board, e as any)}>
+                    <Share2 className="h-4 w-4 mr-2" /> Compartir tablero
+                  </DropdownMenuItem>
+                )}
                 {isOwner(board) && (
                   <DropdownMenuItem onClick={(e) => openMembers(board, e as any)}>
                     <Users className="h-4 w-4 mr-2" /> Gestionar miembros
