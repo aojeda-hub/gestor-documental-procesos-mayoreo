@@ -36,7 +36,7 @@ const STATUS_META: Record<PhaseStatus, { label: string; cls: string; icon: any }
 export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName, projectPhase, onTasksChange }: Props) {
   const { toast } = useToast();
   const { hasRole } = useAuth();
-  const isViewer = hasRole('viewer');
+  const isViewer = false; // viewer ahora tiene permisos completos sobre proyectos
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [loading, setLoading] = useState(false);

@@ -69,7 +69,7 @@ export default function Projects() {
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
 
-  const canEdit = hasRole('admin') || hasRole('editor');
+  const canEdit = hasRole('admin') || hasRole('editor') || hasRole('responsable_metodos') || hasRole('viewer');
 
   const fetchProjects = async () => {
     setLoading(true);
@@ -310,16 +310,14 @@ export default function Projects() {
                         >
                           <ListChecks className="h-4 w-4 text-blue-600" />
                         </Button>
-                        {!hasRole('viewer') && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => { setSelectedProject(project); setDocsDialogOpen(true); }}
-                            title="Documentos de soporte"
-                          >
-                            <Paperclip className="h-4 w-4 text-emerald-600" />
-                          </Button>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => { setSelectedProject(project); setDocsDialogOpen(true); }}
+                          title="Documentos de soporte"
+                        >
+                          <Paperclip className="h-4 w-4 text-emerald-600" />
+                        </Button>
                         {canEdit && (
                           <>
                             <Button 
