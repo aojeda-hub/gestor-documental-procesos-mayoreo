@@ -201,7 +201,16 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
 
       <div className="flex gap-6 overflow-x-auto pb-6 items-start min-h-[60vh]">
         {columns.map(col => (
-          <div key={col.id} className="w-80 shrink-0 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200/60 p-3">
+          <div
+            key={col.id}
+            onDragOver={(e) => handleDragOver(e, col.id)}
+            onDragLeave={() => setDragOverCol(curr => curr === col.id ? null : curr)}
+            onDrop={(e) => handleDrop(e, col.id)}
+            className={cn(
+              "w-80 shrink-0 flex flex-col bg-slate-100/50 rounded-xl border p-3 transition-colors",
+              dragOverCol === col.id ? "border-indigo-400 bg-indigo-50/60" : "border-slate-200/60"
+            )}
+          >
             <div className="flex items-center justify-between mb-3 px-1">
               <h4 className="font-bold text-slate-700 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-slate-400" />
