@@ -17,7 +17,7 @@ const navItems = [
   { to: '/indicadores', label: 'Indicadores', icon: BarChart3 },
   { to: '/proyectos', label: 'Proyectos', icon: FolderKanban, responsableOrAdmin: true },
   { to: '/seguimientos', label: 'Mis Seguimientos', icon: ListChecks, responsableOrAdmin: true },
-  { to: '/bpa', label: 'BPA', icon: Network },
+  { to: '/bpa', label: 'BPA', icon: Network, adminOnly: true },
   { to: '/desarrollos', label: 'Desarrollos a la medida', icon: Sparkles },
   { to: '/admin', label: 'Administración', icon: ShieldCheck, adminOnly: true },
 ];
@@ -53,7 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 space-y-0.5 px-3">
           {navItems.map(item => {
             const isViewerOnly = roles.includes('viewer') && !roles.includes('admin') && !roles.includes('editor') && !roles.includes('responsable_metodos');
-            if (isViewerOnly && item.to !== '/proyectos' && item.to !== '/seguimientos' && item.to !== '/bpa') {
+            if (isViewerOnly && item.to !== '/proyectos' && item.to !== '/seguimientos') {
               return null;
             }
             if (item.adminOnly && !roles.includes('admin')) return null;
