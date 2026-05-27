@@ -35,7 +35,7 @@ const AGENDA_ITEMS = [
 export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: ProjectKickoffDialogProps) {
   const { toast } = useToast();
   const { hasRole } = useAuth();
-  const isViewer = hasRole('viewer');
+  const isViewer = false; // viewer ahora tiene permisos completos sobre proyectos
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>({
     date: '',
