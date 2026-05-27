@@ -17,7 +17,7 @@ const navItems = [
   { to: '/indicadores', label: 'Indicadores', icon: BarChart3 },
   { to: '/proyectos', label: 'Proyectos', icon: FolderKanban, responsableOrAdmin: true },
   { to: '/seguimientos', label: 'Mis Seguimientos', icon: ListChecks, responsableOrAdmin: true },
-  { to: '/bpa', label: 'BPA', icon: Network, adminOnly: true },
+  { to: '/bpa', label: 'SIG', icon: Network, adminOnly: true },
   { to: '/desarrollos', label: 'Desarrollos a la medida', icon: Sparkles },
   { to: '/admin', label: 'Administración', icon: ShieldCheck, adminOnly: true },
 ];
