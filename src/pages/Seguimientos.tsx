@@ -73,9 +73,15 @@ export default function Seguimientos() {
   const [columns, setColumns] = useState<SeguimientoColumn[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
   const [loadingBoards, setLoadingBoards] = useState(false);
+  const [customBoardRefresh, setCustomBoardRefresh] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const openCard = (id: string) => { setCardId(id); setCardOpen(true); };
+
+  const handleCardChanged = () => {
+    load();
+    setCustomBoardRefresh(prev => prev + 1);
+  };
 
   // Abrir tarjeta desde notificación (?card=<id>)
   useEffect(() => {
@@ -399,6 +405,7 @@ export default function Seguimientos() {
               board={boards.find(b => b.id === selectedBoardId)!} 
               onBack={() => setSelectedBoardId(null)}
               onOpenTask={openCard}
+              refreshKey={customBoardRefresh}
             />
           ) : (
             <BoardList 
@@ -536,7 +543,7 @@ export default function Seguimientos() {
           seguimientoId={cardId}
           open={cardOpen}
           onOpenChange={setCardOpen}
-          onChanged={load}
+          onChanged={handleCardChanged}
         />
       )}
     </div>
