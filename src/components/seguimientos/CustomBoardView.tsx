@@ -22,9 +22,10 @@ interface CustomBoardViewProps {
   board: SeguimientoBoard;
   onBack: () => void;
   onOpenTask: (id: string) => void;
+  refreshKey?: number;
 }
 
-export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewProps) {
+export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: CustomBoardViewProps) {
   const { toast } = useToast();
   const [columns, setColumns] = useState<SeguimientoColumn[]>([]);
   const [tasks, setTasks] = useState<Seguimiento[]>([]);
@@ -64,7 +65,7 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
 
   useEffect(() => {
     loadData();
-  }, [board.id]);
+  }, [board.id, refreshKey]);
 
   const handleAddColumn = async () => {
     if (!newColumnName.trim()) return;
