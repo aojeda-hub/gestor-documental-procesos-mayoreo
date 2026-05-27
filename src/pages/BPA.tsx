@@ -61,9 +61,21 @@ export default function BPA() {
       else next.add(silo);
       return next;
     });
+    // If collapsing the currently selected silo, clear selection so it actually hides
+    setNavState(prev => {
+      if (prev.silo === silo && expandedSilos.has(silo)) {
+        return defaultState;
+      }
+      return prev;
+    });
   };
 
   const selectSilo = (silo: string) => {
+    setExpandedSilos(prev => {
+      const next = new Set(prev);
+      next.add(silo);
+      return next;
+    });
     setNavState({ level: "silo", silo, grupo: null, proceso: null, actividad: null, tarea: null });
   };
 
@@ -190,7 +202,7 @@ export default function BPA() {
         <ScrollArea className="h-[calc(100vh-220px)]">
           <div className="p-3 space-y-1">
             {bpaData.silos.map(silo => {
-              const isExpanded = expandedSilos.has(silo.nombre) || navState.silo === silo.nombre;
+              const isExpanded = expandedSilos.has(silo.nombre);
               const isSelected = navState.silo === silo.nombre;
               return (
               <div key={silo.nombre} className="space-y-1">
