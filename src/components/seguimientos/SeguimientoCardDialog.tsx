@@ -284,12 +284,48 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
   // ============ NOTAS ============
   const addNote = async () => {
     if (!user || !newNote.trim()) return;
+    const contenido = newNote.trim();
     const { error } = await supabase.from('seguimiento_notas' as any).insert({
-      seguimiento_id: seguimientoId, user_id: user.id, contenido: newNote.trim(),
+      seguimiento_id: seguimientoId, user_id: user.id, contenido,
     });
     if (error) return notify(error);
     setNewNote('');
     loadAll();
+
+    // Notificar a miembros del seguimiento + miembros del tablero + dueño (excluyendo al autor)
+    try {
+      const recipients = new Set<string>();
+      miembros.forEach(m => m.member_user_id && recipients.add(m.member_user_id));
+      if (seg?.user_id) recipients.add(seg.user_id);
+      if (seg?.board_id) {
+        const { data: bm } = await supabase
+          .from('seguimiento_board_miembros' as any)
+          .select('member_user_id')
+          .eq('board_id', seg.board_id);
+        ((bm as any[]) || []).forEach((b: any) => recipients.add(b.member_user_id));
+      }
+      recipients.delete(user.id);
+      if (recipients.size === 0) return;
+
+      const actor = perfiles.find(p => p.user_id === user.id);
+      const actorName = actor?.full_name || actor?.email || 'Alguien';
+      const preview = contenido.length > 120 ? contenido.slice(0, 120) + '…' : contenido;
+
+      await supabase.from('notificaciones' as any).insert(
+        Array.from(recipients).map(uid => ({
+          user_id: uid,
+          created_by: user.id,
+          tipo: 'seguimiento_comentario',
+          titulo: 'Nuevo comentario en un seguimiento',
+          mensaje: `${actorName} comentó en "${seg?.titulo || 'un seguimiento'}": ${preview}`,
+          link: `/seguimientos?card=${seguimientoId}`,
+          metadata: { seguimiento_id: seguimientoId },
+        }))
+      );
+      toast({ title: 'Comentario enviado', description: `Se notificó a ${recipients.size} miembro(s).` });
+    } catch (e) {
+      console.warn('No se pudo notificar comentario', e);
+    }
   };
   const delNote = async (id: string) => {
     const { error } = await supabase.from('seguimiento_notas' as any).delete().eq('id', id);
