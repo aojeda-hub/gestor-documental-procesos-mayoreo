@@ -122,7 +122,7 @@ export default function BPA() {
     return (
       <nav className="flex items-center space-x-1 text-sm text-muted-foreground mb-6 bg-muted/30 p-3 rounded-lg border">
         <button onClick={() => setNavState(defaultState)} className="hover:text-primary transition-colors flex items-center gap-1 font-medium">
-          <FolderTree className="h-4 w-4" /> BPA
+          <FolderTree className="h-4 w-4" /> SIG
         </button>
         {navState.silo && (
           <>
@@ -183,7 +183,7 @@ export default function BPA() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-wide text-primary">
               <FolderTree className="h-4 w-4" />
-              Estructura BPA
+              Estructura SIG
             </CardTitle>
             
             <Dialog>
@@ -194,7 +194,7 @@ export default function BPA() {
               </DialogTrigger>
               <DialogContent className="max-w-[95vw] lg:max-w-6xl w-full max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Mapa de Procesos (BPA)</DialogTitle>
+                  <DialogTitle>Mapa de Procesos (SIG)</DialogTitle>
                 </DialogHeader>
                 <div className="mt-4 border rounded-xl overflow-hidden bg-muted/20 p-2 flex items-center justify-center min-h-[50vh]">
                   <img 
@@ -651,7 +651,7 @@ export default function BPA() {
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col animate-in fade-in zoom-in-95 duration-300">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight">Sistema Integrado de Gestión (BPA)</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Sistema Integrado de Gestión (SIG)</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Navegación interactiva de 5 niveles por Silo, Grupo, Proceso, Actividad y Tareas.
         </p>
