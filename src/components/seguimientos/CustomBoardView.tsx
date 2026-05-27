@@ -253,7 +253,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button 
-            onClick={addNewSeguimiento}
+            onClick={openCreate}
             className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20"
           >
             <Plus className="h-4 w-4 mr-2" /> Nuevo seguimiento
