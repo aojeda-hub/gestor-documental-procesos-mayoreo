@@ -280,7 +280,7 @@ export default function Dashboard() {
             Visualiza la red de procesos e interacciones del negocio.
           </p>
           <Button
-            onClick={() => window.open('https://softland-architecture-two.vercel.app/#', '_blank', 'noopener,noreferrer')}
+            onClick={() => navigate('/bpa')}
             className="mt-6 w-full rounded-full bg-white text-[hsl(220_60%_15%)] hover:bg-white/90 gap-2"
           >
             <Network className="h-4 w-4" />
