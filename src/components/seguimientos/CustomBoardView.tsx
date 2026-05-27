@@ -162,6 +162,14 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
     moveTask(taskId, colId);
   };
 
+  const handleTaskClick = (taskId: string) => {
+    if (dragMovedRef.current) {
+      dragMovedRef.current = false;
+      return;
+    }
+    onOpenTask(taskId);
+  };
+
   const deleteTask = async (taskId: string) => {
     if (!confirm('¿Eliminar esta tarea?')) return;
     const { error } = await supabase.from('seguimientos').delete().eq('id', taskId);
@@ -208,7 +216,7 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={onBack} className="text-slate-500">
             <ChevronLeft className="h-4 w-4 mr-1" /> Volver
@@ -218,13 +226,21 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
             <p className="text-sm text-slate-500">Tablero personalizado compartido</p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={() => setAddingColumn(true)}
-          className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-        >
-          <Plus className="h-4 w-4 mr-2" /> Añadir Lista
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button 
+            onClick={addNewSeguimiento}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20"
+          >
+            <Plus className="h-4 w-4 mr-2" /> Nuevo seguimiento
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setAddingColumn(true)}
+            className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+          >
+            <Plus className="h-4 w-4 mr-2" /> Añadir lista
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-6 overflow-x-auto pb-6 items-start min-h-[60vh]">
@@ -241,7 +257,7 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
           >
             <div className="flex items-center justify-between mb-3 px-1">
               <h4 className="font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: col.color || DEFAULT_COLUMN_COLOR }} />
                 {col.nombre}
                 <Badge variant="secondary" className="ml-2 bg-slate-200 text-slate-600 text-[10px]">
                   {groupedTasks[col.id]?.length || 0}
@@ -254,6 +270,31 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                    <Popover>
+                      <PopoverTrigger className="flex w-full items-center px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground rounded-sm">
+                        <Palette className="h-4 w-4 mr-2" /> Cambiar color
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-52 p-3">
+                        <Label className="text-xs">Color de lista</Label>
+                        <div className="grid grid-cols-5 gap-2 mt-2">
+                          {COLUMN_COLORS.map(color => (
+                            <button
+                              key={color}
+                              type="button"
+                              aria-label={`Usar color ${color}`}
+                              onClick={() => handleUpdateColumnColor(col.id, color)}
+                              className={cn(
+                                "h-8 w-8 rounded-full border border-white shadow-sm ring-offset-2 ring-offset-background transition-transform hover:scale-105",
+                                (col.color || DEFAULT_COLUMN_COLOR) === color && "ring-2 ring-indigo-500"
+                              )}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleDeleteColumn(col.id)} className="text-rose-600">
                     <Trash2 className="h-4 w-4 mr-2" /> Eliminar Lista
                   </DropdownMenuItem>
@@ -270,9 +311,9 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
                   onDragEnd={handleDragEnd}
                   className={cn(
                     "p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-slate-200/80 group",
-                    draggingId === task.id && "opacity-40"
+                    draggedId === task.id && "opacity-40"
                   )}
-                  onClick={() => onOpenTask(task.id)}
+                  onClick={() => handleTaskClick(task.id)}
                 >
                   <div className="flex justify-between items-start mb-2 gap-2">
                     <h5 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition-colors flex-1">
@@ -322,14 +363,11 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
                 </Card>
               ))}
               
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="w-full justify-start text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 h-9"
-                onClick={() => addTaskToColumn(col.id)}
-              >
-                <Plus className="h-4 w-4 mr-2" /> Añadir tarjeta
-              </Button>
+              {groupedTasks[col.id]?.length === 0 && (
+                <div className="text-center text-xs text-slate-400 py-6 border border-dashed border-slate-200 rounded-lg">
+                  Arrastra seguimientos aquí
+                </div>
+              )}
             </div>
           </div>
         ))}
