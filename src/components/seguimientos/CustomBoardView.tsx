@@ -237,7 +237,13 @@ export function CustomBoardView({ board, onBack, onOpenTask }: CustomBoardViewPr
               {groupedTasks[col.id]?.map(task => (
                 <Card 
                   key={task.id} 
-                  className="p-3 shadow-sm hover:shadow-md transition-all cursor-pointer border-slate-200/80 group"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, task.id)}
+                  onDragEnd={handleDragEnd}
+                  className={cn(
+                    "p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-slate-200/80 group",
+                    draggingId === task.id && "opacity-40"
+                  )}
                   onClick={() => onOpenTask(task.id)}
                 >
                   <div className="flex justify-between items-start mb-2 gap-2">
