@@ -651,7 +651,7 @@ export default function BPA() {
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col animate-in fade-in zoom-in-95 duration-300">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight">Sistema Integrado de Gestión (BPA)</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Sistema Integrado de Gestión (SIG)</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Navegación interactiva de 5 niveles por Silo, Grupo, Proceso, Actividad y Tareas.
         </p>
