@@ -84,11 +84,12 @@ export function BoardList({ boards, onSelectBoard, onRefresh }: BoardListProps) 
           user_id: userId,
           created_by: user.id,
           tipo: 'seguimiento_miembro',
-          titulo: 'Fuiste agregado a un tablero',
+          titulo: 'Tablero compartido contigo',
           mensaje: `Fuiste agregado al tablero "${membersBoard.nombre}" para colaborar.`,
           link: '/seguimientos',
           metadata: { board_id: membersBoard.id },
         });
+        toast({ title: 'Tablero compartido', description: 'Se notificó al miembro.' });
       }
     }
   };
