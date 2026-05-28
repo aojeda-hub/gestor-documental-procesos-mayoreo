@@ -249,22 +249,6 @@ export default function DescripcionesCargo({
         />
       </div>
 
-      {/* Totals summary */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary" className="text-xs">
-          Total general: <span className="ml-1 font-bold">{totalGeneral}</span>
-        </Badge>
-        {(selectedDepto === "Todos" ? departamentos : [selectedDepto]).map(depto => (
-          <Badge key={depto} variant="outline" className="text-xs">
-            {depto}: <span className="ml-1 font-semibold">{countsByDepto.get(depto) || 0}</span>
-          </Badge>
-        ))}
-        {searchQuery && (
-          <Badge variant="default" className="text-xs">
-            Resultados: {filteredData.length}
-          </Badge>
-        )}
-      </div>
 
       <Card className="border-0 shadow-none sm:border sm:shadow-sm">
         <CardContent className="p-0">
