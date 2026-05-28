@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Briefcase, FileText, ExternalLink, MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2, Upload } from 'lucide-react';
+import { Briefcase, FileText, ExternalLink, MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2, Upload, Search } from 'lucide-react';
 import type { Document } from '@/types/database';
 
 const inventoryData = [
@@ -156,10 +158,33 @@ export default function DescripcionesCargo({
   onUploadDoc
 }: DescripcionesCargoProps) {
   const [selectedDepto, setSelectedDepto] = useState<string>("Todos");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const filteredData = selectedDepto === "Todos" 
-    ? inventoryData 
-    : inventoryData.filter(item => item.depto === selectedDepto);
+  const normalizeSearch = (s: string) =>
+    s.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  const filteredData = useMemo(() => {
+    const byDepto = selectedDepto === "Todos"
+      ? inventoryData
+      : inventoryData.filter(item => item.depto === selectedDepto);
+    const q = normalizeSearch(searchQuery.trim());
+    if (!q) return byDepto;
+    return byDepto.filter(item =>
+      normalizeSearch(item.cargo).includes(q) ||
+      normalizeSearch(item.depto).includes(q) ||
+      normalizeSearch(item.archivo || '').includes(q)
+    );
+  }, [selectedDepto, searchQuery]);
+
+  const countsByDepto = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of inventoryData) {
+      map.set(item.depto, (map.get(item.depto) || 0) + 1);
+    }
+    return map;
+  }, []);
+  const totalGeneral = inventoryData.length;
 
   const normalize = (s: string) =>
     s.toLowerCase()
@@ -200,13 +225,45 @@ export default function DescripcionesCargo({
               <SelectValue placeholder="Filtrar por departamento" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Todos">Todos los departamentos</SelectItem>
+              <SelectItem value="Todos">
+                Todos los departamentos ({totalGeneral})
+              </SelectItem>
               {departamentos.map(depto => (
-                <SelectItem key={depto} value={depto}>{depto}</SelectItem>
+                <SelectItem key={depto} value={depto}>
+                  {depto} ({countsByDepto.get(depto) || 0})
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Buscar descripciones de cargo..."
+          className="pl-9"
+        />
+      </div>
+
+      {/* Totals summary */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary" className="text-xs">
+          Total general: <span className="ml-1 font-bold">{totalGeneral}</span>
+        </Badge>
+        {(selectedDepto === "Todos" ? departamentos : [selectedDepto]).map(depto => (
+          <Badge key={depto} variant="outline" className="text-xs">
+            {depto}: <span className="ml-1 font-semibold">{countsByDepto.get(depto) || 0}</span>
+          </Badge>
+        ))}
+        {searchQuery && (
+          <Badge variant="default" className="text-xs">
+            Resultados: {filteredData.length}
+          </Badge>
+        )}
       </div>
 
       <Card className="border-0 shadow-none sm:border sm:shadow-sm">
@@ -224,7 +281,7 @@ export default function DescripcionesCargo({
                 {filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                      No se encontraron cargos para este departamento.
+                      No se encontraron cargos.
                     </TableCell>
                   </TableRow>
                 ) : (
