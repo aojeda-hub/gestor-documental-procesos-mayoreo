@@ -17,7 +17,7 @@ const navItems = [
   { to: '/indicadores', label: 'Indicadores', icon: BarChart3 },
   { to: '/proyectos', label: 'Proyectos', icon: FolderKanban, responsableOrAdmin: true },
   { to: '/seguimientos', label: 'Mis Seguimientos', icon: ListChecks, responsableOrAdmin: true },
-  { to: '/bpa', label: 'SIG', icon: Network, adminOnly: true },
+  { to: 'https://softland-architecture-two.vercel.app/#', label: 'BPA', icon: Network, adminOnly: true, external: true },
   { to: '/desarrollos', label: 'Desarrollos a la medida', icon: Sparkles },
   { to: '/admin', label: 'Administración', icon: ShieldCheck, adminOnly: true },
 ];
@@ -59,6 +59,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             if (item.adminOnly && !roles.includes('admin') && !roles.includes('responsable_metodos')) return null;
             if ((item as any).responsableOrAdmin && !roles.includes('admin') && !roles.includes('responsable_metodos') && !roles.includes('viewer')) return null;
             const isActive = location.pathname === item.to;
+            if ((item as any).external) {
+              return (
+                <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors text-slate-900 font-medium hover:bg-slate-200/50">
+                  <item.icon className="h-[18px] w-[18px]" />
+                  {item.label}
+                </a>
+              );
+            }
             return (
               <Link key={item.to} to={item.to} onClick={() => setSidebarOpen(false)}
                 className={cn(
