@@ -229,7 +229,7 @@ export default function DescripcionesCargo({
                   </TableRow>
                 ) : (
                   filteredData.map((item, idx) => {
-                    const matchedDoc = getMatchedDoc(item.archivo);
+                    const matchedDoc = getMatchedDoc(item.archivo, item.cargo);
                     
                     return (
                       <TableRow key={idx} className="group hover:bg-accent/20">
