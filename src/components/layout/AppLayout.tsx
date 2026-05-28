@@ -63,11 +63,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               return (
                 <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors text-slate-900 font-medium hover:bg-slate-200/50">
-                  <item.icon className="h-[18px] w-[18px]" />
-                  {item.label}
-                </a>
-              );
-            }
+            const isActive = location.pathname === item.to;
             return (
               <Link key={item.to} to={item.to} onClick={() => setSidebarOpen(false)}
                 className={cn(
@@ -80,11 +76,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {item.label}
               </Link>
             );
-          })}
-        </nav>
-
-        {/* Footer */}
-        <div className="border-t border-sidebar-border px-5 py-4 space-y-3">
           <p className="text-xs text-slate-600 truncate font-medium">
             {user?.email || 'usuario@correo.com'}
           </p>
