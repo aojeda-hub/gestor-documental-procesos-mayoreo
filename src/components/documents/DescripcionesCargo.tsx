@@ -158,10 +158,33 @@ export default function DescripcionesCargo({
   onUploadDoc
 }: DescripcionesCargoProps) {
   const [selectedDepto, setSelectedDepto] = useState<string>("Todos");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const filteredData = selectedDepto === "Todos" 
-    ? inventoryData 
-    : inventoryData.filter(item => item.depto === selectedDepto);
+  const normalizeSearch = (s: string) =>
+    s.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  const filteredData = useMemo(() => {
+    const byDepto = selectedDepto === "Todos"
+      ? inventoryData
+      : inventoryData.filter(item => item.depto === selectedDepto);
+    const q = normalizeSearch(searchQuery.trim());
+    if (!q) return byDepto;
+    return byDepto.filter(item =>
+      normalizeSearch(item.cargo).includes(q) ||
+      normalizeSearch(item.depto).includes(q) ||
+      normalizeSearch(item.archivo || '').includes(q)
+    );
+  }, [selectedDepto, searchQuery]);
+
+  const countsByDepto = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of inventoryData) {
+      map.set(item.depto, (map.get(item.depto) || 0) + 1);
+    }
+    return map;
+  }, []);
+  const totalGeneral = inventoryData.length;
 
   const normalize = (s: string) =>
     s.toLowerCase()
