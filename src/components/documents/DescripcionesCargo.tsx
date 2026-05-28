@@ -167,14 +167,18 @@ export default function DescripcionesCargo({
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
       .replace(/[^a-z0-9]+/g, ''); // strip spaces, dashes, punctuation
 
-  const getMatchedDoc = (archivoName: string) => {
-    if (!archivoName) return null;
-    const target = normalize(archivoName);
-    if (!target) return null;
-    return docs.find(doc => {
-      const t = normalize(doc.title);
-      return t === target || t.includes(target) || target.includes(t);
-    });
+  const getMatchedDoc = (archivoName: string, cargo?: string) => {
+    const candidates = [archivoName, cargo ? `DC-${cargo}` : '', cargo || ''].filter(Boolean);
+    for (const candidate of candidates) {
+      const target = normalize(candidate);
+      if (!target) continue;
+      const found = docs.find(doc => {
+        const t = normalize(doc.title);
+        return t === target || t.includes(target) || target.includes(t);
+      });
+      if (found) return found;
+    }
+    return null;
   };
 
   return (
