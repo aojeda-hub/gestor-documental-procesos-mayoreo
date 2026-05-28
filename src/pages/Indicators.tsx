@@ -97,12 +97,18 @@ export default function Indicators() {
     setSelectedIndicator(ind);
     setViewDialogOpen(true);
   };
-
   const filtered = indicators.filter(i => {
     if (filterSilo !== 'all' && i.silo !== filterSilo) return false;
     if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  const totalGeneral = indicators.length;
+  const totalBySilo = useMemo(() => {
+    const map: Record<string, number> = {};
+    indicators.forEach(i => { map[i.silo] = (map[i.silo] || 0) + 1; });
+    return map;
+  }, [indicators]);
 
   return (
     <div className="space-y-4">
@@ -111,11 +117,29 @@ export default function Indicators() {
         <Select value={filterSilo} onValueChange={setFilterSilo}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Todos los silos" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos los silos</SelectItem>
-            {Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+            <SelectItem value="all">Todos los silos ({totalGeneral})</SelectItem>
+            {Object.entries(SILO_LABELS).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v} ({totalBySilo[k] || 0})</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         {canEdit && <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> Nuevo Indicador</Button>}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="text-xs px-2 py-1">
+          Total general: {totalGeneral}
+        </Badge>
+        {filterSilo !== 'all' && (
+          <Badge variant="secondary" className="text-xs px-2 py-1">
+            {SILO_LABELS[filterSilo as SiloType]}: {totalBySilo[filterSilo] || 0}
+          </Badge>
+        )}
+        {search && (
+          <Badge variant="outline" className="text-xs px-2 py-1">
+            Resultados: {filtered.length}
+          </Badge>
+        )}
       </div>
 
       <Card>
