@@ -275,17 +275,20 @@ export default function Dashboard() {
         {/* Quick Access */}
         <Card className="rounded-2xl p-5 border-0 shadow-sm bg-gradient-to-br from-[hsl(220_30%_12%)] to-[hsl(220_40%_18%)] text-white">
           <p className="text-xs text-white/60 font-medium">Acceso Rápido</p>
-          <h3 className="font-bold text-xl mt-1">SIG — Sistema Integrado de Gestión</h3>
+          <h3 className="font-bold text-xl mt-1">BPA Mayoreo</h3>
           <p className="text-sm text-white/70 mt-2">
             Visualiza la red de procesos e interacciones del negocio.
           </p>
-          <Button
-            onClick={() => navigate('/bpa')}
-            className="mt-6 w-full rounded-full bg-white text-[hsl(220_60%_15%)] hover:bg-white/90 gap-2"
+          <a
+            href="https://softland-architecture-two.vercel.app/#"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full bg-white text-[hsl(220_60%_15%)] hover:bg-white/90 h-10 px-4 text-sm font-medium"
           >
             <Network className="h-4 w-4" />
-            Ir al SIG
-          </Button>
+            Ir al BPA
+          </a>
+
         </Card>
       </div>
 
