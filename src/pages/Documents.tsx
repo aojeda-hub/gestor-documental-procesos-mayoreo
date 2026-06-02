@@ -196,6 +196,7 @@ export default function Documents() {
   const resetForm = () => {
     setFormTitle(''); setVDesc(''); setVDriveUrl(''); setVAuthors(''); setVApprover('');
     setWordFile(null); setPdfFile(null); setGenericFile(null); setFormConfidential(false);
+    setFormEstatus('por_iniciar');
   };
 
   const openPreview = (doc: Document) => {
