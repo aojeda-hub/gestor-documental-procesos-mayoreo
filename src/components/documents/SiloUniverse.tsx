@@ -11,8 +11,8 @@ import {
   ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog, Database,
   ExternalLink, CheckSquare, X, FileSpreadsheet,
 } from 'lucide-react';
-import { DOC_TYPE_LABELS } from '@/types/database';
-import type { Document, DocType, SiloType } from '@/types/database';
+import { DOC_TYPE_LABELS, DOCUMENT_ESTATUS_LABELS, DOCUMENT_ESTATUS_OPTIONS, DOCUMENT_ESTATUS_COLORS } from '@/types/database';
+import type { Document, DocType, SiloType, DocumentEstatus } from '@/types/database';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import DescripcionesCargo from './DescripcionesCargo';
