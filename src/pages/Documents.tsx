@@ -210,6 +210,7 @@ export default function Documents() {
     setFormType(doc.doc_type);
     setFormSilo(doc.silo);
     setFormConfidential(doc.confidential);
+    setFormEstatus((doc as any).estatus || 'por_iniciar');
     setShowDetailsDialog(true);
 
     const { data } = await supabase.from('document_versions').select('*')
