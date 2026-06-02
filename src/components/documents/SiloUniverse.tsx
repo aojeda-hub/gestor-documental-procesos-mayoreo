@@ -178,14 +178,55 @@ export default function SiloUniverse({
             {!customContent && <p className="text-sm text-muted-foreground">{docs.length} documento{docs.length !== 1 ? 's' : ''}</p>}
           </div>
         </div>
-        {!customContent && canEdit && !selectMode && (
-          <div className="flex gap-2 shrink-0">
-            <Button size="sm" variant="outline" onClick={() => setSelectMode(true)}>
-              <CheckSquare className="h-4 w-4 mr-1.5" /> Seleccionar
-            </Button>
-            <Button size="sm" onClick={() => onCreateDoc(silo, 'procedimiento')}>
-              <Plus className="h-4 w-4 mr-1.5" /> Nuevo
-            </Button>
+        {!customContent && !selectMode && (
+          <div className="flex gap-2 shrink-0 items-center">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline" className="relative">
+                  <ListFilter className="h-4 w-4 mr-1.5" /> Estatus
+                  {statusFilter.size > 0 && (
+                    <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">{statusFilter.size}</Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 p-2">
+                <div className="flex items-center justify-between px-2 py-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Filtrar por estatus</span>
+                  {statusFilter.size > 0 && (
+                    <button className="text-xs text-primary hover:underline" onClick={() => setStatusFilter(new Set())}>
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-0.5 mt-1">
+                  {DOCUMENT_ESTATUS_OPTIONS.map(s => (
+                    <label
+                      key={s}
+                      className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={statusFilter.has(s)}
+                        onCheckedChange={() => toggleStatus(s)}
+                      />
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${DOCUMENT_ESTATUS_COLORS[s]}`}>
+                        {DOCUMENT_ESTATUS_LABELS[s]}
+                      </span>
+                      <span className="ml-auto text-xs font-mono text-muted-foreground">{statusCounts[s]}</span>
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            {canEdit && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setSelectMode(true)}>
+                  <CheckSquare className="h-4 w-4 mr-1.5" /> Seleccionar
+                </Button>
+                <Button size="sm" onClick={() => onCreateDoc(silo, 'procedimiento')}>
+                  <Plus className="h-4 w-4 mr-1.5" /> Nuevo
+                </Button>
+              </>
+            )}
           </div>
         )}
         {selectMode && (
