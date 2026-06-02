@@ -27,6 +27,41 @@ export interface UserRole {
   role: AppRole;
 }
 
+export type DocumentEstatus =
+  | 'aprobado'
+  | 'revision'
+  | 'desactualizado'
+  | 'desincorporado'
+  | 'en_construccion'
+  | 'por_iniciar';
+
+export const DOCUMENT_ESTATUS_OPTIONS: DocumentEstatus[] = [
+  'aprobado',
+  'revision',
+  'desactualizado',
+  'desincorporado',
+  'en_construccion',
+  'por_iniciar',
+];
+
+export const DOCUMENT_ESTATUS_LABELS: Record<DocumentEstatus, string> = {
+  aprobado: 'Aprobado',
+  revision: 'Revisión',
+  desactualizado: 'Desactualizado',
+  desincorporado: 'Desincorporado',
+  en_construccion: 'En construcción',
+  por_iniciar: 'Por iniciar',
+};
+
+export const DOCUMENT_ESTATUS_COLORS: Record<DocumentEstatus, string> = {
+  aprobado: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
+  revision: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
+  desactualizado: 'bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30',
+  desincorporado: 'bg-slate-500/15 text-slate-700 dark:text-slate-400 border-slate-500/30',
+  en_construccion: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30',
+  por_iniciar: 'bg-muted text-muted-foreground border-border',
+};
+
 export interface Document {
   id: string;
   title: string;
@@ -34,6 +69,7 @@ export interface Document {
   silo: SiloType;
   empresa: EmpresaType;
   confidential: boolean;
+  estatus: DocumentEstatus;
   created_by: string | null;
   created_at: string;
   updated_at: string;
