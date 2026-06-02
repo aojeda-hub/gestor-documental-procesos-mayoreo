@@ -421,6 +421,14 @@ export default function SiloUniverse({
                                     </a>
                                   )}
                                 </div>
+                                {(() => {
+                                  const e = (doc.estatus || 'por_iniciar') as DocumentEstatus;
+                                  return (
+                                    <span className={`hidden md:inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded border shrink-0 ${DOCUMENT_ESTATUS_COLORS[e]}`}>
+                                      {DOCUMENT_ESTATUS_LABELS[e]}
+                                    </span>
+                                  );
+                                })()}
                                 {doc.confidential && (
                                   <Lock className="h-3.5 w-3.5 text-destructive/70 shrink-0" />
                                 )}
