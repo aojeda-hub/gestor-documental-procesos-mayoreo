@@ -56,6 +56,7 @@ export default function Documents() {
   const [formType, setFormType] = useState<DocType>('procedimiento');
   const [formSilo, setFormSilo] = useState<SiloType>('compras');
   const [formConfidential, setFormConfidential] = useState(false);
+  const [formEstatus, setFormEstatus] = useState<DocumentEstatus>('por_iniciar');
   const [vDesc, setVDesc] = useState('');
   const [vAuthors, setVAuthors] = useState('');
   const [vApprover, setVApprover] = useState('');
