@@ -628,9 +628,18 @@ export default function Documents() {
                 </Select>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
-              <Label>Confidencial</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Estatus</Label>
+                <Select value={formEstatus} onValueChange={v => setFormEstatus(v as DocumentEstatus)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{DOCUMENT_ESTATUS_OPTIONS.map(k => <SelectItem key={k} value={k}>{DOCUMENT_ESTATUS_LABELS[k]}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end gap-2 pb-2">
+                <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
+                <Label>Confidencial</Label>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Enlace Google Drive</Label>
