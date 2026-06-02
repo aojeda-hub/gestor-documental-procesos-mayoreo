@@ -230,7 +230,7 @@ export default function Documents() {
     setIsUpdating(true);
     try {
       await supabase.from('documents').update({
-        title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, drive_link: vDriveUrl.trim() || null
+        title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, estatus: formEstatus, drive_link: vDriveUrl.trim() || null
       } as any).eq('id', selectedDoc.id);
 
       if (currentVersion) {
