@@ -55,8 +55,29 @@ export default function SiloUniverse({
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'general' | 'cargos'>('general');
+  const [statusFilter, setStatusFilter] = useState<Set<DocumentEstatus>>(new Set());
 
   const Icon = SILO_ICONS[silo] || Cog;
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<DocumentEstatus, number> = {
+      aprobado: 0, revision: 0, desactualizado: 0,
+      desincorporado: 0, en_construccion: 0, por_iniciar: 0,
+    };
+    for (const d of docs) {
+      const e = (d.estatus || 'por_iniciar') as DocumentEstatus;
+      if (counts[e] !== undefined) counts[e]++;
+    }
+    return counts;
+  }, [docs]);
+
+  const toggleStatus = (s: DocumentEstatus) => {
+    setStatusFilter(prev => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s); else next.add(s);
+      return next;
+    });
+  };
 
   const grouped = useMemo(() => {
     const allTypes = (Object.keys(DOC_TYPE_LABELS) as DocType[])
@@ -66,9 +87,9 @@ export default function SiloUniverse({
         if (b === 'norma') return 1;
         return 0;
       });
-    const filtered = search
-      ? docs.filter(d => d.title.toLowerCase().includes(search.toLowerCase()))
-      : docs;
+    let filtered = docs;
+    if (search) filtered = filtered.filter(d => d.title.toLowerCase().includes(search.toLowerCase()));
+    if (statusFilter.size > 0) filtered = filtered.filter(d => statusFilter.has((d.estatus || 'por_iniciar') as DocumentEstatus));
 
     const map: { type: DocType; label: string; docs: Document[] }[] = [];
     for (const dt of allTypes) {
@@ -78,7 +99,7 @@ export default function SiloUniverse({
       }
     }
     return map;
-  }, [docs, search, silo]);
+  }, [docs, search, silo, statusFilter]);
 
   const toggleType = (dt: DocType) => {
     setExpandedType(prev => (prev === dt ? null : dt));
