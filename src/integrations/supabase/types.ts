@@ -395,6 +395,7 @@ export type Database = {
           doc_type: Database["public"]["Enums"]["doc_type"]
           drive_link: string | null
           empresa: Database["public"]["Enums"]["empresa_type"]
+          estatus: Database["public"]["Enums"]["documento_estatus"]
           id: string
           silo: Database["public"]["Enums"]["silo_type"]
           title: string
@@ -407,6 +408,7 @@ export type Database = {
           doc_type: Database["public"]["Enums"]["doc_type"]
           drive_link?: string | null
           empresa?: Database["public"]["Enums"]["empresa_type"]
+          estatus?: Database["public"]["Enums"]["documento_estatus"]
           id?: string
           silo: Database["public"]["Enums"]["silo_type"]
           title: string
@@ -419,6 +421,7 @@ export type Database = {
           doc_type?: Database["public"]["Enums"]["doc_type"]
           drive_link?: string | null
           empresa?: Database["public"]["Enums"]["empresa_type"]
+          estatus?: Database["public"]["Enums"]["documento_estatus"]
           id?: string
           silo?: Database["public"]["Enums"]["silo_type"]
           title?: string
@@ -1834,6 +1837,13 @@ export type Database = {
         | "presentacion_clave"
         | "presentacion"
         | "gestion_beneficios"
+      documento_estatus:
+        | "aprobado"
+        | "revision"
+        | "desactualizado"
+        | "desincorporado"
+        | "en_construccion"
+        | "por_iniciar"
       empresa_type: "mayoreo" | "beconsult" | "epa"
       frequency_type:
         | "diario"
@@ -2026,6 +2036,14 @@ export const Constants = {
         "presentacion_clave",
         "presentacion",
         "gestion_beneficios",
+      ],
+      documento_estatus: [
+        "aprobado",
+        "revision",
+        "desactualizado",
+        "desincorporado",
+        "en_construccion",
+        "por_iniciar",
       ],
       empresa_type: ["mayoreo", "beconsult", "epa"],
       frequency_type: [

@@ -15,8 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Upload, Loader2, FileUp, CheckCircle, Eye, Cog } from 'lucide-react';
 import ProcessTable from '@/components/ProcessTable';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import type { Document, DocumentVersion, DocType, SiloType, EmpresaType } from '@/types/database';
-import { DOC_TYPE_LABELS, SILO_LABELS, EMPRESA_LABELS } from '@/types/database';
+import type { Document, DocumentVersion, DocType, SiloType, EmpresaType, DocumentEstatus } from '@/types/database';
+import { DOC_TYPE_LABELS, SILO_LABELS, EMPRESA_LABELS, DOCUMENT_ESTATUS_LABELS, DOCUMENT_ESTATUS_OPTIONS } from '@/types/database';
 import SiloCard from '@/components/documents/SiloCard';
 import SiloUniverse from '@/components/documents/SiloUniverse';
 import DocumentPreviewDialog from '@/components/documents/DocumentPreviewDialog';
@@ -56,6 +56,7 @@ export default function Documents() {
   const [formType, setFormType] = useState<DocType>('procedimiento');
   const [formSilo, setFormSilo] = useState<SiloType>('compras');
   const [formConfidential, setFormConfidential] = useState(false);
+  const [formEstatus, setFormEstatus] = useState<DocumentEstatus>('por_iniciar');
   const [vDesc, setVDesc] = useState('');
   const [vAuthors, setVAuthors] = useState('');
   const [vApprover, setVApprover] = useState('');
@@ -168,6 +169,7 @@ export default function Documents() {
       doc_type: finalType, 
       silo: finalSilo, 
       confidential: formConfidential, 
+      estatus: formEstatus,
       created_by: user?.id, 
       empresa: activeEmpresa,
       drive_link: vDriveUrl.trim() || null,
@@ -194,6 +196,7 @@ export default function Documents() {
   const resetForm = () => {
     setFormTitle(''); setVDesc(''); setVDriveUrl(''); setVAuthors(''); setVApprover('');
     setWordFile(null); setPdfFile(null); setGenericFile(null); setFormConfidential(false);
+    setFormEstatus('por_iniciar');
   };
 
   const openPreview = (doc: Document) => {
@@ -207,6 +210,7 @@ export default function Documents() {
     setFormType(doc.doc_type);
     setFormSilo(doc.silo);
     setFormConfidential(doc.confidential);
+    setFormEstatus((doc as any).estatus || 'por_iniciar');
     setShowDetailsDialog(true);
 
     const { data } = await supabase.from('document_versions').select('*')
@@ -226,7 +230,7 @@ export default function Documents() {
     setIsUpdating(true);
     try {
       await supabase.from('documents').update({
-        title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, drive_link: vDriveUrl.trim() || null
+        title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, estatus: formEstatus, drive_link: vDriveUrl.trim() || null
       } as any).eq('id', selectedDoc.id);
 
       if (currentVersion) {
@@ -624,9 +628,18 @@ export default function Documents() {
                 </Select>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
-              <Label>Confidencial</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Estatus</Label>
+                <Select value={formEstatus} onValueChange={v => setFormEstatus(v as DocumentEstatus)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{DOCUMENT_ESTATUS_OPTIONS.map(k => <SelectItem key={k} value={k}>{DOCUMENT_ESTATUS_LABELS[k]}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end gap-2 pb-2">
+                <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
+                <Label>Confidencial</Label>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Enlace Google Drive</Label>
@@ -712,7 +725,16 @@ export default function Documents() {
                   </Select>
                 </div>
               </div>
-              <div className="flex items-center gap-2"><Switch checked={formConfidential} onCheckedChange={setFormConfidential} disabled={!canEdit} /><Label>Confidencial</Label></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Estatus</Label>
+                  <Select value={formEstatus} onValueChange={v => setFormEstatus(v as DocumentEstatus)} disabled={!canEdit}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{DOCUMENT_ESTATUS_OPTIONS.map(k => <SelectItem key={k} value={k}>{DOCUMENT_ESTATUS_LABELS[k]}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end gap-2 pb-2"><Switch checked={formConfidential} onCheckedChange={setFormConfidential} disabled={!canEdit} /><Label>Confidencial</Label></div>
+              </div>
 
               <div className="space-y-2">
                 <Label>Enlace Google Drive</Label>

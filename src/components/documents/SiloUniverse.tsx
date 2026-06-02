@@ -9,10 +9,11 @@ import {
   ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
   MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
   ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog, Database,
-  ExternalLink, CheckSquare, X, FileSpreadsheet,
+  ExternalLink, CheckSquare, X, FileSpreadsheet, ListFilter,
 } from 'lucide-react';
-import { DOC_TYPE_LABELS } from '@/types/database';
-import type { Document, DocType, SiloType } from '@/types/database';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DOC_TYPE_LABELS, DOCUMENT_ESTATUS_LABELS, DOCUMENT_ESTATUS_OPTIONS, DOCUMENT_ESTATUS_COLORS } from '@/types/database';
+import type { Document, DocType, SiloType, DocumentEstatus } from '@/types/database';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import DescripcionesCargo from './DescripcionesCargo';
@@ -54,8 +55,29 @@ export default function SiloUniverse({
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'general' | 'cargos'>('general');
+  const [statusFilter, setStatusFilter] = useState<Set<DocumentEstatus>>(new Set());
 
   const Icon = SILO_ICONS[silo] || Cog;
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<DocumentEstatus, number> = {
+      aprobado: 0, revision: 0, desactualizado: 0,
+      desincorporado: 0, en_construccion: 0, por_iniciar: 0,
+    };
+    for (const d of docs) {
+      const e = (d.estatus || 'por_iniciar') as DocumentEstatus;
+      if (counts[e] !== undefined) counts[e]++;
+    }
+    return counts;
+  }, [docs]);
+
+  const toggleStatus = (s: DocumentEstatus) => {
+    setStatusFilter(prev => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s); else next.add(s);
+      return next;
+    });
+  };
 
   const grouped = useMemo(() => {
     const allTypes = (Object.keys(DOC_TYPE_LABELS) as DocType[])
@@ -65,9 +87,9 @@ export default function SiloUniverse({
         if (b === 'norma') return 1;
         return 0;
       });
-    const filtered = search
-      ? docs.filter(d => d.title.toLowerCase().includes(search.toLowerCase()))
-      : docs;
+    let filtered = docs;
+    if (search) filtered = filtered.filter(d => d.title.toLowerCase().includes(search.toLowerCase()));
+    if (statusFilter.size > 0) filtered = filtered.filter(d => statusFilter.has((d.estatus || 'por_iniciar') as DocumentEstatus));
 
     const map: { type: DocType; label: string; docs: Document[] }[] = [];
     for (const dt of allTypes) {
@@ -77,7 +99,7 @@ export default function SiloUniverse({
       }
     }
     return map;
-  }, [docs, search, silo]);
+  }, [docs, search, silo, statusFilter]);
 
   const toggleType = (dt: DocType) => {
     setExpandedType(prev => (prev === dt ? null : dt));
@@ -156,14 +178,55 @@ export default function SiloUniverse({
             {!customContent && <p className="text-sm text-muted-foreground">{docs.length} documento{docs.length !== 1 ? 's' : ''}</p>}
           </div>
         </div>
-        {!customContent && canEdit && !selectMode && (
-          <div className="flex gap-2 shrink-0">
-            <Button size="sm" variant="outline" onClick={() => setSelectMode(true)}>
-              <CheckSquare className="h-4 w-4 mr-1.5" /> Seleccionar
-            </Button>
-            <Button size="sm" onClick={() => onCreateDoc(silo, 'procedimiento')}>
-              <Plus className="h-4 w-4 mr-1.5" /> Nuevo
-            </Button>
+        {!customContent && !selectMode && (
+          <div className="flex gap-2 shrink-0 items-center">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline" className="relative">
+                  <ListFilter className="h-4 w-4 mr-1.5" /> Estatus
+                  {statusFilter.size > 0 && (
+                    <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">{statusFilter.size}</Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 p-2">
+                <div className="flex items-center justify-between px-2 py-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Filtrar por estatus</span>
+                  {statusFilter.size > 0 && (
+                    <button className="text-xs text-primary hover:underline" onClick={() => setStatusFilter(new Set())}>
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-0.5 mt-1">
+                  {DOCUMENT_ESTATUS_OPTIONS.map(s => (
+                    <label
+                      key={s}
+                      className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={statusFilter.has(s)}
+                        onCheckedChange={() => toggleStatus(s)}
+                      />
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${DOCUMENT_ESTATUS_COLORS[s]}`}>
+                        {DOCUMENT_ESTATUS_LABELS[s]}
+                      </span>
+                      <span className="ml-auto text-xs font-mono text-muted-foreground">{statusCounts[s]}</span>
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            {canEdit && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setSelectMode(true)}>
+                  <CheckSquare className="h-4 w-4 mr-1.5" /> Seleccionar
+                </Button>
+                <Button size="sm" onClick={() => onCreateDoc(silo, 'procedimiento')}>
+                  <Plus className="h-4 w-4 mr-1.5" /> Nuevo
+                </Button>
+              </>
+            )}
           </div>
         )}
         {selectMode && (
@@ -358,6 +421,14 @@ export default function SiloUniverse({
                                     </a>
                                   )}
                                 </div>
+                                {(() => {
+                                  const e = (doc.estatus || 'por_iniciar') as DocumentEstatus;
+                                  return (
+                                    <span className={`hidden md:inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded border shrink-0 ${DOCUMENT_ESTATUS_COLORS[e]}`}>
+                                      {DOCUMENT_ESTATUS_LABELS[e]}
+                                    </span>
+                                  );
+                                })()}
                                 {doc.confidential && (
                                   <Lock className="h-3.5 w-3.5 text-destructive/70 shrink-0" />
                                 )}
