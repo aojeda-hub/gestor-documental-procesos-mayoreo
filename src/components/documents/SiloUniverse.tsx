@@ -9,8 +9,9 @@ import {
   ArrowLeft, Search, FileText, Lock, Plus, ChevronRight,
   MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2,
   ShoppingCart, Truck, DollarSign, Users, BarChart3, Megaphone, Monitor, Cog, Database,
-  ExternalLink, CheckSquare, X, FileSpreadsheet,
+  ExternalLink, CheckSquare, X, FileSpreadsheet, ListFilter,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DOC_TYPE_LABELS, DOCUMENT_ESTATUS_LABELS, DOCUMENT_ESTATUS_OPTIONS, DOCUMENT_ESTATUS_COLORS } from '@/types/database';
 import type { Document, DocType, SiloType, DocumentEstatus } from '@/types/database';
 import { format } from 'date-fns';
