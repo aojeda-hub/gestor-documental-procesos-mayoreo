@@ -169,6 +169,7 @@ export default function Documents() {
       doc_type: finalType, 
       silo: finalSilo, 
       confidential: formConfidential, 
+      estatus: formEstatus,
       created_by: user?.id, 
       empresa: activeEmpresa,
       drive_link: vDriveUrl.trim() || null,
