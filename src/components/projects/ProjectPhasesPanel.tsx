@@ -367,7 +367,12 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                     ) : selectedPhaseTasks.length === 0 ? (
                       <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground text-sm">Sin tareas en esta fase.</TableCell></TableRow>
                     ) : selectedPhaseTasks.map(task => {
-                      const assigneeName = profileLabel(task.assignee_id);
+                      const assigneeIds = assigneesByTask[task.id] || [];
+                      const assigneeNames = assigneeIds.map(id => profileLabel(id)).filter(Boolean) as string[];
+                      const triggerLabel =
+                        assigneeNames.length === 0 ? 'Asignar'
+                        : assigneeNames.length === 1 ? assigneeNames[0]
+                        : `${assigneeNames[0]} +${assigneeNames.length - 1}`;
                       return (
                       <TableRow key={task.id}>
                         <TableCell>
@@ -383,12 +388,13 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                             <PopoverTrigger asChild>
                               <Button
                                 size="sm"
-                                variant={assigneeName ? 'secondary' : 'outline'}
+                                variant={assigneeIds.length > 0 ? 'secondary' : 'outline'}
                                 disabled={!canEditPhase(selectedPhase)}
                                 className="h-7 px-2 text-xs gap-1.5 max-w-full"
+                                title={assigneeNames.join(', ')}
                               >
-                                {assigneeName ? <UserIcon className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
-                                <span className="truncate">{assigneeName || 'Asignar'}</span>
+                                {assigneeIds.length > 0 ? <UserIcon className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+                                <span className="truncate">{triggerLabel}</span>
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="p-0 w-64" align="start">
@@ -397,22 +403,25 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                                 <CommandList>
                                   <CommandEmpty>Sin resultados.</CommandEmpty>
                                   <CommandGroup>
-                                    {task.assignee_id && (
-                                      <CommandItem onSelect={() => assignTask(task, null)} className="text-muted-foreground">
-                                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Quitar responsable
+                                    {assigneeIds.length > 0 && (
+                                      <CommandItem onSelect={() => clearAssignees(task)} className="text-muted-foreground">
+                                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Quitar todos
                                       </CommandItem>
                                     )}
-                                    {profiles.map(p => (
-                                      <CommandItem
-                                        key={p.user_id}
-                                        value={`${p.full_name || ''} ${p.email || ''}`}
-                                        onSelect={() => assignTask(task, p.user_id)}
-                                      >
-                                        <UserIcon className="h-3.5 w-3.5 mr-2" />
-                                        <span className="truncate">{p.full_name || p.email}</span>
-                                        {task.assignee_id === p.user_id && <Check className="h-3.5 w-3.5 ml-auto" />}
-                                      </CommandItem>
-                                    ))}
+                                    {profiles.map(p => {
+                                      const checked = assigneeIds.includes(p.user_id);
+                                      return (
+                                        <CommandItem
+                                          key={p.user_id}
+                                          value={`${p.full_name || ''} ${p.email || ''}`}
+                                          onSelect={() => toggleAssignee(task, p.user_id)}
+                                        >
+                                          <UserIcon className="h-3.5 w-3.5 mr-2" />
+                                          <span className="truncate">{p.full_name || p.email}</span>
+                                          {checked && <Check className="h-3.5 w-3.5 ml-auto" />}
+                                        </CommandItem>
+                                      );
+                                    })}
                                   </CommandGroup>
                                 </CommandList>
                               </Command>
