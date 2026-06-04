@@ -312,19 +312,22 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                     <TableRow>
                       <TableHead className="w-[40px]"></TableHead>
                       <TableHead>Tarea</TableHead>
+                      <TableHead className="w-[160px]">Responsable</TableHead>
                       <TableHead className="w-[100px]">Inicio</TableHead>
                       <TableHead className="w-[100px]">Fin</TableHead>
                       <TableHead className="w-[70px] text-center">Peso</TableHead>
                       <TableHead className="w-[120px]">Avance</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead className="w-[120px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={7} className="text-center py-4">Cargando...</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-4">Cargando...</TableCell></TableRow>
                     ) : selectedPhaseTasks.length === 0 ? (
-                      <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground text-sm">Sin tareas en esta fase.</TableCell></TableRow>
-                    ) : selectedPhaseTasks.map(task => (
+                      <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground text-sm">Sin tareas en esta fase.</TableCell></TableRow>
+                    ) : selectedPhaseTasks.map(task => {
+                      const assigneeName = profileLabel(task.assignee_id);
+                      return (
                       <TableRow key={task.id}>
                         <TableCell>
                           {task.progress_percent === 100
@@ -333,6 +336,47 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                         </TableCell>
                         <TableCell className={task.progress_percent === 100 ? 'line-through text-muted-foreground' : ''}>
                           {task.name}
+                        </TableCell>
+                        <TableCell>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant={assigneeName ? 'secondary' : 'outline'}
+                                disabled={!canEditPhase(selectedPhase)}
+                                className="h-7 px-2 text-xs gap-1.5 max-w-full"
+                              >
+                                {assigneeName ? <UserIcon className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+                                <span className="truncate">{assigneeName || 'Asignar'}</span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="p-0 w-64" align="start">
+                              <Command>
+                                <CommandInput placeholder="Buscar usuario..." />
+                                <CommandList>
+                                  <CommandEmpty>Sin resultados.</CommandEmpty>
+                                  <CommandGroup>
+                                    {task.assignee_id && (
+                                      <CommandItem onSelect={() => assignTask(task, null)} className="text-muted-foreground">
+                                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Quitar responsable
+                                      </CommandItem>
+                                    )}
+                                    {profiles.map(p => (
+                                      <CommandItem
+                                        key={p.user_id}
+                                        value={`${p.full_name || ''} ${p.email || ''}`}
+                                        onSelect={() => assignTask(task, p.user_id)}
+                                      >
+                                        <UserIcon className="h-3.5 w-3.5 mr-2" />
+                                        <span className="truncate">{p.full_name || p.email}</span>
+                                        {task.assignee_id === p.user_id && <Check className="h-3.5 w-3.5 ml-auto" />}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                         </TableCell>
                         <TableCell className="text-[11px] whitespace-nowrap">{task.start_date || '-'}</TableCell>
                         <TableCell className="text-[11px] whitespace-nowrap">{task.end_date || '-'}</TableCell>
@@ -351,13 +395,19 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                         </TableCell>
                         <TableCell>
                           {canEditPhase(selectedPhase) && (
-                            <Button size="icon" variant="ghost" onClick={() => deleteTask(task.id)}>
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button size="icon" variant="ghost" onClick={() => openEdit(task)} title="Editar tarea">
+                                <Pencil className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                              <Button size="icon" variant="ghost" onClick={() => deleteTask(task.id)} title="Eliminar tarea">
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
