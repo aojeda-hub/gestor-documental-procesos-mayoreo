@@ -115,7 +115,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
               <Select value={form.silo} onValueChange={v => setField('silo', v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(SILO_LABELS).map(([k, v]) => (
+                  {Object.entries(SILO_LABELS).filter(([k]) => k !== 'sinsilo').map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v}</SelectItem>
                   ))}
                 </SelectContent>
