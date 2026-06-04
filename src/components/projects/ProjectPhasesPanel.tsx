@@ -19,6 +19,7 @@ import type { ProjectTask, ProjectPhase, PhaseStatus } from '@/types/database';
 
 type ProfileLite = { user_id: string; full_name: string | null; email: string | null };
 type TaskWithAssignee = ProjectTask & { assignee_id?: string | null };
+type AssigneeMap = Record<string, string[]>; // taskId -> userId[]
 
 interface Props {
   open: boolean;
@@ -45,6 +46,7 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [tasks, setTasks] = useState<TaskWithAssignee[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const [assigneesByTask, setAssigneesByTask] = useState<AssigneeMap>({});
   const [loading, setLoading] = useState(false);
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
   const [newTaskName, setNewTaskName] = useState('');
@@ -89,6 +91,21 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
 
       const { data: pr } = await supabase.from('profiles').select('user_id, full_name, email');
       setProfiles((pr || []) as ProfileLite[]);
+
+      const taskIds = (tk || []).map((t: any) => t.id);
+      if (taskIds.length > 0) {
+        const { data: aRows } = await (supabase as any)
+          .from('project_task_assignees')
+          .select('task_id, user_id')
+          .in('task_id', taskIds);
+        const map: AssigneeMap = {};
+        (aRows || []).forEach((r: any) => {
+          (map[r.task_id] = map[r.task_id] || []).push(r.user_id);
+        });
+        setAssigneesByTask(map);
+      } else {
+        setAssigneesByTask({});
+      }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -168,9 +185,33 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
     onTasksChange();
   };
 
-  const assignTask = async (task: TaskWithAssignee, userId: string | null) => {
+  const toggleAssignee = async (task: TaskWithAssignee, userId: string) => {
     if (!canEditPhase(selectedPhase)) return;
-    const { error } = await supabase.from('project_tasks').update({ assignee_id: userId } as any).eq('id', task.id);
+    const current = assigneesByTask[task.id] || [];
+    const isAssigned = current.includes(userId);
+    if (isAssigned) {
+      const { error } = await (supabase as any)
+        .from('project_task_assignees')
+        .delete()
+        .eq('task_id', task.id)
+        .eq('user_id', userId);
+      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    } else {
+      const actor = (await supabase.auth.getUser()).data.user?.id;
+      const { error } = await (supabase as any)
+        .from('project_task_assignees')
+        .insert({ task_id: task.id, user_id: userId, assigned_by: actor });
+      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    }
+    fetchData();
+  };
+
+  const clearAssignees = async (task: TaskWithAssignee) => {
+    if (!canEditPhase(selectedPhase)) return;
+    const { error } = await (supabase as any)
+      .from('project_task_assignees')
+      .delete()
+      .eq('task_id', task.id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     fetchData();
   };
@@ -326,7 +367,12 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                     ) : selectedPhaseTasks.length === 0 ? (
                       <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground text-sm">Sin tareas en esta fase.</TableCell></TableRow>
                     ) : selectedPhaseTasks.map(task => {
-                      const assigneeName = profileLabel(task.assignee_id);
+                      const assigneeIds = assigneesByTask[task.id] || [];
+                      const assigneeNames = assigneeIds.map(id => profileLabel(id)).filter(Boolean) as string[];
+                      const triggerLabel =
+                        assigneeNames.length === 0 ? 'Asignar'
+                        : assigneeNames.length === 1 ? assigneeNames[0]
+                        : `${assigneeNames[0]} +${assigneeNames.length - 1}`;
                       return (
                       <TableRow key={task.id}>
                         <TableCell>
@@ -342,12 +388,13 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                             <PopoverTrigger asChild>
                               <Button
                                 size="sm"
-                                variant={assigneeName ? 'secondary' : 'outline'}
+                                variant={assigneeIds.length > 0 ? 'secondary' : 'outline'}
                                 disabled={!canEditPhase(selectedPhase)}
                                 className="h-7 px-2 text-xs gap-1.5 max-w-full"
+                                title={assigneeNames.join(', ')}
                               >
-                                {assigneeName ? <UserIcon className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
-                                <span className="truncate">{assigneeName || 'Asignar'}</span>
+                                {assigneeIds.length > 0 ? <UserIcon className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+                                <span className="truncate">{triggerLabel}</span>
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="p-0 w-64" align="start">
@@ -356,22 +403,25 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                                 <CommandList>
                                   <CommandEmpty>Sin resultados.</CommandEmpty>
                                   <CommandGroup>
-                                    {task.assignee_id && (
-                                      <CommandItem onSelect={() => assignTask(task, null)} className="text-muted-foreground">
-                                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Quitar responsable
+                                    {assigneeIds.length > 0 && (
+                                      <CommandItem onSelect={() => clearAssignees(task)} className="text-muted-foreground">
+                                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Quitar todos
                                       </CommandItem>
                                     )}
-                                    {profiles.map(p => (
-                                      <CommandItem
-                                        key={p.user_id}
-                                        value={`${p.full_name || ''} ${p.email || ''}`}
-                                        onSelect={() => assignTask(task, p.user_id)}
-                                      >
-                                        <UserIcon className="h-3.5 w-3.5 mr-2" />
-                                        <span className="truncate">{p.full_name || p.email}</span>
-                                        {task.assignee_id === p.user_id && <Check className="h-3.5 w-3.5 ml-auto" />}
-                                      </CommandItem>
-                                    ))}
+                                    {profiles.map(p => {
+                                      const checked = assigneeIds.includes(p.user_id);
+                                      return (
+                                        <CommandItem
+                                          key={p.user_id}
+                                          value={`${p.full_name || ''} ${p.email || ''}`}
+                                          onSelect={() => toggleAssignee(task, p.user_id)}
+                                        >
+                                          <UserIcon className="h-3.5 w-3.5 mr-2" />
+                                          <span className="truncate">{p.full_name || p.email}</span>
+                                          {checked && <Check className="h-3.5 w-3.5 ml-auto" />}
+                                        </CommandItem>
+                                      );
+                                    })}
                                   </CommandGroup>
                                 </CommandList>
                               </Command>
