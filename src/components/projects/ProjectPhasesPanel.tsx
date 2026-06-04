@@ -19,6 +19,7 @@ import type { ProjectTask, ProjectPhase, PhaseStatus } from '@/types/database';
 
 type ProfileLite = { user_id: string; full_name: string | null; email: string | null };
 type TaskWithAssignee = ProjectTask & { assignee_id?: string | null };
+type AssigneeMap = Record<string, string[]>; // taskId -> userId[]
 
 interface Props {
   open: boolean;
