@@ -237,6 +237,8 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
             </div>
           </div>
 
+        </div>
+        <div className="px-6 py-3 border-t bg-background">
           <Button onClick={handleSave} disabled={loading || !form.name} className="w-full">
             {loading ? 'Guardando...' : 'Guardar Proyecto'}
           </Button>
