@@ -83,9 +83,12 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
       if (e2) throw e2;
 
       setPhases((ph || []) as ProjectPhase[]);
-      setTasks((tk || []) as ProjectTask[]);
+      setTasks((tk || []) as TaskWithAssignee[]);
       const active = (ph || []).find((p: any) => p.status === 'activa');
       setSelectedPhaseId(prev => prev ?? active?.id ?? (ph?.[0]?.id ?? null));
+
+      const { data: pr } = await supabase.from('profiles').select('user_id, full_name, email');
+      setProfiles((pr || []) as ProfileLite[]);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
