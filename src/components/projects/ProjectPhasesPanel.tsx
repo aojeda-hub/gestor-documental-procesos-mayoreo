@@ -91,6 +91,21 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
 
       const { data: pr } = await supabase.from('profiles').select('user_id, full_name, email');
       setProfiles((pr || []) as ProfileLite[]);
+
+      const taskIds = (tk || []).map((t: any) => t.id);
+      if (taskIds.length > 0) {
+        const { data: aRows } = await (supabase as any)
+          .from('project_task_assignees')
+          .select('task_id, user_id')
+          .in('task_id', taskIds);
+        const map: AssigneeMap = {};
+        (aRows || []).forEach((r: any) => {
+          (map[r.task_id] = map[r.task_id] || []).push(r.user_id);
+        });
+        setAssigneesByTask(map);
+      } else {
+        setAssigneesByTask({});
+      }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
