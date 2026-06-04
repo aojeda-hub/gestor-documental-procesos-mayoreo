@@ -16,6 +16,8 @@ import { Plus, Edit2, Eye, Trash2 } from 'lucide-react';
 import { IndicatorSheet } from '@/components/indicators/IndicatorSheet';
 import type { Indicator, SiloType, IndicatorType, FrequencyType, IndicatorStatus } from '@/types/database';
 import { SILO_LABELS, INDICATOR_TYPE_LABELS, FREQUENCY_LABELS, INDICATOR_STATUS_OPTIONS } from '@/types/database';
+import { ExportPDFDialog } from '@/components/ExportPDFDialog';
+import { exportIndicatorsPDF } from '@/lib/pdfExport';
 
 const emptyForm = {
   name: '', silo: 'compras' as SiloType, related_process: '', indicator_type: 'eficiencia' as IndicatorType,
@@ -123,6 +125,14 @@ export default function Indicators() {
             ))}
           </SelectContent>
         </Select>
+        <ExportPDFDialog
+          title="Descargar Resumen de Indicadores"
+          description="Selecciona el silo a incluir en el reporte PDF."
+          onExport={async (silo) => {
+            const list = silo === 'all' ? indicators : indicators.filter(i => i.silo === silo);
+            await exportIndicatorsPDF(list as any, silo);
+          }}
+        />
         {canEdit && <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> Nuevo Indicador</Button>}
       </div>
 

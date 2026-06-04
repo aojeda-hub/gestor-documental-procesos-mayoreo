@@ -26,6 +26,8 @@ import { ProjectDocumentsDialog } from '@/components/projects/ProjectDocumentsDi
 import { ProjectSummaryDialog } from '@/components/projects/ProjectSummaryDialog';
 import { ModernGantt } from '@/components/projects/ModernGantt';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ExportPDFDialog } from '@/components/ExportPDFDialog';
+import { exportProjectsPDF } from '@/lib/pdfExport';
 
 const PHASE_DESCRIPTIONS: Record<string, string> = {
   'Alineación': 'Se define el alcance, objetivos y requisitos del proyecto. Se alinean expectativas con los stakeholders, se asignan recursos y se aprueba el plan inicial.',
@@ -188,6 +190,14 @@ export default function Projects() {
           </Select>
         </div>
         <div className="flex items-center gap-2">
+          <ExportPDFDialog
+            title="Descargar Resumen de Proyectos"
+            description="Selecciona el silo a incluir en el reporte PDF."
+            onExport={async (silo) => {
+              const list = silo === 'all' ? projects : projects.filter(p => p.silo === silo);
+              await exportProjectsPDF(list, silo);
+            }}
+          />
           <Button variant="outline" onClick={() => setCertificaErpOpen(true)}>
             <FileCheck2 className="mr-2 h-4 w-4" /> CertificaERP
           </Button>
