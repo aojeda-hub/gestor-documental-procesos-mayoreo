@@ -11,9 +11,14 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Plus, Trash2, CheckCircle2, Circle, Lock, PlayCircle, ChevronRight,
+  Plus, Trash2, CheckCircle2, Circle, Lock, PlayCircle, ChevronRight, Pencil, UserPlus, User as UserIcon, Check,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import type { ProjectTask, ProjectPhase, PhaseStatus } from '@/types/database';
+
+type ProfileLite = { user_id: string; full_name: string | null; email: string | null };
+type TaskWithAssignee = ProjectTask & { assignee_id?: string | null };
 
 interface Props {
   open: boolean;
