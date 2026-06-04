@@ -185,9 +185,33 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
     onTasksChange();
   };
 
-  const assignTask = async (task: TaskWithAssignee, userId: string | null) => {
+  const toggleAssignee = async (task: TaskWithAssignee, userId: string) => {
     if (!canEditPhase(selectedPhase)) return;
-    const { error } = await supabase.from('project_tasks').update({ assignee_id: userId } as any).eq('id', task.id);
+    const current = assigneesByTask[task.id] || [];
+    const isAssigned = current.includes(userId);
+    if (isAssigned) {
+      const { error } = await (supabase as any)
+        .from('project_task_assignees')
+        .delete()
+        .eq('task_id', task.id)
+        .eq('user_id', userId);
+      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    } else {
+      const actor = (await supabase.auth.getUser()).data.user?.id;
+      const { error } = await (supabase as any)
+        .from('project_task_assignees')
+        .insert({ task_id: task.id, user_id: userId, assigned_by: actor });
+      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    }
+    fetchData();
+  };
+
+  const clearAssignees = async (task: TaskWithAssignee) => {
+    if (!canEditPhase(selectedPhase)) return;
+    const { error } = await (supabase as any)
+      .from('project_task_assignees')
+      .delete()
+      .eq('task_id', task.id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     fetchData();
   };
