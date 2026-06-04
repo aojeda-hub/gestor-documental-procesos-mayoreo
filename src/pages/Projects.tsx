@@ -183,7 +183,7 @@ export default function Projects() {
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="Todos los silos" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los silos</SelectItem>
-              {Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+              {Object.entries(SILO_LABELS).filter(([k]) => k !== 'sinsilo').map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
