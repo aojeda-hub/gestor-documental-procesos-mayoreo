@@ -168,6 +168,44 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
     onTasksChange();
   };
 
+  const assignTask = async (task: TaskWithAssignee, userId: string | null) => {
+    if (!canEditPhase(selectedPhase)) return;
+    const { error } = await supabase.from('project_tasks').update({ assignee_id: userId } as any).eq('id', task.id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    fetchData();
+  };
+
+  const openEdit = (task: TaskWithAssignee) => {
+    setEditTask(task);
+    setEditForm({
+      name: task.name,
+      weight: Number(task.weight) || 1,
+      start_date: task.start_date || '',
+      end_date: task.end_date || '',
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editTask) return;
+    const { error } = await supabase.from('project_tasks').update({
+      name: editForm.name.trim(),
+      weight: editForm.weight,
+      start_date: editForm.start_date || null,
+      end_date: editForm.end_date || null,
+    }).eq('id', editTask.id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    setEditTask(null);
+    fetchData();
+    onTasksChange();
+  };
+
+  const profileLabel = (id?: string | null) => {
+    if (!id) return null;
+    const p = profiles.find(x => x.user_id === id);
+    return p?.full_name || p?.email || 'Usuario';
+  };
+
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col">
