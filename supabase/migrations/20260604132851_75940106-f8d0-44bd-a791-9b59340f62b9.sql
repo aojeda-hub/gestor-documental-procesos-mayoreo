@@ -1,0 +1,1 @@
+ALTER TABLE public.project_tasks ADD COLUMN assignee_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;

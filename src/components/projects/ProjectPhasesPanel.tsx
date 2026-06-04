@@ -11,9 +11,14 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Plus, Trash2, CheckCircle2, Circle, Lock, PlayCircle, ChevronRight,
+  Plus, Trash2, CheckCircle2, Circle, Lock, PlayCircle, ChevronRight, Pencil, UserPlus, User as UserIcon, Check,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import type { ProjectTask, ProjectPhase, PhaseStatus } from '@/types/database';
+
+type ProfileLite = { user_id: string; full_name: string | null; email: string | null };
+type TaskWithAssignee = ProjectTask & { assignee_id?: string | null };
 
 interface Props {
   open: boolean;
@@ -38,13 +43,16 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
   const { hasRole } = useAuth();
   const isViewer = false; // viewer ahora tiene permisos completos sobre proyectos
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
-  const [tasks, setTasks] = useState<ProjectTask[]>([]);
+  const [tasks, setTasks] = useState<TaskWithAssignee[]>([]);
+  const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskWeight, setNewTaskWeight] = useState(1);
   const [newTaskStart, setNewTaskStart] = useState('');
   const [newTaskEnd, setNewTaskEnd] = useState('');
+  const [editTask, setEditTask] = useState<TaskWithAssignee | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', weight: 1, start_date: '', end_date: '' });
 
   const fetchData = async () => {
     setLoading(true);
@@ -75,9 +83,12 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
       if (e2) throw e2;
 
       setPhases((ph || []) as ProjectPhase[]);
-      setTasks((tk || []) as ProjectTask[]);
+      setTasks((tk || []) as TaskWithAssignee[]);
       const active = (ph || []).find((p: any) => p.status === 'activa');
       setSelectedPhaseId(prev => prev ?? active?.id ?? (ph?.[0]?.id ?? null));
+
+      const { data: pr } = await supabase.from('profiles').select('user_id, full_name, email');
+      setProfiles((pr || []) as ProfileLite[]);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -156,6 +167,44 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
     fetchData();
     onTasksChange();
   };
+
+  const assignTask = async (task: TaskWithAssignee, userId: string | null) => {
+    if (!canEditPhase(selectedPhase)) return;
+    const { error } = await supabase.from('project_tasks').update({ assignee_id: userId } as any).eq('id', task.id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    fetchData();
+  };
+
+  const openEdit = (task: TaskWithAssignee) => {
+    setEditTask(task);
+    setEditForm({
+      name: task.name,
+      weight: Number(task.weight) || 1,
+      start_date: task.start_date || '',
+      end_date: task.end_date || '',
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editTask) return;
+    const { error } = await supabase.from('project_tasks').update({
+      name: editForm.name.trim(),
+      weight: editForm.weight,
+      start_date: editForm.start_date || null,
+      end_date: editForm.end_date || null,
+    }).eq('id', editTask.id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    setEditTask(null);
+    fetchData();
+    onTasksChange();
+  };
+
+  const profileLabel = (id?: string | null) => {
+    if (!id) return null;
+    const p = profiles.find(x => x.user_id === id);
+    return p?.full_name || p?.email || 'Usuario';
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -263,19 +312,22 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                     <TableRow>
                       <TableHead className="w-[40px]"></TableHead>
                       <TableHead>Tarea</TableHead>
+                      <TableHead className="w-[160px]">Responsable</TableHead>
                       <TableHead className="w-[100px]">Inicio</TableHead>
                       <TableHead className="w-[100px]">Fin</TableHead>
                       <TableHead className="w-[70px] text-center">Peso</TableHead>
                       <TableHead className="w-[120px]">Avance</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead className="w-[120px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={7} className="text-center py-4">Cargando...</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-4">Cargando...</TableCell></TableRow>
                     ) : selectedPhaseTasks.length === 0 ? (
-                      <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground text-sm">Sin tareas en esta fase.</TableCell></TableRow>
-                    ) : selectedPhaseTasks.map(task => (
+                      <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground text-sm">Sin tareas en esta fase.</TableCell></TableRow>
+                    ) : selectedPhaseTasks.map(task => {
+                      const assigneeName = profileLabel(task.assignee_id);
+                      return (
                       <TableRow key={task.id}>
                         <TableCell>
                           {task.progress_percent === 100
@@ -284,6 +336,47 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                         </TableCell>
                         <TableCell className={task.progress_percent === 100 ? 'line-through text-muted-foreground' : ''}>
                           {task.name}
+                        </TableCell>
+                        <TableCell>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant={assigneeName ? 'secondary' : 'outline'}
+                                disabled={!canEditPhase(selectedPhase)}
+                                className="h-7 px-2 text-xs gap-1.5 max-w-full"
+                              >
+                                {assigneeName ? <UserIcon className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+                                <span className="truncate">{assigneeName || 'Asignar'}</span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="p-0 w-64" align="start">
+                              <Command>
+                                <CommandInput placeholder="Buscar usuario..." />
+                                <CommandList>
+                                  <CommandEmpty>Sin resultados.</CommandEmpty>
+                                  <CommandGroup>
+                                    {task.assignee_id && (
+                                      <CommandItem onSelect={() => assignTask(task, null)} className="text-muted-foreground">
+                                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Quitar responsable
+                                      </CommandItem>
+                                    )}
+                                    {profiles.map(p => (
+                                      <CommandItem
+                                        key={p.user_id}
+                                        value={`${p.full_name || ''} ${p.email || ''}`}
+                                        onSelect={() => assignTask(task, p.user_id)}
+                                      >
+                                        <UserIcon className="h-3.5 w-3.5 mr-2" />
+                                        <span className="truncate">{p.full_name || p.email}</span>
+                                        {task.assignee_id === p.user_id && <Check className="h-3.5 w-3.5 ml-auto" />}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                         </TableCell>
                         <TableCell className="text-[11px] whitespace-nowrap">{task.start_date || '-'}</TableCell>
                         <TableCell className="text-[11px] whitespace-nowrap">{task.end_date || '-'}</TableCell>
@@ -302,13 +395,19 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                         </TableCell>
                         <TableCell>
                           {canEditPhase(selectedPhase) && (
-                            <Button size="icon" variant="ghost" onClick={() => deleteTask(task.id)}>
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button size="icon" variant="ghost" onClick={() => openEdit(task)} title="Editar tarea">
+                                <Pencil className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                              <Button size="icon" variant="ghost" onClick={() => deleteTask(task.id)} title="Eliminar tarea">
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -320,6 +419,38 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cerrar</Button>
         </div>
       </DialogContent>
+
+      <Dialog open={!!editTask} onOpenChange={(o) => !o && setEditTask(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar tarea</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Nombre</Label>
+              <Input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Peso</Label>
+                <Input type="number" min={1} value={editForm.weight} onChange={e => setEditForm(f => ({ ...f, weight: Number(e.target.value) }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Inicio</Label>
+                <Input type="date" value={editForm.start_date} onChange={e => setEditForm(f => ({ ...f, start_date: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Fin</Label>
+                <Input type="date" value={editForm.end_date} onChange={e => setEditForm(f => ({ ...f, end_date: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setEditTask(null)}>Cancelar</Button>
+            <Button onClick={saveEdit} disabled={!editForm.name.trim()}>Guardar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

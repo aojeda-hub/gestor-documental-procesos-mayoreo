@@ -894,6 +894,7 @@ export type Database = {
       project_tasks: {
         Row: {
           actual_progress: number
+          assignee_id: string | null
           created_at: string | null
           end_date: string | null
           id: string
@@ -909,6 +910,7 @@ export type Database = {
         }
         Insert: {
           actual_progress?: number
+          assignee_id?: string | null
           created_at?: string | null
           end_date?: string | null
           id?: string
@@ -924,6 +926,7 @@ export type Database = {
         }
         Update: {
           actual_progress?: number
+          assignee_id?: string | null
           created_at?: string | null
           end_date?: string | null
           id?: string
