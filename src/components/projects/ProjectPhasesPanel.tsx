@@ -419,6 +419,38 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cerrar</Button>
         </div>
       </DialogContent>
+
+      <Dialog open={!!editTask} onOpenChange={(o) => !o && setEditTask(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar tarea</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Nombre</Label>
+              <Input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Peso</Label>
+                <Input type="number" min={1} value={editForm.weight} onChange={e => setEditForm(f => ({ ...f, weight: Number(e.target.value) }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Inicio</Label>
+                <Input type="date" value={editForm.start_date} onChange={e => setEditForm(f => ({ ...f, start_date: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Fin</Label>
+                <Input type="date" value={editForm.end_date} onChange={e => setEditForm(f => ({ ...f, end_date: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setEditTask(null)}>Cancelar</Button>
+            <Button onClick={saveEdit} disabled={!editForm.name.trim()}>Guardar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
