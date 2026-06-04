@@ -253,24 +253,26 @@ export default function Projects() {
                     </TableCell>
                     <TableCell><Badge variant="outline">{SILO_LABELS[project.silo]}</Badge></TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        {(project.phases || []).map(ph => {
-                          const dot = ph.status === 'completada' ? 'bg-emerald-500'
-                            : ph.status === 'activa' ? 'bg-blue-500 ring-2 ring-blue-300'
-                            : 'bg-muted-foreground/30';
-                          return (
-                            <Tooltip key={ph.id}>
-                              <TooltipTrigger asChild>
-                                <span className={`h-2.5 w-2.5 rounded-full ${dot} cursor-help`} />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs font-semibold">{ph.order_index}. {ph.name}</p>
-                                <p className="text-[10px] capitalize text-muted-foreground">{ph.status}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          );
-                        })}
-                        <Badge variant="secondary" className="ml-2 text-[10px]">{project.phase}</Badge>
+                      <div className="flex flex-col items-start gap-1.5">
+                        <div className="flex items-center gap-1 h-4">
+                          {(project.phases || []).map(ph => {
+                            const dot = ph.status === 'completada' ? 'bg-emerald-500'
+                              : ph.status === 'activa' ? 'bg-blue-500 ring-2 ring-blue-300'
+                              : 'bg-muted-foreground/30';
+                            return (
+                              <Tooltip key={ph.id}>
+                                <TooltipTrigger asChild>
+                                  <span className={`h-2.5 w-2.5 rounded-full ${dot} cursor-help`} />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs font-semibold">{ph.order_index}. {ph.name}</p>
+                                  <p className="text-[10px] capitalize text-muted-foreground">{ph.status}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })}
+                        </div>
+                        <Badge variant="secondary" className="text-[10px]">{project.phase}</Badge>
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">{project.start_date || '-'}</TableCell>
