@@ -118,7 +118,7 @@ export default function Indicators() {
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Todos los silos" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los silos ({totalGeneral})</SelectItem>
-            {Object.entries(SILO_LABELS).map(([k, v]) => (
+            {Object.entries(SILO_LABELS).filter(([k]) => k !== 'sinsilo').map(([k, v]) => (
               <SelectItem key={k} value={k}>{v} ({totalBySilo[k] || 0})</SelectItem>
             ))}
           </SelectContent>
