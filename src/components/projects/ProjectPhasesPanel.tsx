@@ -43,13 +43,16 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
   const { hasRole } = useAuth();
   const isViewer = false; // viewer ahora tiene permisos completos sobre proyectos
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
-  const [tasks, setTasks] = useState<ProjectTask[]>([]);
+  const [tasks, setTasks] = useState<TaskWithAssignee[]>([]);
+  const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskWeight, setNewTaskWeight] = useState(1);
   const [newTaskStart, setNewTaskStart] = useState('');
   const [newTaskEnd, setNewTaskEnd] = useState('');
+  const [editTask, setEditTask] = useState<TaskWithAssignee | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', weight: 1, start_date: '', end_date: '' });
 
   const fetchData = async () => {
     setLoading(true);
