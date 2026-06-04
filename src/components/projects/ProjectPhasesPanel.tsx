@@ -46,6 +46,7 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [tasks, setTasks] = useState<TaskWithAssignee[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const [assigneesByTask, setAssigneesByTask] = useState<AssigneeMap>({});
   const [loading, setLoading] = useState(false);
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
   const [newTaskName, setNewTaskName] = useState('');
