@@ -90,6 +90,7 @@ export default function Dashboard() {
 
       const map = new Map<SiloType, number>();
       allowedSiloDocs.forEach((d: any) => {
+        if (d.silo === 'sinsilo') return;
         map.set(d.silo, (map.get(d.silo) || 0) + 1);
       });
       const stats: SiloStat[] = Array.from(map.entries())
