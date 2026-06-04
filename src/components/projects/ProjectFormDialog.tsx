@@ -94,11 +94,11 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2 border-b">
           <DialogTitle>{project ? 'Editar Proyecto' : 'Nuevo Proyecto'}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 px-6 overflow-y-auto flex-1 min-h-0">
           <div className="space-y-2">
             <Label htmlFor="name">Nombre del Proyecto</Label>
             <Input 
@@ -237,6 +237,8 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
             </div>
           </div>
 
+        </div>
+        <div className="px-6 py-3 border-t bg-background">
           <Button onClick={handleSave} disabled={loading || !form.name} className="w-full">
             {loading ? 'Guardando...' : 'Guardar Proyecto'}
           </Button>
