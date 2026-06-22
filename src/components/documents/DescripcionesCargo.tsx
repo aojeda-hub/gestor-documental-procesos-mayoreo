@@ -253,7 +253,7 @@ export default function DescripcionesCargo({
               <SelectItem value="Todos">
                 Todos los departamentos ({totalGeneral})
               </SelectItem>
-              {departamentos.map(depto => (
+              {allDepartamentos.map(depto => (
                 <SelectItem key={depto} value={depto}>
                   {depto} ({countsByDepto.get(depto) || 0})
                 </SelectItem>
