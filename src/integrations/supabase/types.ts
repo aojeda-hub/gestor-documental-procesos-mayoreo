@@ -55,6 +55,33 @@ export type Database = {
           },
         ]
       }
+      auditoria: {
+        Row: {
+          accion: string
+          afectados: number | null
+          detalle: string | null
+          fecha: string | null
+          id: number
+          usuario: string
+        }
+        Insert: {
+          accion: string
+          afectados?: number | null
+          detalle?: string | null
+          fecha?: string | null
+          id?: number
+          usuario: string
+        }
+        Update: {
+          accion?: string
+          afectados?: number | null
+          detalle?: string | null
+          fecha?: string | null
+          id?: number
+          usuario?: string
+        }
+        Relationships: []
+      }
       bpa_documentos_relacion: {
         Row: {
           fecha_asociacion: string | null
@@ -132,6 +159,132 @@ export type Database = {
             referencedColumns: ["id_tarea"]
           },
         ]
+      }
+      clasificacion_9box: {
+        Row: {
+          accion: string | null
+          codigo: string
+          descripcion: string | null
+          eje_x_max: number | null
+          eje_x_min: number | null
+          eje_y_max: number | null
+          eje_y_min: number | null
+          id: number
+          nombre: string
+          orden: number | null
+        }
+        Insert: {
+          accion?: string | null
+          codigo: string
+          descripcion?: string | null
+          eje_x_max?: number | null
+          eje_x_min?: number | null
+          eje_y_max?: number | null
+          eje_y_min?: number | null
+          id?: number
+          nombre: string
+          orden?: number | null
+        }
+        Update: {
+          accion?: string | null
+          codigo?: string
+          descripcion?: string | null
+          eje_x_max?: number | null
+          eje_x_min?: number | null
+          eje_y_max?: number | null
+          eje_y_min?: number | null
+          id?: number
+          nombre?: string
+          orden?: number | null
+        }
+        Relationships: []
+      }
+      colaboradores: {
+        Row: {
+          accion_recomendada: string | null
+          antiguedad: number | null
+          cargo: string
+          categoria_nombre: string | null
+          cedula: string
+          clasificacion: string | null
+          compania: string
+          created_at: string | null
+          departamento: string
+          eje_x_puntaje: number | null
+          eje_y_puntaje: number | null
+          fecha_ingreso: string
+          id: number
+          movilidad: string | null
+          nivel: string | null
+          nombre_completo: string
+          np: string | null
+          pais: string | null
+          puntaje_competencias: number | null
+          puntaje_compromiso: number | null
+          puntaje_imp: number | null
+          puntaje_liderazgo: number | null
+          puntaje_pruebas: number | null
+          puntaje_rendimiento: number | null
+          supervisor: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accion_recomendada?: string | null
+          antiguedad?: number | null
+          cargo: string
+          categoria_nombre?: string | null
+          cedula: string
+          clasificacion?: string | null
+          compania: string
+          created_at?: string | null
+          departamento: string
+          eje_x_puntaje?: number | null
+          eje_y_puntaje?: number | null
+          fecha_ingreso: string
+          id?: number
+          movilidad?: string | null
+          nivel?: string | null
+          nombre_completo: string
+          np?: string | null
+          pais?: string | null
+          puntaje_competencias?: number | null
+          puntaje_compromiso?: number | null
+          puntaje_imp?: number | null
+          puntaje_liderazgo?: number | null
+          puntaje_pruebas?: number | null
+          puntaje_rendimiento?: number | null
+          supervisor?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accion_recomendada?: string | null
+          antiguedad?: number | null
+          cargo?: string
+          categoria_nombre?: string | null
+          cedula?: string
+          clasificacion?: string | null
+          compania?: string
+          created_at?: string | null
+          departamento?: string
+          eje_x_puntaje?: number | null
+          eje_y_puntaje?: number | null
+          fecha_ingreso?: string
+          id?: number
+          movilidad?: string | null
+          nivel?: string | null
+          nombre_completo?: string
+          np?: string | null
+          pais?: string | null
+          puntaje_competencias?: number | null
+          puntaje_compromiso?: number | null
+          puntaje_imp?: number | null
+          puntaje_liderazgo?: number | null
+          puntaje_pruebas?: number | null
+          puntaje_rendimiento?: number | null
+          supervisor?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       companias: {
         Row: {
@@ -726,6 +879,33 @@ export type Database = {
         }
         Relationships: []
       }
+      parametros_configuracion: {
+        Row: {
+          ciclo: string | null
+          componente: string
+          created_at: string | null
+          descripcion: string | null
+          id: number
+          peso: number
+        }
+        Insert: {
+          ciclo?: string | null
+          componente: string
+          created_at?: string | null
+          descripcion?: string | null
+          id?: number
+          peso: number
+        }
+        Update: {
+          ciclo?: string | null
+          componente?: string
+          created_at?: string | null
+          descripcion?: string | null
+          id?: number
+          peso?: number
+        }
+        Relationships: []
+      }
       procesos_bpa: {
         Row: {
           activo: boolean | null
@@ -1083,6 +1263,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      rangos_escala: {
+        Row: {
+          calificacion: string
+          color: string | null
+          id: number
+          rango_max: number
+          rango_min: number
+          tipo: string | null
+        }
+        Insert: {
+          calificacion: string
+          color?: string | null
+          id?: number
+          rango_max: number
+          rango_min: number
+          tipo?: string | null
+        }
+        Update: {
+          calificacion?: string
+          color?: string | null
+          id?: number
+          rango_max?: number
+          rango_min?: number
+          tipo?: string | null
+        }
+        Relationships: []
       }
       review_alerts: {
         Row: {
