@@ -160,21 +160,35 @@ export default function Documents() {
   const handleCreateDoc = async () => {
     let finalType = formType;
     let finalSilo = formSilo;
-    
-    if (/^DC\s*-/i.test(formTitle.trim())) {
+    let finalTitle = formTitle.trim();
+    let finalDepartamento: string | null = null;
+    let finalCargo: string | null = null;
+
+    if (finalType === 'descripcion_cargo') {
+      finalSilo = 'personal';
+      finalDepartamento = (formDepartamento || '').trim() || null;
+      finalCargo = (formCargo || '').trim() || null;
+      if (!finalDepartamento || !finalCargo) {
+        toast({ title: 'Faltan datos', description: 'Selecciona el departamento y escribe el cargo.', variant: 'destructive' });
+        return;
+      }
+      if (!finalTitle) finalTitle = `DC-${finalCargo}`;
+    } else if (/^DC\s*-/i.test(finalTitle)) {
       finalType = 'descripcion_cargo';
       finalSilo = 'personal';
     }
 
     const { data: doc, error } = await supabase.from('documents').insert({
-      title: formTitle, 
-      doc_type: finalType, 
-      silo: finalSilo, 
-      confidential: formConfidential, 
+      title: finalTitle,
+      doc_type: finalType,
+      silo: finalSilo,
+      confidential: formConfidential,
       estatus: formEstatus,
-      created_by: user?.id, 
+      created_by: user?.id,
       empresa: activeEmpresa,
       drive_link: vDriveUrl.trim() || null,
+      departamento: finalDepartamento,
+      cargo: finalCargo,
     } as any).select().single();
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
 
@@ -199,6 +213,7 @@ export default function Documents() {
     setFormTitle(''); setVDesc(''); setVDriveUrl(''); setVAuthors(''); setVApprover('');
     setWordFile(null); setPdfFile(null); setGenericFile(null); setFormConfidential(false);
     setFormEstatus('por_iniciar');
+    setFormDepartamento(''); setFormCargo('');
   };
 
   const openPreview = (doc: Document) => {
