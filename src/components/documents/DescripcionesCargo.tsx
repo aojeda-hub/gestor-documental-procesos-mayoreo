@@ -138,6 +138,8 @@ const inventoryData = [
 
 const departamentos = Array.from(new Set(inventoryData.map(item => item.depto)));
 
+export const DC_DEPARTAMENTOS = departamentos;
+
 export interface DescripcionesCargoProps {
   docs: Document[];
   canEdit: boolean;
