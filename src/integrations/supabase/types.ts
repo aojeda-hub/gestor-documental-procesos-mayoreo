@@ -542,9 +542,11 @@ export type Database = {
       }
       documents: {
         Row: {
+          cargo: string | null
           confidential: boolean
           created_at: string
           created_by: string | null
+          departamento: string | null
           doc_type: Database["public"]["Enums"]["doc_type"]
           drive_link: string | null
           empresa: Database["public"]["Enums"]["empresa_type"]
@@ -555,9 +557,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cargo?: string | null
           confidential?: boolean
           created_at?: string
           created_by?: string | null
+          departamento?: string | null
           doc_type: Database["public"]["Enums"]["doc_type"]
           drive_link?: string | null
           empresa?: Database["public"]["Enums"]["empresa_type"]
@@ -568,9 +572,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cargo?: string | null
           confidential?: boolean
           created_at?: string
           created_by?: string | null
+          departamento?: string | null
           doc_type?: Database["public"]["Enums"]["doc_type"]
           drive_link?: string | null
           empresa?: Database["public"]["Enums"]["empresa_type"]
