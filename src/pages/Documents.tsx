@@ -64,6 +64,8 @@ export default function Documents() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [genericFile, setGenericFile] = useState<File | null>(null);
   const [vDriveUrl, setVDriveUrl] = useState('');
+  const [formDepartamento, setFormDepartamento] = useState<string>('');
+  const [formCargo, setFormCargo] = useState<string>('');
 
   // Details dialog
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
