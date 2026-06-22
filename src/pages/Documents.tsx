@@ -21,6 +21,7 @@ import SiloCard from '@/components/documents/SiloCard';
 import SiloUniverse from '@/components/documents/SiloUniverse';
 import DocumentPreviewDialog from '@/components/documents/DocumentPreviewDialog';
 import { organizarSiloPersonal, ClassificationReport } from '@/utils/personalSiloOrganizer';
+import { DC_DEPARTAMENTOS } from '@/components/documents/DescripcionesCargo';
 import { PERSONAL_SILO_LIST } from '@/data/personalSiloList';
 
 export default function Documents() {
