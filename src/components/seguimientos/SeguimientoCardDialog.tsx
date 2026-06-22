@@ -352,11 +352,42 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
 
   const handleBoardChange = async (boardId: string) => {
     const val = boardId === 'general' ? null : boardId;
+    let newColumnId: string | null = null;
+    let newOrden = 0;
+
+    if (val) {
+      // Buscar la primera columna del tablero destino para no perder visibilidad
+      const { data: cols } = await supabase
+        .from('seguimiento_columns' as any)
+        .select('id')
+        .eq('board_id', val)
+        .order('orden', { ascending: true })
+        .limit(1);
+      const firstCol = (cols as any[])?.[0];
+      if (!firstCol) {
+        toast({
+          title: 'El tablero destino no tiene listas',
+          description: 'Crea al menos una lista en ese tablero antes de mover el seguimiento.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      newColumnId = firstCol.id;
+      const { count } = await supabase
+        .from('seguimientos' as any)
+        .select('id', { count: 'exact', head: true })
+        .eq('board_id', val)
+        .eq('column_id', newColumnId);
+      newOrden = count || 0;
+    }
+
     const { error } = await supabase.from('seguimientos' as any).update({
        board_id: val,
-       column_id: null
+       column_id: newColumnId,
+       orden: newOrden,
     }).eq('id', seguimientoId);
     if (error) return notify(error);
+    toast({ title: 'Seguimiento movido', description: val ? 'Se movió al tablero seleccionado.' : 'Se movió al Tablero General.' });
     loadAll();
     refreshOuter();
   };
