@@ -640,19 +640,54 @@ export default function Documents() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Tipo de documento</Label>
-                <Select value={formType} onValueChange={v => setFormType(v as DocType)}>
+                <Select value={formType} onValueChange={v => {
+                  const t = v as DocType;
+                  setFormType(t);
+                  if (t === 'descripcion_cargo') setFormSilo('personal');
+                }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Silo</Label>
-                <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+              {formType !== 'descripcion_cargo' && (
+                <div className="space-y-2">
+                  <Label>Silo</Label>
+                  <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
+            {formType === 'descripcion_cargo' && (
+              <div className="rounded-md border bg-muted/30 p-4 space-y-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Clasificación de la Descripción de Cargo
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Departamento</Label>
+                    <Select value={formDepartamento} onValueChange={setFormDepartamento}>
+                      <SelectTrigger><SelectValue placeholder="Selecciona departamento" /></SelectTrigger>
+                      <SelectContent>
+                        {DC_DEPARTAMENTOS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cargo</Label>
+                    <Input
+                      value={formCargo}
+                      onChange={e => setFormCargo(e.target.value)}
+                      placeholder="Ej: Jefe de Compras"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Se guardará automáticamente dentro del silo <span className="font-semibold">Personal</span>, clasificado por departamento.
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Estatus</Label>
