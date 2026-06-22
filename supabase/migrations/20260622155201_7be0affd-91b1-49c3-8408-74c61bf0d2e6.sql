@@ -1,0 +1,1 @@
+ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS departamento text, ADD COLUMN IF NOT EXISTS cargo text;

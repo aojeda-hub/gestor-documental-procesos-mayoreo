@@ -138,6 +138,8 @@ const inventoryData = [
 
 const departamentos = Array.from(new Set(inventoryData.map(item => item.depto)));
 
+export const DC_DEPARTAMENTOS = departamentos;
+
 export interface DescripcionesCargoProps {
   docs: Document[];
   canEdit: boolean;
@@ -164,10 +166,33 @@ export default function DescripcionesCargo({
     s.toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+  // Merge static inventory with user-created descripciones de cargo not present in inventory
+  const mergedInventory = useMemo(() => {
+    const normalizeCargo = (s: string) =>
+      (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '');
+    const existing = new Set(inventoryData.map(i => normalizeCargo(i.cargo)));
+    const extras: typeof inventoryData = [];
+    for (const d of docs) {
+      if ((d as any).doc_type !== 'descripcion_cargo') continue;
+      const cargo = (d as any).cargo as string | undefined;
+      const depto = (d as any).departamento as string | undefined;
+      if (!cargo || !depto) continue;
+      if (existing.has(normalizeCargo(cargo))) continue;
+      extras.push({ depto: depto.toUpperCase(), cargo, archivo: d.title });
+      existing.add(normalizeCargo(cargo));
+    }
+    return [...inventoryData, ...extras];
+  }, [docs]);
+
+  const allDepartamentos = useMemo(
+    () => Array.from(new Set(mergedInventory.map(i => i.depto))),
+    [mergedInventory]
+  );
+
   const filteredData = useMemo(() => {
     const byDepto = selectedDepto === "Todos"
-      ? inventoryData
-      : inventoryData.filter(item => item.depto === selectedDepto);
+      ? mergedInventory
+      : mergedInventory.filter(item => item.depto === selectedDepto);
     const q = normalizeSearch(searchQuery.trim());
     if (!q) return byDepto;
     return byDepto.filter(item =>
@@ -175,16 +200,16 @@ export default function DescripcionesCargo({
       normalizeSearch(item.depto).includes(q) ||
       normalizeSearch(item.archivo || '').includes(q)
     );
-  }, [selectedDepto, searchQuery]);
+  }, [selectedDepto, searchQuery, mergedInventory]);
 
   const countsByDepto = useMemo(() => {
     const map = new Map<string, number>();
-    for (const item of inventoryData) {
+    for (const item of mergedInventory) {
       map.set(item.depto, (map.get(item.depto) || 0) + 1);
     }
     return map;
-  }, []);
-  const totalGeneral = inventoryData.length;
+  }, [mergedInventory]);
+  const totalGeneral = mergedInventory.length;
 
   const normalize = (s: string) =>
     s.toLowerCase()
@@ -228,7 +253,7 @@ export default function DescripcionesCargo({
               <SelectItem value="Todos">
                 Todos los departamentos ({totalGeneral})
               </SelectItem>
-              {departamentos.map(depto => (
+              {allDepartamentos.map(depto => (
                 <SelectItem key={depto} value={depto}>
                   {depto} ({countsByDepto.get(depto) || 0})
                 </SelectItem>

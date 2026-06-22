@@ -21,6 +21,7 @@ import SiloCard from '@/components/documents/SiloCard';
 import SiloUniverse from '@/components/documents/SiloUniverse';
 import DocumentPreviewDialog from '@/components/documents/DocumentPreviewDialog';
 import { organizarSiloPersonal, ClassificationReport } from '@/utils/personalSiloOrganizer';
+import { DC_DEPARTAMENTOS } from '@/components/documents/DescripcionesCargo';
 import { PERSONAL_SILO_LIST } from '@/data/personalSiloList';
 
 export default function Documents() {
@@ -64,6 +65,8 @@ export default function Documents() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [genericFile, setGenericFile] = useState<File | null>(null);
   const [vDriveUrl, setVDriveUrl] = useState('');
+  const [formDepartamento, setFormDepartamento] = useState<string>('');
+  const [formCargo, setFormCargo] = useState<string>('');
 
   // Details dialog
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
@@ -158,21 +161,35 @@ export default function Documents() {
   const handleCreateDoc = async () => {
     let finalType = formType;
     let finalSilo = formSilo;
-    
-    if (/^DC\s*-/i.test(formTitle.trim())) {
+    let finalTitle = formTitle.trim();
+    let finalDepartamento: string | null = null;
+    let finalCargo: string | null = null;
+
+    if (finalType === 'descripcion_cargo') {
+      finalSilo = 'personal';
+      finalDepartamento = (formDepartamento || '').trim() || null;
+      finalCargo = (formCargo || '').trim() || null;
+      if (!finalDepartamento || !finalCargo) {
+        toast({ title: 'Faltan datos', description: 'Selecciona el departamento y escribe el cargo.', variant: 'destructive' });
+        return;
+      }
+      if (!finalTitle) finalTitle = `DC-${finalCargo}`;
+    } else if (/^DC\s*-/i.test(finalTitle)) {
       finalType = 'descripcion_cargo';
       finalSilo = 'personal';
     }
 
     const { data: doc, error } = await supabase.from('documents').insert({
-      title: formTitle, 
-      doc_type: finalType, 
-      silo: finalSilo, 
-      confidential: formConfidential, 
+      title: finalTitle,
+      doc_type: finalType,
+      silo: finalSilo,
+      confidential: formConfidential,
       estatus: formEstatus,
-      created_by: user?.id, 
+      created_by: user?.id,
       empresa: activeEmpresa,
       drive_link: vDriveUrl.trim() || null,
+      departamento: finalDepartamento,
+      cargo: finalCargo,
     } as any).select().single();
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
 
@@ -197,6 +214,7 @@ export default function Documents() {
     setFormTitle(''); setVDesc(''); setVDriveUrl(''); setVAuthors(''); setVApprover('');
     setWordFile(null); setPdfFile(null); setGenericFile(null); setFormConfidential(false);
     setFormEstatus('por_iniciar');
+    setFormDepartamento(''); setFormCargo('');
   };
 
   const openPreview = (doc: Document) => {
@@ -462,6 +480,14 @@ export default function Documents() {
     setFormConfidential(false);
     setVDesc(''); setVDriveUrl('');
     setWordFile(null); setPdfFile(null); setGenericFile(null);
+    // Pre-fill cargo when launched from the inventory (initialTitle like "DC-Jefe de X")
+    if (docType === 'descripcion_cargo') {
+      const guessedCargo = (initialTitle || '').replace(/^DC\s*-\s*/i, '').replace(/\.docx?$/i, '').trim();
+      setFormCargo(guessedCargo);
+      setFormDepartamento('');
+    } else {
+      setFormCargo(''); setFormDepartamento('');
+    }
     setShowCreate(true);
   };
 
@@ -615,19 +641,54 @@ export default function Documents() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Tipo de documento</Label>
-                <Select value={formType} onValueChange={v => setFormType(v as DocType)}>
+                <Select value={formType} onValueChange={v => {
+                  const t = v as DocType;
+                  setFormType(t);
+                  if (t === 'descripcion_cargo') setFormSilo('personal');
+                }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Silo</Label>
-                <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+              {formType !== 'descripcion_cargo' && (
+                <div className="space-y-2">
+                  <Label>Silo</Label>
+                  <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
+            {formType === 'descripcion_cargo' && (
+              <div className="rounded-md border bg-muted/30 p-4 space-y-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Clasificación de la Descripción de Cargo
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Departamento</Label>
+                    <Select value={formDepartamento} onValueChange={setFormDepartamento}>
+                      <SelectTrigger><SelectValue placeholder="Selecciona departamento" /></SelectTrigger>
+                      <SelectContent>
+                        {DC_DEPARTAMENTOS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cargo</Label>
+                    <Input
+                      value={formCargo}
+                      onChange={e => setFormCargo(e.target.value)}
+                      placeholder="Ej: Jefe de Compras"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Se guardará automáticamente dentro del silo <span className="font-semibold">Personal</span>, clasificado por departamento.
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Estatus</Label>
