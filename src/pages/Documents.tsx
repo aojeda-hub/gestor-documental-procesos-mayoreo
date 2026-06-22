@@ -479,6 +479,14 @@ export default function Documents() {
     setFormConfidential(false);
     setVDesc(''); setVDriveUrl('');
     setWordFile(null); setPdfFile(null); setGenericFile(null);
+    // Pre-fill cargo when launched from the inventory (initialTitle like "DC-Jefe de X")
+    if (docType === 'descripcion_cargo') {
+      const guessedCargo = (initialTitle || '').replace(/^DC\s*-\s*/i, '').replace(/\.docx?$/i, '').trim();
+      setFormCargo(guessedCargo);
+      setFormDepartamento('');
+    } else {
+      setFormCargo(''); setFormDepartamento('');
+    }
     setShowCreate(true);
   };
 
