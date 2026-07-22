@@ -881,8 +881,13 @@ function CasoRowEditor({ caso }: { caso: CasoRow }) {
     }).eq("id", caso.id);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    setDirty(false); toast.success("Guardado");
+    setDirty(false);
     await qc.invalidateQueries({ queryKey: ["cert-casos", caso.script_id] });
+  };
+
+  const guardarSiCambio = async () => {
+    if (!dirty || saving) return;
+    await guardar();
   };
 
   const eliminar = async () => {
@@ -904,11 +909,11 @@ function CasoRowEditor({ caso }: { caso: CasoRow }) {
   return (
     <TableRow className="align-top">
       <TableCell className="px-1 py-1 font-mono text-[10px] text-muted-foreground">#{caso.numero}</TableCell>
-      <TableCell className="px-1 py-1"><Input value={local.modulo ?? ""} onChange={(e) => update("modulo", e.target.value)} placeholder="—" className="h-7 px-1.5 text-[11px]" /></TableCell>
-      <TableCell className="px-1 py-1"><Textarea value={local.titulo} onChange={(e) => update("titulo", e.target.value)} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
-      <TableCell className="px-1 py-1"><Textarea value={local.ruta_acceso ?? ""} onChange={(e) => update("ruta_acceso", e.target.value)} placeholder="Menú > Submenú" rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
-      <TableCell className="px-1 py-1"><Textarea value={local.resultado_esperado ?? ""} onChange={(e) => update("resultado_esperado", e.target.value)} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
-      <TableCell className="px-1 py-1"><Textarea value={local.resultado_obtenido ?? ""} onChange={(e) => update("resultado_obtenido", e.target.value)} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
+      <TableCell className="px-1 py-1"><Input value={local.modulo ?? ""} onChange={(e) => update("modulo", e.target.value)} onBlur={guardarSiCambio} placeholder="—" className="h-7 px-1.5 text-[11px]" /></TableCell>
+      <TableCell className="px-1 py-1"><Textarea value={local.titulo} onChange={(e) => update("titulo", e.target.value)} onBlur={guardarSiCambio} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
+      <TableCell className="px-1 py-1"><Textarea value={local.ruta_acceso ?? ""} onChange={(e) => update("ruta_acceso", e.target.value)} onBlur={guardarSiCambio} placeholder="Menú > Submenú" rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
+      <TableCell className="px-1 py-1"><Textarea value={local.resultado_esperado ?? ""} onChange={(e) => update("resultado_esperado", e.target.value)} onBlur={guardarSiCambio} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
+      <TableCell className="px-1 py-1"><Textarea value={local.resultado_obtenido ?? ""} onChange={(e) => update("resultado_obtenido", e.target.value)} onBlur={guardarSiCambio} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
       <TableCell className="px-1 py-1">
         <Select value={local.estado} onValueChange={(v) => updateAndSave("estado", v as TestEstado)}>
           <SelectTrigger className={`h-7 px-1.5 text-[11px] ${TEST_ESTADO_STYLES[local.estado]}`}><SelectValue /></SelectTrigger>
@@ -921,16 +926,17 @@ function CasoRowEditor({ caso }: { caso: CasoRow }) {
           <SelectContent>{TEST_ENTORNOS.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
         </Select>
       </TableCell>
-      <TableCell className="px-1 py-1"><Input value={local.responsable ?? ""} onChange={(e) => update("responsable", e.target.value)} placeholder="Nombre" className="h-7 px-1.5 text-[11px]" /></TableCell>
+      <TableCell className="px-1 py-1"><Input value={local.responsable ?? ""} onChange={(e) => update("responsable", e.target.value)} onBlur={guardarSiCambio} placeholder="Nombre" className="h-7 px-1.5 text-[11px]" /></TableCell>
       <TableCell className="px-1 py-1">
         <div className="flex flex-col gap-0.5">
-          {dirty && <Button size="icon" variant="ghost" onClick={guardar} disabled={saving} className="h-6 w-6">{saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-green-600" />}</Button>}
-          <Button size="icon" variant="ghost" onClick={eliminar} className="h-6 w-6"><Trash2 className="h-3 w-3 text-destructive" /></Button>
+          {dirty && <Button size="icon" variant="ghost" onClick={guardar} disabled={saving} className="h-6 w-6" title="Guardar">{saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-green-600" />}</Button>}
+          <Button size="icon" variant="ghost" onClick={eliminar} className="h-6 w-6" title="Eliminar"><Trash2 className="h-3 w-3 text-destructive" /></Button>
         </div>
       </TableCell>
     </TableRow>
   );
 }
+
 
 /* ============================ INCIDENCIA DETAIL ============================ */
 type Inc = {
