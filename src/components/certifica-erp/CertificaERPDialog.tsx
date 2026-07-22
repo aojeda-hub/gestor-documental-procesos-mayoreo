@@ -865,29 +865,68 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
 function CasoRowEditor({ caso }: { caso: CasoRow }) {
   const qc = useQueryClient();
   const [local, setLocal] = useState(caso);
-  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedTick, setSavedTick] = useState(0);
+  const pendingRef = useRef<Partial<CasoRow>>({});
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inFlightRef = useRef(false);
+
+  // Sync from server when the row id changes (unlikely) — otherwise keep local edits.
+  useEffect(() => { setLocal(caso); }, [caso.id]);
+
+  const flush = async () => {
+    if (inFlightRef.current) return;
+    const payload = pendingRef.current;
+    if (!payload || Object.keys(payload).length === 0) return;
+    pendingRef.current = {};
+    inFlightRef.current = true;
+    setSaving(true);
+    const { error } = await supabase.from("test_casos").update(payload).eq("id", caso.id);
+    inFlightRef.current = false;
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      // Restore pending so user can retry
+      pendingRef.current = { ...payload, ...pendingRef.current };
+      return;
+    }
+    setSavedTick((t) => t + 1);
+    // Re-run if more changes queued while saving
+    if (Object.keys(pendingRef.current).length > 0) flush();
+  };
+
+  const scheduleFlush = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => { flush(); }, 500);
+  };
 
   const update = <K extends keyof CasoRow>(key: K, value: CasoRow[K]) => {
-    setLocal((p) => ({ ...p, [key]: value })); setDirty(true);
+    setLocal((p) => ({ ...p, [key]: value }));
+    pendingRef.current = { ...pendingRef.current, [key]: value };
+    scheduleFlush();
   };
 
-  const guardar = async () => {
-    setSaving(true);
-    const { error } = await supabase.from("test_casos").update({
-      modulo: local.modulo, titulo: local.titulo, ruta_acceso: local.ruta_acceso,
-      resultado_esperado: local.resultado_esperado, resultado_obtenido: local.resultado_obtenido,
-      estado: local.estado, entorno: local.entorno, responsable: local.responsable,
-    }).eq("id", caso.id);
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    setDirty(false);
+  const flushNow = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    flush();
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      // best-effort final save on unmount
+      if (Object.keys(pendingRef.current).length > 0) {
+        supabase.from("test_casos").update(pendingRef.current).eq("id", caso.id);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const updateAndSave = async <K extends keyof CasoRow>(key: K, value: CasoRow[K]) => {
+    setLocal((p) => ({ ...p, [key]: value }));
+    pendingRef.current = { ...pendingRef.current, [key]: value };
+    await flush();
     await qc.invalidateQueries({ queryKey: ["cert-casos", caso.script_id] });
-  };
-
-  const guardarSiCambio = async () => {
-    if (!dirty || saving) return;
-    await guardar();
   };
 
   const eliminar = async () => {
@@ -898,22 +937,14 @@ function CasoRowEditor({ caso }: { caso: CasoRow }) {
     await qc.invalidateQueries({ queryKey: ["cert-casos", caso.script_id] });
   };
 
-  const updateAndSave = async <K extends keyof CasoRow>(key: K, value: CasoRow[K]) => {
-    setLocal((p) => ({ ...p, [key]: value }));
-    const payload = { [key]: value } as Partial<CasoRow>;
-    const { error } = await supabase.from("test_casos").update(payload).eq("id", caso.id);
-    if (error) toast.error(error.message);
-    else await qc.invalidateQueries({ queryKey: ["cert-casos", caso.script_id] });
-  };
-
   return (
     <TableRow className="align-top">
       <TableCell className="px-1 py-1 font-mono text-[10px] text-muted-foreground">#{caso.numero}</TableCell>
-      <TableCell className="px-1 py-1"><Input value={local.modulo ?? ""} onChange={(e) => update("modulo", e.target.value)} onBlur={guardarSiCambio} placeholder="—" className="h-7 px-1.5 text-[11px]" /></TableCell>
-      <TableCell className="px-1 py-1"><Textarea value={local.titulo} onChange={(e) => update("titulo", e.target.value)} onBlur={guardarSiCambio} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
-      <TableCell className="px-1 py-1"><Textarea value={local.ruta_acceso ?? ""} onChange={(e) => update("ruta_acceso", e.target.value)} onBlur={guardarSiCambio} placeholder="Menú > Submenú" rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
-      <TableCell className="px-1 py-1"><Textarea value={local.resultado_esperado ?? ""} onChange={(e) => update("resultado_esperado", e.target.value)} onBlur={guardarSiCambio} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
-      <TableCell className="px-1 py-1"><Textarea value={local.resultado_obtenido ?? ""} onChange={(e) => update("resultado_obtenido", e.target.value)} onBlur={guardarSiCambio} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
+      <TableCell className="px-1 py-1"><Input value={local.modulo ?? ""} onChange={(e) => update("modulo", e.target.value)} onBlur={flushNow} placeholder="—" className="h-7 px-1.5 text-[11px]" /></TableCell>
+      <TableCell className="px-1 py-1"><Textarea value={local.titulo} onChange={(e) => update("titulo", e.target.value)} onBlur={flushNow} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
+      <TableCell className="px-1 py-1"><Textarea value={local.ruta_acceso ?? ""} onChange={(e) => update("ruta_acceso", e.target.value)} onBlur={flushNow} placeholder="Menú > Submenú" rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
+      <TableCell className="px-1 py-1"><Textarea value={local.resultado_esperado ?? ""} onChange={(e) => update("resultado_esperado", e.target.value)} onBlur={flushNow} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
+      <TableCell className="px-1 py-1"><Textarea value={local.resultado_obtenido ?? ""} onChange={(e) => update("resultado_obtenido", e.target.value)} onBlur={flushNow} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
       <TableCell className="px-1 py-1">
         <Select value={local.estado} onValueChange={(v) => updateAndSave("estado", v as TestEstado)}>
           <SelectTrigger className={`h-7 px-1.5 text-[11px] ${TEST_ESTADO_STYLES[local.estado]}`}><SelectValue /></SelectTrigger>
@@ -926,16 +957,21 @@ function CasoRowEditor({ caso }: { caso: CasoRow }) {
           <SelectContent>{TEST_ENTORNOS.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
         </Select>
       </TableCell>
-      <TableCell className="px-1 py-1"><Input value={local.responsable ?? ""} onChange={(e) => update("responsable", e.target.value)} onBlur={guardarSiCambio} placeholder="Nombre" className="h-7 px-1.5 text-[11px]" /></TableCell>
+      <TableCell className="px-1 py-1"><Input value={local.responsable ?? ""} onChange={(e) => update("responsable", e.target.value)} onBlur={flushNow} placeholder="Nombre" className="h-7 px-1.5 text-[11px]" /></TableCell>
       <TableCell className="px-1 py-1">
-        <div className="flex flex-col gap-0.5">
-          {dirty && <Button size="icon" variant="ghost" onClick={guardar} disabled={saving} className="h-6 w-6" title="Guardar">{saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-green-600" />}</Button>}
+        <div className="flex flex-col items-center gap-0.5">
+          {saving ? (
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+          ) : savedTick > 0 ? (
+            <Check className="h-3 w-3 text-green-600" />
+          ) : null}
           <Button size="icon" variant="ghost" onClick={eliminar} className="h-6 w-6" title="Eliminar"><Trash2 className="h-3 w-3 text-destructive" /></Button>
         </div>
       </TableCell>
     </TableRow>
   );
 }
+
 
 
 /* ============================ INCIDENCIA DETAIL ============================ */
