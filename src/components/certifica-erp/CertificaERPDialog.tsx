@@ -1503,7 +1503,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
           ) : (
             <Card className="space-y-3 p-6">
               <Detail label="Prioridad" icon={<Tag className="h-4 w-4" />}><span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${PRIORIDAD_STYLES[inc.prioridad]}`}>{PRIORIDAD_LABEL[inc.prioridad]}</span></Detail>
-              <Detail label="Módulo" icon={<Tag className="h-4 w-4" />}><span className="text-sm font-medium">{MODULO_LABEL[inc.modulo]}</span></Detail>
+              <Detail label="Sección" icon={<Tag className="h-4 w-4" />}><span className="text-sm font-medium">{inc.modulo || '—'}</span></Detail>
               <Detail label="Responsable" icon={<User className="h-4 w-4" />}><span className="text-sm font-medium">{inc.responsable ?? <span className="text-muted-foreground italic">Sin asignar</span>}</span></Detail>
               <Detail label="Fecha ocurrencia" icon={<Calendar className="h-4 w-4" />}><span className="text-sm">{inc.fecha_ocurrencia ? format(new Date(inc.fecha_ocurrencia), "d 'de' MMMM yyyy", { locale: es }) : "—"}</span></Detail>
               <Detail label="Fecha registro" icon={<Calendar className="h-4 w-4" />}><span className="text-sm">{format(new Date(inc.fecha), "d 'de' MMMM yyyy", { locale: es })}</span></Detail>
