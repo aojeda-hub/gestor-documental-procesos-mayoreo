@@ -774,16 +774,35 @@ function IncidenciaFormDialog({
         fecha_ocurrencia: form.fecha_ocurrencia,
         fecha: form.fecha,
       };
+      let incId: string | null = null;
       if (mode === "edit" && initial?.id) {
         const { error } = await supabase.from("incidencias").update(payload).eq("id", initial.id);
         if (error) throw error;
+        incId = initial.id;
         toast.success("Incidencia actualizada");
       } else {
-        const { error } = await supabase.from("incidencias").insert({
+        const { data, error } = await supabase.from("incidencias").insert({
           ...payload, proyecto_id: proyectoId, created_by: user.id,
-        });
+        }).select("id").single();
         if (error) throw error;
+        incId = data.id;
         toast.success("Incidencia creada");
+      }
+      if (incId && files.length > 0) {
+        const failed: string[] = [];
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+          const path = `${incId}/${Date.now()}_${i}.${ext}`;
+          const { error: upErr } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, { cacheControl: "3600", upsert: false });
+          if (upErr) { failed.push(file.name); continue; }
+          const { error: imgErr } = await supabase.from("incidencia_imagenes").insert({
+            incidencia_id: incId, storage_path: path, nombre_original: file.name, orden: i,
+          });
+          if (imgErr) failed.push(file.name);
+        }
+        if (failed.length > 0) toast.warning(`${failed.length} imagen(es) fallaron`);
+        qc.invalidateQueries({ queryKey: ["cert-incidencia-imgs", incId] });
       }
       onSaved();
       onOpenChange(false);
