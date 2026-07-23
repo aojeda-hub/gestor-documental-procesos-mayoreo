@@ -618,7 +618,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                   <TableCell className="font-mono text-xs text-muted-foreground">#{r.numero}</TableCell>
                   <TableCell className="font-medium">{r.titulo}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.sistema_nombre ?? <span className="opacity-50">—</span>}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-[10px]">{MODULO_LABEL[r.modulo]}</Badge></TableCell>
+                  <TableCell><Badge variant="outline" className="text-[10px]">{r.modulo || '—'}</Badge></TableCell>
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${ESTADO_STYLES[r.estado]}`}>{ESTADO_LABEL[r.estado]}</span></TableCell>
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${PRIORIDAD_STYLES[r.prioridad]}`}>{PRIORIDAD_LABEL[r.prioridad]}</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Incidencia</TableCell>
