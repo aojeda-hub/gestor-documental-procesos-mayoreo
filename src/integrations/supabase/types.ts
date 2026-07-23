@@ -675,7 +675,7 @@ export type Database = {
           fecha_completado: string | null
           fecha_ocurrencia: string | null
           id: string
-          modulo: Database["public"]["Enums"]["modulo_erp"]
+          modulo: string | null
           nombre_transaccion: string | null
           numero: number
           prioridad: Database["public"]["Enums"]["incidencia_prioridad"]
@@ -696,7 +696,7 @@ export type Database = {
           fecha_completado?: string | null
           fecha_ocurrencia?: string | null
           id?: string
-          modulo: Database["public"]["Enums"]["modulo_erp"]
+          modulo?: string | null
           nombre_transaccion?: string | null
           numero?: number
           prioridad?: Database["public"]["Enums"]["incidencia_prioridad"]
@@ -717,7 +717,7 @@ export type Database = {
           fecha_completado?: string | null
           fecha_ocurrencia?: string | null
           id?: string
-          modulo?: Database["public"]["Enums"]["modulo_erp"]
+          modulo?: string | null
           nombre_transaccion?: string | null
           numero?: number
           prioridad?: Database["public"]["Enums"]["incidencia_prioridad"]
