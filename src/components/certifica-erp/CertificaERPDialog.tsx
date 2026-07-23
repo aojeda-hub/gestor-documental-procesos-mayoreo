@@ -722,6 +722,7 @@ function IncidenciaFormDialog({
 
   useEffect(() => {
     if (!open) return;
+    setFiles([]); setPreviews([]);
     if (mode === "edit" && initial?.id) {
       (async () => {
         const { data } = await supabase.from("incidencias")
