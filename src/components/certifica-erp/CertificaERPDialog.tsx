@@ -1301,10 +1301,28 @@ type EditForm = {
   codigo_transaccion: string; nombre_transaccion: string; responsable: string; fecha_ocurrencia: string;
 };
 
+function attachmentName(file: Img): string {
+  return file.nombre_original || file.storage_path.split("/").pop() || "Archivo";
+}
+
+function isImageAttachment(file: Img): boolean {
+  const value = `${file.nombre_original ?? ""} ${file.storage_path}`;
+  return /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(value);
+}
+
+function isPdfAttachment(file: Img): boolean {
+  const value = `${file.nombre_original ?? ""} ${file.storage_path}`;
+  return /\.pdf$/i.test(value);
+}
+
 function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
   const [updating, setUpdating] = useState(false);
-  const [lightbox, setLightbox] = useState<number | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<EditForm | null>(null);
@@ -1340,6 +1358,47 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     },
   });
 
+  const images = imgs ?? [];
+  const selectedAttachment = previewIndex !== null ? images[previewIndex] : undefined;
+
+  useEffect(() => {
+    let objectUrl = "";
+    let cancelled = false;
+
+    setPreviewUrl("");
+    setPreviewError(null);
+
+    if (!selectedAttachment) {
+      setPreviewLoading(false);
+      return () => undefined;
+    }
+
+    const loadPreview = async () => {
+      setPreviewLoading(true);
+      try {
+        const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(selectedAttachment.storage_path);
+        if (error) throw error;
+        if (!data) throw new Error("No se pudo cargar el archivo");
+        objectUrl = URL.createObjectURL(data);
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        setPreviewUrl(objectUrl);
+      } catch (e) {
+        if (!cancelled) setPreviewError(e instanceof Error ? e.message : "No se pudo cargar la vista previa");
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    };
+
+    loadPreview();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [selectedAttachment?.storage_path]);
 
   useEffect(() => {
     if (inc && !editing) {
@@ -1360,6 +1419,37 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     if (error) { toast.error(error.message); return; }
     toast.success(`Estado: ${ESTADO_LABEL[nuevo]}`);
     qc.invalidateQueries({ queryKey: ["cert-incidencia", id] });
+  };
+
+  const eliminarAdjunto = async (img: Img) => {
+    setDeletingAttachmentId(img.id);
+    try {
+      const { error: storageError } = await supabase.storage.from(STORAGE_BUCKET).remove([img.storage_path]);
+      if (storageError) throw storageError;
+      const { error: dbError } = await supabase.from("incidencia_imagenes").delete().eq("id", img.id);
+      if (dbError) throw dbError;
+      if (selectedAttachment?.id === img.id) setPreviewIndex(null);
+      toast.success("Adjunto eliminado");
+      await qc.invalidateQueries({ queryKey: ["cert-incidencia-imgs", id] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo eliminar el adjunto");
+    } finally {
+      setDeletingAttachmentId(null);
+    }
+  };
+
+  const showPreviousAttachment = () => {
+    setPreviewIndex((current) => {
+      if (current === null || images.length === 0) return current;
+      return (current - 1 + images.length) % images.length;
+    });
+  };
+
+  const showNextAttachment = () => {
+    setPreviewIndex((current) => {
+      if (current === null || images.length === 0) return current;
+      return (current + 1) % images.length;
+    });
   };
 
   const guardarEdicion = async () => {
@@ -1397,8 +1487,6 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
   if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   if (error || !inc) return <Card className="p-12 text-center text-muted-foreground">Incidencia no encontrada</Card>;
 
-  const images = imgs ?? [];
-
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex items-center gap-3">
@@ -1424,7 +1512,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>¿Eliminar incidencia #{inc.numero}?</AlertDialogTitle>
-                  <AlertDialogDescription>Esta acción es permanente. Se eliminarán también todas las imágenes adjuntas.</AlertDialogDescription>
+                  <AlertDialogDescription>Esta acción es permanente. Se eliminarán también todos los archivos adjuntos.</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -1467,21 +1555,47 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {images.map((img, i) => {
-                  const name = img.nombre_original ?? "";
-                  const isImg = /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(name) || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(img.storage_path);
+                  const name = attachmentName(img);
+                  const isImg = isImageAttachment(img);
                   const url = img.signed_url || getImagePublicUrl(img.storage_path);
-                  if (isImg) {
-                    return (
-                      <button key={img.id} onClick={() => setLightbox(i)} className="group relative aspect-square overflow-hidden rounded-md border bg-muted">
-                        <img src={url} alt={name} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                      </button>
-                    );
-                  }
                   return (
-                    <a key={img.id} href={url} target="_blank" rel="noopener noreferrer" className="group flex aspect-square flex-col items-center justify-center gap-2 rounded-md border bg-muted/40 p-3 text-center transition-colors hover:bg-muted" title={name}>
-                      <FileText className="h-10 w-10 text-muted-foreground group-hover:text-foreground" />
-                      <span className="line-clamp-2 break-all text-[11px] leading-tight text-muted-foreground group-hover:text-foreground">{name || "Archivo"}</span>
-                    </a>
+                    <div key={img.id} className="group relative aspect-square overflow-hidden rounded-md border bg-muted/40">
+                      <Button type="button" variant="ghost" onClick={() => setPreviewIndex(i)} className="h-full w-full rounded-none p-0 hover:bg-muted">
+                        {isImg ? (
+                          <img src={url} alt={name} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                        ) : (
+                          <span className="flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center">
+                            <FileText className="h-10 w-10 text-muted-foreground group-hover:text-foreground" />
+                            <span className="line-clamp-2 break-all text-[11px] leading-tight text-muted-foreground group-hover:text-foreground">{name}</span>
+                          </span>
+                        )}
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="destructive"
+                            className="absolute right-2 top-2 h-7 w-7 opacity-90 shadow-sm"
+                            disabled={deletingAttachmentId === img.id}
+                            title="Eliminar adjunto"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {deletingAttachmentId === img.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar adjunto?</AlertDialogTitle>
+                            <AlertDialogDescription>Se eliminará “{name}” de esta incidencia. Esta acción no se puede deshacer.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => eliminarAdjunto(img)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   );
                 })}
               </div>
@@ -1540,16 +1654,38 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
         </div>
       </div>
 
-      <InnerDialog open={lightbox !== null} onOpenChange={(o) => !o && setLightbox(null)}>
-        <InnerDialogContent className="max-w-4xl border-0 bg-background/95 p-0">
-          {lightbox !== null && images[lightbox] && (
-            <div className="relative">
-              <img src={images[lightbox].signed_url || getImagePublicUrl(images[lightbox].storage_path)} alt="" className="max-h-[85vh] w-full object-contain" />
+      <InnerDialog open={previewIndex !== null} onOpenChange={(o) => !o && setPreviewIndex(null)}>
+        <InnerDialogContent className="max-w-5xl border-0 bg-background/95 p-0">
+          {selectedAttachment && (
+            <div className="relative flex max-h-[90vh] min-h-[520px] flex-col">
+              <InnerDialogHeader className="border-b px-4 py-3">
+                <InnerDialogTitle className="flex items-center gap-2 text-sm">
+                  {isImageAttachment(selectedAttachment) ? <ImageIcon className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                  <span className="line-clamp-1 break-all">{attachmentName(selectedAttachment)}</span>
+                </InnerDialogTitle>
+              </InnerDialogHeader>
+              <div className="flex h-[72vh] min-h-[420px] items-center justify-center overflow-hidden bg-muted/30">
+                {previewLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando preview…</div>
+                ) : previewError ? (
+                  <div className="max-w-sm text-center text-sm text-muted-foreground">{previewError}</div>
+                ) : previewUrl && isImageAttachment(selectedAttachment) ? (
+                  <img src={previewUrl} alt={attachmentName(selectedAttachment)} className="h-full w-full object-contain" />
+                ) : previewUrl && isPdfAttachment(selectedAttachment) ? (
+                  <iframe src={previewUrl} title={attachmentName(selectedAttachment)} className="h-full w-full border-0" />
+                ) : (
+                  <div className="flex max-w-sm flex-col items-center gap-3 p-6 text-center text-sm text-muted-foreground">
+                    <FileText className="h-12 w-12" />
+                    <div className="font-medium text-foreground">Preview no disponible</div>
+                    <div>Este tipo de archivo no puede previsualizarse directamente en el navegador.</div>
+                  </div>
+                )}
+              </div>
               {images.length > 1 && (
                 <>
-                  <Button size="icon" variant="secondary" className="absolute left-2 top-1/2 -translate-y-1/2" onClick={() => setLightbox((i) => (i! - 1 + images.length) % images.length)}><ChevronLeft className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="secondary" className="absolute right-2 top-1/2 -translate-y-1/2" onClick={() => setLightbox((i) => (i! + 1) % images.length)}><ChevronRight className="h-4 w-4" /></Button>
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-background/90 px-3 py-1 text-xs">{lightbox + 1} / {images.length}</div>
+                  <Button size="icon" variant="secondary" className="absolute left-2 top-1/2 -translate-y-1/2" onClick={showPreviousAttachment}><ChevronLeft className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="secondary" className="absolute right-2 top-1/2 -translate-y-1/2" onClick={showNextAttachment}><ChevronRight className="h-4 w-4" /></Button>
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-background/90 px-3 py-1 text-xs">{previewIndex !== null ? previewIndex + 1 : 0} / {images.length}</div>
                 </>
               )}
             </div>
