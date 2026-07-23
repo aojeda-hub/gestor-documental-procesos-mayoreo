@@ -690,7 +690,8 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
     const completadas = (casos ?? []).filter((c) => c.estado === "completada").length;
     const enCurso = (casos ?? []).filter((c) => c.estado === "en_curso").length;
     const pendientes = (casos ?? []).filter((c) => c.estado === "pendiente").length;
-    return { total, completadas, enCurso, pendientes };
+    const incidencias = (casos ?? []).filter((c) => c.estado === "incidencia").length;
+    return { total, completadas, enCurso, pendientes, incidencias };
   }, [casos]);
 
   const agregar = async () => {
