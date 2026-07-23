@@ -23,6 +23,8 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
 import {
   Building2, FolderKanban, Plus, ChevronRight, Loader2, ListChecks, FileCheck2,
   Trash2, Check, Download, ChevronLeft, X, Save, Pencil, Hash, Tag, FileText,
@@ -40,6 +42,8 @@ import {
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, refetchOnWindowFocus: false } },
 });
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface Props { open: boolean; onOpenChange: (v: boolean) => void; }
 
@@ -1315,11 +1319,102 @@ function isPdfAttachment(file: Img): boolean {
   return /\.pdf$/i.test(value);
 }
 
+function PdfAttachmentPreview({ file, blob }: { file: Img; blob: Blob }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageCount, setPageCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPageNumber(1);
+  }, [file.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let renderTask: { cancel: () => void; promise: Promise<unknown> } | null = null;
+    let loadingTask: { destroy: () => Promise<void>; promise: Promise<unknown> } | null = null;
+
+    const renderPage = async () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const data = new Uint8Array(await blob.arrayBuffer());
+        loadingTask = pdfjsLib.getDocument({ data }) as typeof loadingTask;
+        const pdf = await loadingTask.promise as Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>;
+        if (cancelled) return;
+        setPageCount(pdf.numPages);
+        const safePage = Math.min(Math.max(pageNumber, 1), pdf.numPages);
+        if (safePage !== pageNumber) {
+          setPageNumber(safePage);
+          return;
+        }
+        const page = await pdf.getPage(safePage);
+        if (cancelled) return;
+        const baseViewport = page.getViewport({ scale: 1 });
+        const frameWidth = frameRef.current?.clientWidth ?? 900;
+        const frameHeight = frameRef.current?.clientHeight ?? 620;
+        const fitScale = Math.min((frameWidth - 32) / baseViewport.width, (frameHeight - 32) / baseViewport.height);
+        const viewport = page.getViewport({ scale: Math.max(0.35, Math.min(fitScale, 2)) });
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("No se pudo preparar el visor");
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(viewport.width * ratio);
+        canvas.height = Math.floor(viewport.height * ratio);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        renderTask = page.render({ canvas, canvasContext: context, viewport });
+        await renderTask.promise;
+      } catch (e) {
+        if (!cancelled && !(e instanceof Error && e.name === "RenderingCancelledException")) {
+          setError(e instanceof Error ? e.message : "No se pudo mostrar el PDF");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    renderPage();
+
+    return () => {
+      cancelled = true;
+      renderTask?.cancel();
+      void loadingTask?.destroy();
+    };
+  }, [blob, pageNumber]);
+
+  return (
+    <div className="flex h-full w-full flex-col">
+      <div className="flex items-center justify-between gap-3 border-b bg-background px-3 py-2 text-xs">
+        <span className="line-clamp-1 min-w-0 break-all text-muted-foreground">{attachmentName(file)}</span>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setPageNumber((p) => Math.max(1, p - 1))} disabled={loading || pageNumber <= 1}>Anterior</Button>
+          <span className="min-w-16 text-center text-muted-foreground">{pageNumber} / {pageCount || "—"}</span>
+          <Button size="sm" variant="outline" onClick={() => setPageNumber((p) => (pageCount ? Math.min(pageCount, p + 1) : p + 1))} disabled={loading || (pageCount > 0 && pageNumber >= pageCount)}>Siguiente</Button>
+        </div>
+      </div>
+      <div ref={frameRef} className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+        {loading && <div className="absolute top-4 z-10 flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground shadow-sm"><Loader2 className="h-4 w-4 animate-spin" /> Cargando PDF…</div>}
+        {error ? (
+          <div className="max-w-sm text-center text-sm text-muted-foreground">{error}</div>
+        ) : (
+          <canvas ref={canvasRef} className="rounded-sm bg-background shadow-sm" />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
   const [updating, setUpdating] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
@@ -1366,6 +1461,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     let cancelled = false;
 
     setPreviewUrl("");
+    setPreviewBlob(null);
     setPreviewError(null);
 
     if (!selectedAttachment) {
@@ -1384,6 +1480,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
           URL.revokeObjectURL(objectUrl);
           return;
         }
+        setPreviewBlob(data);
         setPreviewUrl(objectUrl);
       } catch (e) {
         if (!cancelled) setPreviewError(e instanceof Error ? e.message : "No se pudo cargar la vista previa");
@@ -1671,8 +1768,8 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
                   <div className="max-w-sm text-center text-sm text-muted-foreground">{previewError}</div>
                 ) : previewUrl && isImageAttachment(selectedAttachment) ? (
                   <img src={previewUrl} alt={attachmentName(selectedAttachment)} className="h-full w-full object-contain" />
-                ) : previewUrl && isPdfAttachment(selectedAttachment) ? (
-                  <iframe src={previewUrl} title={attachmentName(selectedAttachment)} className="h-full w-full border-0" />
+                ) : previewBlob && isPdfAttachment(selectedAttachment) ? (
+                  <PdfAttachmentPreview file={selectedAttachment} blob={previewBlob} />
                 ) : (
                   <div className="flex max-w-sm flex-col items-center gap-3 p-6 text-center text-sm text-muted-foreground">
                     <FileText className="h-12 w-12" />
