@@ -23,6 +23,8 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
 import {
   Building2, FolderKanban, Plus, ChevronRight, Loader2, ListChecks, FileCheck2,
   Trash2, Check, Download, ChevronLeft, X, Save, Pencil, Hash, Tag, FileText,
@@ -40,6 +42,8 @@ import {
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, refetchOnWindowFocus: false } },
 });
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface Props { open: boolean; onOpenChange: (v: boolean) => void; }
 
