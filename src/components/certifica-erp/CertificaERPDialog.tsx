@@ -370,16 +370,19 @@ function ProyectoView({ id, navigate }: { id: string; navigate: (v: CertView) =>
           <TabsTrigger value="incidencias"><ListChecks className="mr-1 h-4 w-4" /> Incidencias</TabsTrigger>
           <TabsTrigger value="certificacion"><FileCheck2 className="mr-1 h-4 w-4" /> Certificación</TabsTrigger>
         </TabsList>
-        <TabsContent value="incidencias" className="mt-4"><IncidenciasTab proyectoId={proyecto.id} navigate={navigate} /></TabsContent>
+        <TabsContent value="incidencias" className="mt-4"><IncidenciasTab proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} navigate={navigate} /></TabsContent>
         <TabsContent value="certificacion" className="mt-4"><CertificacionTab proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} /></TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate: (v: CertView) => void }) {
+function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: string; proyectoNombre: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const [editingInc, setEditingInc] = useState<IncRow | null>(null);
+  const [creatingFromCert, setCreatingFromCert] = useState<(CasoRow & { script_nombre: string }) | null>(null);
+
   const { data: incidencias } = useQuery({
     queryKey: ["cert-proyecto-incidencias", proyectoId],
     queryFn: async () => {
@@ -410,16 +413,39 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
   });
 
 
-  const exportar = () => {
-    if (!incidencias || incidencias.length === 0) { toast.info("No hay incidencias"); return; }
-    const rows = incidencias.map((r) => ({
-      "N°": r.numero, "Título": r.titulo, "Sistema": r.sistema_nombre ?? "",
-      "Módulo": MODULO_LABEL[r.modulo], "Estado": ESTADO_LABEL[r.estado],
-      "Prioridad": PRIORIDAD_LABEL[r.prioridad], "Fecha": format(new Date(r.fecha), "yyyy-MM-dd"),
-    }));
-    exportToCsv(`incidencias-${format(new Date(), "yyyyMMdd-HHmm")}.csv`, rows);
+  const exportar = async () => {
+    const totalReal = incidencias?.length ?? 0;
+    const totalCert = certIncidencias?.length ?? 0;
+    if (totalReal === 0 && totalCert === 0) { toast.info("No hay incidencias"); return; }
+    const { exportIncidenciasPDF } = await import("@/lib/pdfExport");
+    const rows = [
+      ...(incidencias ?? []).map((r) => ({
+        numero: r.numero,
+        titulo: r.titulo,
+        sistema: r.sistema_nombre,
+        modulo: MODULO_LABEL[r.modulo],
+        estado: ESTADO_LABEL[r.estado],
+        prioridad: PRIORIDAD_LABEL[r.prioridad],
+        responsable: null,
+        origen: "Incidencia",
+        fecha: format(new Date(r.fecha), "yyyy-MM-dd"),
+      })),
+      ...(certIncidencias ?? []).map((c) => ({
+        numero: `C#${c.numero}`,
+        titulo: c.titulo,
+        sistema: c.entorno,
+        modulo: c.modulo ?? "-",
+        estado: "Incidencia",
+        prioridad: null,
+        responsable: c.responsable,
+        origen: `Certificación · ${c.script_nombre}`,
+        fecha: format(new Date(c.created_at), "yyyy-MM-dd"),
+      })),
+    ];
+    await exportIncidenciasPDF(proyectoNombre || "Proyecto", rows);
     toast.success(`Exportadas ${rows.length} incidencias`);
   };
+
 
   const INC_HEADERS = ["Título", "Descripción", "Módulo", "Prioridad", "Estado", "Sistema", "Código transacción", "Nombre transacción", "Responsable", "Fecha (YYYY-MM-DD)", "Fecha ocurrencia (YYYY-MM-DD)"];
 
@@ -559,7 +585,7 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
               <span className="cursor-pointer"><Upload className="h-4 w-4" /> Importar</span>
             </Button>
           </label>
-          <Button variant="outline" onClick={exportar} disabled={!incidencias || incidencias.length === 0}>
+          <Button variant="outline" onClick={exportar} disabled={(!incidencias || incidencias.length === 0) && (!certIncidencias || certIncidencias.length === 0)}>
             <Download className="h-4 w-4" /> Exportar
           </Button>
           <Button onClick={() => navigate({ name: "nueva", proyectoId })}><Plus className="h-4 w-4" /> Nueva incidencia</Button>
@@ -584,8 +610,9 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
                 <TableHead className="w-[110px]">Módulo</TableHead>
                 <TableHead className="w-[110px]">Estado</TableHead>
                 <TableHead className="w-[100px]">Prioridad</TableHead>
-                <TableHead className="w-[110px]">Origen</TableHead>
+                <TableHead className="w-[130px]">Origen</TableHead>
                 <TableHead className="w-[110px]">Fecha</TableHead>
+                <TableHead className="w-[90px] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -599,6 +626,11 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${PRIORIDAD_STYLES[r.prioridad]}`}>{PRIORIDAD_LABEL[r.prioridad]}</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Incidencia</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(r.fecha), "d MMM yyyy", { locale: es })}</TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setEditingInc(r)}>
+                      <Pencil className="h-3 w-3" /> Editar
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {(certIncidencias ?? []).map((c) => (
@@ -611,16 +643,181 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
                   <TableCell><span className="text-[11px] text-muted-foreground">—</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Certificación · {c.script_nombre}</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(c.created_at), "d MMM yyyy", { locale: es })}</TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setCreatingFromCert(c)}>
+                      <Plus className="h-3 w-3" /> Completar
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
+
             </TableBody>
           </Table>
         </Card>
       )}
 
+      <IncidenciaFormDialog
+        open={!!editingInc || !!creatingFromCert}
+        mode={editingInc ? "edit" : "create"}
+        proyectoId={proyectoId}
+        initial={
+          editingInc
+            ? { id: editingInc.id }
+            : creatingFromCert
+              ? {
+                  titulo: creatingFromCert.titulo,
+                  descripcion: creatingFromCert.resultado_obtenido || creatingFromCert.resultado_esperado || creatingFromCert.titulo,
+                  sistema_nombre: creatingFromCert.entorno,
+                  responsable: creatingFromCert.responsable || "",
+                }
+              : undefined
+        }
+        onOpenChange={(v) => { if (!v) { setEditingInc(null); setCreatingFromCert(null); } }}
+        onSaved={() => qc.invalidateQueries({ queryKey: ["cert-proyecto-incidencias", proyectoId] })}
+      />
     </div>
   );
 }
+
+/* ============================ INCIDENCIA FORM DIALOG ============================ */
+function IncidenciaFormDialog({
+  open, mode, proyectoId, initial, onOpenChange, onSaved,
+}: {
+  open: boolean;
+  mode: "edit" | "create";
+  proyectoId: string;
+  initial?: Partial<{
+    id: string; titulo: string; descripcion: string; sistema_nombre: string;
+    modulo: Modulo; prioridad: Prioridad; responsable: string;
+    codigo_transaccion: string; nombre_transaccion: string;
+    fecha_ocurrencia: string; fecha: string;
+  }>;
+  onOpenChange: (v: boolean) => void;
+  onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const today = new Date().toISOString().slice(0, 10);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    titulo: "", descripcion: "", sistema_nombre: "",
+    modulo: "ventas" as Modulo, prioridad: "media" as Prioridad, responsable: "",
+    codigo_transaccion: "", nombre_transaccion: "",
+    fecha_ocurrencia: today, fecha: today,
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    if (mode === "edit" && initial?.id) {
+      (async () => {
+        const { data } = await supabase.from("incidencias")
+          .select("titulo, descripcion, sistema_nombre, modulo, prioridad, responsable, codigo_transaccion, nombre_transaccion, fecha_ocurrencia, fecha")
+          .eq("id", initial.id).maybeSingle();
+        if (data) {
+          setForm({
+            titulo: data.titulo ?? "",
+            descripcion: data.descripcion ?? "",
+            sistema_nombre: data.sistema_nombre ?? "",
+            modulo: (data.modulo as Modulo) ?? "ventas",
+            prioridad: (data.prioridad as Prioridad) ?? "media",
+            responsable: data.responsable ?? "",
+            codigo_transaccion: data.codigo_transaccion ?? "",
+            nombre_transaccion: data.nombre_transaccion ?? "",
+            fecha_ocurrencia: (data.fecha_ocurrencia as string) ?? today,
+            fecha: (data.fecha as string) ?? today,
+          });
+        }
+      })();
+    } else {
+      setForm((f) => ({
+        ...f,
+        titulo: initial?.titulo ?? "",
+        descripcion: initial?.descripcion ?? "",
+        sistema_nombre: initial?.sistema_nombre ?? "",
+        responsable: initial?.responsable ?? "",
+      }));
+    }
+  }, [open, mode, initial?.id]);
+
+  const save = async () => {
+    if (!user) { toast.error("Sesión no válida"); return; }
+    if (form.titulo.trim().length < 3) { toast.error("Título mínimo 3 caracteres"); return; }
+    if (form.descripcion.trim().length < 5) { toast.error("Descripción mínimo 5 caracteres"); return; }
+    if (form.sistema_nombre.trim().length < 2) { toast.error("Indica el sistema"); return; }
+    if (form.responsable.trim().length < 2) { toast.error("Indica el responsable"); return; }
+    setSubmitting(true);
+    try {
+      const payload = {
+        titulo: form.titulo.trim(),
+        descripcion: form.descripcion.trim(),
+        sistema_nombre: form.sistema_nombre.trim(),
+        modulo: form.modulo,
+        prioridad: form.prioridad,
+        responsable: form.responsable.trim(),
+        codigo_transaccion: form.codigo_transaccion.trim() || null,
+        nombre_transaccion: form.nombre_transaccion.trim() || null,
+        fecha_ocurrencia: form.fecha_ocurrencia,
+        fecha: form.fecha,
+      };
+      if (mode === "edit" && initial?.id) {
+        const { error } = await supabase.from("incidencias").update(payload).eq("id", initial.id);
+        if (error) throw error;
+        toast.success("Incidencia actualizada");
+      } else {
+        const { error } = await supabase.from("incidencias").insert({
+          ...payload, proyecto_id: proyectoId, created_by: user.id,
+        });
+        if (error) throw error;
+        toast.success("Incidencia creada");
+      }
+      onSaved();
+      onOpenChange(false);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+    finally { setSubmitting(false); }
+  };
+
+  return (
+    <InnerDialog open={open} onOpenChange={onOpenChange}>
+      <InnerDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <InnerDialogHeader>
+          <InnerDialogTitle>{mode === "edit" ? "Editar incidencia" : "Registrar incidencia"}</InnerDialogTitle>
+        </InnerDialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2"><Label>Nombre del sistema *</Label><Input value={form.sistema_nombre} onChange={(e) => setForm({ ...form, sistema_nombre: e.target.value })} placeholder="Ej. Softland Nómina, SAP, Odoo…" /></div>
+          <div className="space-y-2"><Label>Título *</Label><Input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} /></div>
+          <div className="space-y-2"><Label>Descripción *</Label><Textarea rows={4} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} /></div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2"><Label>Módulo *</Label>
+              <Select value={form.modulo} onValueChange={(v) => setForm({ ...form, modulo: v as Modulo })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{MODULOS.map((m) => <SelectItem key={m} value={m}>{MODULO_LABEL[m]}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2"><Label>Prioridad *</Label>
+              <Select value={form.prioridad} onValueChange={(v) => setForm({ ...form, prioridad: v as Prioridad })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{PRIORIDADES.map((p) => <SelectItem key={p} value={p}>{PRIORIDAD_LABEL[p]}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="space-y-2"><Label>Responsable *</Label><Input value={form.responsable} onChange={(e) => setForm({ ...form, responsable: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Fecha ocurrencia *</Label><Input type="date" value={form.fecha_ocurrencia} onChange={(e) => setForm({ ...form, fecha_ocurrencia: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Fecha registro *</Label><Input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} /></div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2"><Label>Código transacción</Label><Input value={form.codigo_transaccion} onChange={(e) => setForm({ ...form, codigo_transaccion: e.target.value })} placeholder="Ej. VA001" /></div>
+            <div className="space-y-2"><Label>Nombre transacción</Label><Input value={form.nombre_transaccion} onChange={(e) => setForm({ ...form, nombre_transaccion: e.target.value })} placeholder="Ej. Crear factura" /></div>
+          </div>
+        </div>
+        <InnerDialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancelar</Button>
+          <Button onClick={save} disabled={submitting}>{submitting && <Loader2 className="h-4 w-4 animate-spin" />} Guardar</Button>
+        </InnerDialogFooter>
+      </InnerDialogContent>
+    </InnerDialog>
+  );
+}
+
 
 function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; proyectoNombre: string }) {
   const qc = useQueryClient();

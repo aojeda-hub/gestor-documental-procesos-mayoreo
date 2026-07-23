@@ -231,3 +231,69 @@ export async function exportCertificacionPDF(
   const safe = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
   doc.save(`certificacion_${safe(projectName)}_${safe(scriptName)}_${new Date().toISOString().slice(0,10)}.pdf`);
 }
+
+export interface IncidenciaRow {
+  numero: number | string;
+  titulo: string;
+  sistema?: string | null;
+  modulo?: string | null;
+  estado: string;
+  prioridad?: string | null;
+  responsable?: string | null;
+  origen?: string | null;
+  fecha?: string | null;
+}
+
+export async function exportIncidenciasPDF(
+  projectName: string,
+  incidencias: IncidenciaRow[],
+) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const logo = await getLogoDataUrl();
+  const today = new Date().toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  header(doc, projectName, `Incidencias · ${today}`, logo);
+
+  const rows = incidencias.map(i => [
+    typeof i.numero === 'number' ? `#${i.numero}` : String(i.numero),
+    i.titulo,
+    i.sistema || '-',
+    i.modulo || '-',
+    i.estado,
+    i.prioridad || '-',
+    i.responsable || '-',
+    i.origen || 'Incidencia',
+    i.fecha || '-',
+  ]);
+
+  autoTable(doc, {
+    startY: 34,
+    head: [['ID', 'Título', 'Sistema', 'Módulo', 'Estado', 'Prioridad', 'Responsable', 'Origen', 'Fecha']],
+    body: rows,
+    styles: { fontSize: 8.5, cellPadding: 2.2, overflow: 'linebreak', valign: 'top' },
+    headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 16, halign: 'center' },
+      1: { cellWidth: 60, fontStyle: 'bold' },
+      2: { cellWidth: 32 },
+      3: { cellWidth: 28 },
+      4: { cellWidth: 24, halign: 'center' },
+      5: { cellWidth: 22, halign: 'center' },
+      6: { cellWidth: 32 },
+      7: { cellWidth: 34 },
+      8: { cellWidth: 24 },
+    },
+    margin: { left: 14, right: 14 },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY || 40;
+  doc.setFontSize(9);
+  doc.setTextColor(80);
+  doc.text(`Total de incidencias: ${incidencias.length}`, 14, finalY + 8);
+
+  footer(doc);
+  const safe = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+  doc.save(`incidencias_${safe(projectName)}_${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
