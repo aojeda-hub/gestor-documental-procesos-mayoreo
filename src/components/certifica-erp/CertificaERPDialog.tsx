@@ -696,14 +696,29 @@ function IncidenciaFormDialog({
   onSaved: () => void;
 }) {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
   const [submitting, setSubmitting] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [form, setForm] = useState({
     titulo: "", descripcion: "", sistema_nombre: "",
     modulo: "ventas" as Modulo, prioridad: "media" as Prioridad, responsable: "",
     codigo_transaccion: "", nombre_transaccion: "",
     fecha_ocurrencia: today, fecha: today,
   });
+
+  const handleFiles = (list: FileList | null) => {
+    if (!list) return;
+    const incoming = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    if (incoming.length === 0) return;
+    const next = [...files, ...incoming].slice(0, 10);
+    setFiles(next); setPreviews(next.map((f) => URL.createObjectURL(f)));
+  };
+  const removeFile = (idx: number) => {
+    const next = files.filter((_, i) => i !== idx);
+    setFiles(next); setPreviews(next.map((f) => URL.createObjectURL(f)));
+  };
 
   useEffect(() => {
     if (!open) return;
