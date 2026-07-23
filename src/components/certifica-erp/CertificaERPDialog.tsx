@@ -1294,7 +1294,7 @@ type Inc = {
   fecha_completado: string | null; created_at: string; updated_at: string;
   proyecto_id: string | null;
 };
-type Img = { id: string; storage_path: string; nombre_original: string | null; orden: number };
+type Img = { id: string; storage_path: string; nombre_original: string | null; orden: number; signed_url: string };
 type EditForm = {
   titulo: string; descripcion: string; modulo: string; prioridad: Prioridad; fecha: string;
   codigo_transaccion: string; nombre_transaccion: string; responsable: string; fecha_ocurrencia: string;
@@ -1327,9 +1327,15 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
       const { data, error } = await supabase.from("incidencia_imagenes")
         .select("id, storage_path, nombre_original, orden").eq("incidencia_id", id).order("orden", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as Img[];
+      const rows = (data ?? []) as Omit<Img, "signed_url">[];
+      if (rows.length === 0) return [] as Img[];
+      const paths = rows.map((r) => r.storage_path);
+      const { data: signed } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrls(paths, 60 * 60);
+      const urlMap = new Map((signed ?? []).map((s) => [s.path ?? "", s.signedUrl]));
+      return rows.map((r) => ({ ...r, signed_url: urlMap.get(r.storage_path) ?? "" })) as Img[];
     },
   });
+
 
   useEffect(() => {
     if (inc && !editing) {
@@ -1459,7 +1465,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
                 {images.map((img, i) => {
                   const name = img.nombre_original ?? "";
                   const isImg = /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(name) || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(img.storage_path);
-                  const url = getImagePublicUrl(img.storage_path);
+                  const url = img.signed_url || getImagePublicUrl(img.storage_path);
                   if (isImg) {
                     return (
                       <button key={img.id} onClick={() => setLightbox(i)} className="group relative aspect-square overflow-hidden rounded-md border bg-muted">
@@ -1534,7 +1540,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
         <InnerDialogContent className="max-w-4xl border-0 bg-background/95 p-0">
           {lightbox !== null && images[lightbox] && (
             <div className="relative">
-              <img src={getImagePublicUrl(images[lightbox].storage_path)} alt="" className="max-h-[85vh] w-full object-contain" />
+              <img src={images[lightbox].signed_url || getImagePublicUrl(images[lightbox].storage_path)} alt="" className="max-h-[85vh] w-full object-contain" />
               {images.length > 1 && (
                 <>
                   <Button size="icon" variant="secondary" className="absolute left-2 top-1/2 -translate-y-1/2" onClick={() => setLightbox((i) => (i! - 1 + images.length) % images.length)}><ChevronLeft className="h-4 w-4" /></Button>
