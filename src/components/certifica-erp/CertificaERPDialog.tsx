@@ -814,6 +814,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
           <Badge className="bg-red-200 text-black border-red-400" variant="outline">Pendientes: {stats.pendientes}</Badge>
           <Badge className="bg-blue-200 text-black border-blue-400" variant="outline">En curso: {stats.enCurso}</Badge>
           <Badge className="bg-green-200 text-black border-green-400" variant="outline">Completadas: {stats.completadas}</Badge>
+          <Badge className="bg-orange-200 text-black border-orange-400" variant="outline">Incidencias: {stats.incidencias}</Badge>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={descargarPlantilla} title="Descargar plantilla CSV vacía">
