@@ -1296,7 +1296,7 @@ type Inc = {
 };
 type Img = { id: string; storage_path: string; nombre_original: string | null; orden: number };
 type EditForm = {
-  titulo: string; descripcion: string; modulo: Modulo; prioridad: Prioridad; fecha: string;
+  titulo: string; descripcion: string; modulo: string; prioridad: Prioridad; fecha: string;
   codigo_transaccion: string; nombre_transaccion: string; responsable: string; fecha_ocurrencia: string;
 };
 
