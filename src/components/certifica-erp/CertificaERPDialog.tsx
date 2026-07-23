@@ -319,7 +319,7 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
 
 /* ============================ PROYECTO VIEW ============================ */
 type ProyectoFull = { id: string; nombre: string; descripcion: string | null; compania_id: string; compania: { nombre: string; slug: string } | null; };
-type IncRow = { id: string; numero: number; titulo: string; modulo: Modulo; prioridad: Prioridad; estado: Estado; sistema_nombre: string | null; fecha: string; };
+type IncRow = { id: string; numero: number; titulo: string; modulo: string | null; prioridad: Prioridad; estado: Estado; sistema_nombre: string | null; fecha: string; };
 type ScriptRow = { id: string; nombre: string; descripcion: string | null; created_at: string; };
 type CasoRow = {
   id: string; script_id: string; numero: number; modulo: string | null; titulo: string;
