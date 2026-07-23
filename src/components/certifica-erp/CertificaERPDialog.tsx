@@ -1288,7 +1288,7 @@ function CasoRowEditor({ caso }: { caso: CasoRow }) {
 
 /* ============================ INCIDENCIA DETAIL ============================ */
 type Inc = {
-  id: string; numero: number; titulo: string; descripcion: string; modulo: Modulo;
+  id: string; numero: number; titulo: string; descripcion: string; modulo: string | null;
   prioridad: Prioridad; estado: Estado; fecha: string; codigo_transaccion: string | null;
   nombre_transaccion: string | null; responsable: string | null; fecha_ocurrencia: string | null;
   fecha_completado: string | null; created_at: string; updated_at: string;
