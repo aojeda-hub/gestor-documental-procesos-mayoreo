@@ -781,7 +781,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
           if (!tit) return null;
           return {
             script_id: scriptId,
-            modulo: norm(r["Módulo"] ?? r["Modulo"]) || null,
+            modulo: norm(r["Sección"] ?? r["Seccion"] ?? r["Módulo"] ?? r["Modulo"]) || null,
             titulo: tit,
             ruta_acceso: norm(r["Ruta de acceso"] ?? r["Ruta"]) || null,
             resultado_esperado: norm(r["Resultado esperado"]) || null,
