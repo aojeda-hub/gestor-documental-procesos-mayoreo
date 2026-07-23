@@ -1334,7 +1334,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
   useEffect(() => {
     if (inc && !editing) {
       setForm({
-        titulo: inc.titulo, descripcion: inc.descripcion, modulo: inc.modulo, prioridad: inc.prioridad,
+        titulo: inc.titulo, descripcion: inc.descripcion, modulo: inc.modulo ?? "", prioridad: inc.prioridad,
         fecha: inc.fecha, codigo_transaccion: inc.codigo_transaccion ?? "",
         nombre_transaccion: inc.nombre_transaccion ?? "", responsable: inc.responsable ?? "",
         fecha_ocurrencia: inc.fecha_ocurrencia ?? inc.fecha,
