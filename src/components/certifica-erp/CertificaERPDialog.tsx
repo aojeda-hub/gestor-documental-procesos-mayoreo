@@ -32,6 +32,7 @@ import {
   CertView, CompaniaRow, ProyectoRow, Modulo, Estado, Prioridad,
   MODULOS, ESTADOS, PRIORIDADES, MODULO_LABEL, ESTADO_LABEL, ESTADO_STYLES,
   PRIORIDAD_LABEL, PRIORIDAD_STYLES, STORAGE_BUCKET, getImagePublicUrl,
+  normalizeSignedStorageUrl,
   TEST_ESTADOS, TEST_ENTORNOS, TEST_ESTADO_LABEL, TEST_ESTADO_STYLES,
   TestEntorno, TestEstado, exportToCsv,
 } from "./lib";
@@ -1331,7 +1332,10 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
       if (rows.length === 0) return [] as Img[];
       const paths = rows.map((r) => r.storage_path);
       const { data: signed } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrls(paths, 60 * 60);
-      const urlMap = new Map((signed ?? []).map((s) => [s.path ?? "", s.signedUrl]));
+      const urlMap = new Map((signed ?? []).map((s) => {
+        const rawUrl = s.signedUrl ?? (s as { signedURL?: string }).signedURL ?? "";
+        return [s.path ?? "", normalizeSignedStorageUrl(rawUrl)];
+      }));
       return rows.map((r) => ({ ...r, signed_url: urlMap.get(r.storage_path) ?? "" })) as Img[];
     },
   });
