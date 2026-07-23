@@ -844,7 +844,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[44px] px-1 text-[10px]">ID</TableHead>
-                <TableHead className="w-[9%] px-1 text-[10px]">Módulo</TableHead>
+                <TableHead className="w-[9%] px-1 text-[10px]">Sección</TableHead>
                 <TableHead className="w-[16%] px-1 text-[10px]">Título</TableHead>
                 <TableHead className="w-[14%] px-1 text-[10px]">Ruta</TableHead>
                 <TableHead className="w-[16%] px-1 text-[10px]">R. Esperado</TableHead>
