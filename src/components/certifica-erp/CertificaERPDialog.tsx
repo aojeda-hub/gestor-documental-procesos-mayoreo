@@ -825,11 +825,8 @@ function IncidenciaFormDialog({
           <div className="space-y-2"><Label>Título *</Label><Input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} /></div>
           <div className="space-y-2"><Label>Descripción *</Label><Textarea rows={4} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} /></div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Módulo *</Label>
-              <Select value={form.modulo} onValueChange={(v) => setForm({ ...form, modulo: v as Modulo })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{MODULOS.map((m) => <SelectItem key={m} value={m}>{MODULO_LABEL[m]}</SelectItem>)}</SelectContent>
-              </Select>
+            <div className="space-y-2"><Label>Sección</Label>
+              <Input value={form.modulo} onChange={(e) => setForm({ ...form, modulo: e.target.value })} placeholder="Escribe la sección" />
             </div>
             <div className="space-y-2"><Label>Prioridad *</Label>
               <Select value={form.prioridad} onValueChange={(v) => setForm({ ...form, prioridad: v as Prioridad })}>
