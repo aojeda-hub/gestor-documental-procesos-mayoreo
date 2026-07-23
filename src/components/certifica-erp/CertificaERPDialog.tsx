@@ -1540,7 +1540,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
         <InnerDialogContent className="max-w-4xl border-0 bg-background/95 p-0">
           {lightbox !== null && images[lightbox] && (
             <div className="relative">
-              <img src={getImagePublicUrl(images[lightbox].storage_path)} alt="" className="max-h-[85vh] w-full object-contain" />
+              <img src={images[lightbox].signed_url || getImagePublicUrl(images[lightbox].storage_path)} alt="" className="max-h-[85vh] w-full object-contain" />
               {images.length > 1 && (
                 <>
                   <Button size="icon" variant="secondary" className="absolute left-2 top-1/2 -translate-y-1/2" onClick={() => setLightbox((i) => (i! - 1 + images.length) % images.length)}><ChevronLeft className="h-4 w-4" /></Button>
