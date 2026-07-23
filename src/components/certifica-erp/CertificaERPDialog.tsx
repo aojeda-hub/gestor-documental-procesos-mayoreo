@@ -843,6 +843,25 @@ function IncidenciaFormDialog({
             <div className="space-y-2"><Label>Código transacción</Label><Input value={form.codigo_transaccion} onChange={(e) => setForm({ ...form, codigo_transaccion: e.target.value })} placeholder="Ej. VA001" /></div>
             <div className="space-y-2"><Label>Nombre transacción</Label><Input value={form.nombre_transaccion} onChange={(e) => setForm({ ...form, nombre_transaccion: e.target.value })} placeholder="Ej. Crear factura" /></div>
           </div>
+          <div className="space-y-2">
+            <Label>Imágenes ({files.length}/10)</Label>
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 px-6 py-6 text-center hover:bg-muted/50">
+              <Upload className="h-6 w-6 text-muted-foreground" />
+              <div className="text-sm font-medium">Click para subir imágenes</div>
+              <div className="text-xs text-muted-foreground">PNG, JPG, WEBP — hasta 10 archivos</div>
+              <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+            </label>
+            {previews.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {previews.map((src, i) => (
+                  <div key={i} className="relative aspect-square overflow-hidden rounded-md border bg-muted">
+                    <img src={src} alt="" className="h-full w-full object-cover" />
+                    <button type="button" onClick={() => removeFile(i)} className="absolute right-1 top-1 rounded-full bg-background/90 p-1 hover:bg-destructive hover:text-destructive-foreground"><X className="h-3 w-3" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <InnerDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancelar</Button>
