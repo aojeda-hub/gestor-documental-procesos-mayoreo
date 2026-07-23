@@ -1327,9 +1327,15 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
       const { data, error } = await supabase.from("incidencia_imagenes")
         .select("id, storage_path, nombre_original, orden").eq("incidencia_id", id).order("orden", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as Img[];
+      const rows = (data ?? []) as Omit<Img, "signed_url">[];
+      if (rows.length === 0) return [] as Img[];
+      const paths = rows.map((r) => r.storage_path);
+      const { data: signed } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrls(paths, 60 * 60);
+      const urlMap = new Map((signed ?? []).map((s) => [s.path ?? "", s.signedUrl]));
+      return rows.map((r) => ({ ...r, signed_url: urlMap.get(r.storage_path) ?? "" })) as Img[];
     },
   });
+
 
   useEffect(() => {
     if (inc && !editing) {
