@@ -1451,19 +1451,33 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
           )}
 
           <Card className="p-6">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold"><ImageIcon className="h-4 w-4" /> Imágenes ({images.length})</div>
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold"><ImageIcon className="h-4 w-4" /> Archivos adjuntos ({images.length})</div>
             {images.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Sin imágenes adjuntas</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">Sin archivos adjuntos</p>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {images.map((img, i) => (
-                  <button key={img.id} onClick={() => setLightbox(i)} className="group relative aspect-square overflow-hidden rounded-md border bg-muted">
-                    <img src={getImagePublicUrl(img.storage_path)} alt={img.nombre_original ?? ""} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                  </button>
-                ))}
+                {images.map((img, i) => {
+                  const name = img.nombre_original ?? "";
+                  const isImg = /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(name) || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(img.storage_path);
+                  const url = getImagePublicUrl(img.storage_path);
+                  if (isImg) {
+                    return (
+                      <button key={img.id} onClick={() => setLightbox(i)} className="group relative aspect-square overflow-hidden rounded-md border bg-muted">
+                        <img src={url} alt={name} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                      </button>
+                    );
+                  }
+                  return (
+                    <a key={img.id} href={url} target="_blank" rel="noopener noreferrer" className="group flex aspect-square flex-col items-center justify-center gap-2 rounded-md border bg-muted/40 p-3 text-center transition-colors hover:bg-muted" title={name}>
+                      <FileText className="h-10 w-10 text-muted-foreground group-hover:text-foreground" />
+                      <span className="line-clamp-2 break-all text-[11px] leading-tight text-muted-foreground group-hover:text-foreground">{name || "Archivo"}</span>
+                    </a>
+                  );
+                })}
               </div>
             )}
           </Card>
+
         </div>
 
         <div className="space-y-6">
