@@ -391,6 +391,25 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
     },
   });
 
+  const { data: certIncidencias } = useQuery({
+    queryKey: ["cert-proyecto-cert-incidencias", proyectoId],
+    queryFn: async () => {
+      const { data: scriptRows, error: sErr } = await supabase.from("test_scripts")
+        .select("id, nombre").eq("proyecto_id", proyectoId);
+      if (sErr) throw sErr;
+      const scriptIds = (scriptRows ?? []).map((s) => s.id);
+      if (scriptIds.length === 0) return [] as Array<CasoRow & { script_nombre: string; created_at: string }>;
+      const scriptMap = new Map((scriptRows ?? []).map((s) => [s.id, s.nombre]));
+      const { data, error } = await supabase.from("test_casos")
+        .select("id, script_id, numero, modulo, titulo, ruta_acceso, resultado_esperado, resultado_obtenido, estado, entorno, responsable, orden, created_at")
+        .in("script_id", scriptIds).eq("estado", "incidencia")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((c: any) => ({ ...c, script_nombre: scriptMap.get(c.script_id) ?? "" })) as Array<CasoRow & { script_nombre: string; created_at: string }>;
+    },
+  });
+
+
   const exportar = () => {
     if (!incidencias || incidencias.length === 0) { toast.info("No hay incidencias"); return; }
     const rows = incidencias.map((r) => ({
@@ -548,7 +567,7 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
       </div>
 
 
-      {incidencias && incidencias.length === 0 ? (
+      {incidencias && incidencias.length === 0 && (!certIncidencias || certIncidencias.length === 0) ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <ListChecks className="h-8 w-8 text-muted-foreground" />
           <div className="font-medium">Sin incidencias en este proyecto</div>
@@ -565,6 +584,7 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
                 <TableHead className="w-[110px]">Módulo</TableHead>
                 <TableHead className="w-[110px]">Estado</TableHead>
                 <TableHead className="w-[100px]">Prioridad</TableHead>
+                <TableHead className="w-[110px]">Origen</TableHead>
                 <TableHead className="w-[110px]">Fecha</TableHead>
               </TableRow>
             </TableHeader>
@@ -577,13 +597,27 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
                   <TableCell><Badge variant="outline" className="text-[10px]">{MODULO_LABEL[r.modulo]}</Badge></TableCell>
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${ESTADO_STYLES[r.estado]}`}>{ESTADO_LABEL[r.estado]}</span></TableCell>
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${PRIORIDAD_STYLES[r.prioridad]}`}>{PRIORIDAD_LABEL[r.prioridad]}</span></TableCell>
+                  <TableCell className="text-[11px] text-muted-foreground">Incidencia</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(r.fecha), "d MMM yyyy", { locale: es })}</TableCell>
+                </TableRow>
+              ))}
+              {(certIncidencias ?? []).map((c) => (
+                <TableRow key={`cert-${c.id}`} className="bg-orange-50/40 dark:bg-orange-950/10">
+                  <TableCell className="font-mono text-xs text-muted-foreground">C#{c.numero}</TableCell>
+                  <TableCell className="font-medium">{c.titulo}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{c.entorno}</TableCell>
+                  <TableCell><Badge variant="outline" className="text-[10px]">{c.modulo ?? '—'}</Badge></TableCell>
+                  <TableCell><span className="rounded-md border px-2 py-0.5 text-[11px] font-medium bg-orange-200 text-black border-orange-400">Incidencia</span></TableCell>
+                  <TableCell><span className="text-[11px] text-muted-foreground">—</span></TableCell>
+                  <TableCell className="text-[11px] text-muted-foreground">Certificación · {c.script_nombre}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(c.created_at), "d MMM yyyy", { locale: es })}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </Card>
       )}
+
     </div>
   );
 }
