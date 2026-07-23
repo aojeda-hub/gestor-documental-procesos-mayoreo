@@ -1465,7 +1465,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
                 {images.map((img, i) => {
                   const name = img.nombre_original ?? "";
                   const isImg = /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(name) || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(img.storage_path);
-                  const url = getImagePublicUrl(img.storage_path);
+                  const url = img.signed_url || getImagePublicUrl(img.storage_path);
                   if (isImg) {
                     return (
                       <button key={img.id} onClick={() => setLightbox(i)} className="group relative aspect-square overflow-hidden rounded-md border bg-muted">
