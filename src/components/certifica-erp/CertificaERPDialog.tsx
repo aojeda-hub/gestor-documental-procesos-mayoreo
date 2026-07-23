@@ -899,7 +899,7 @@ function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; 
     queryKey: ["cert-scripts", proyectoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("test_scripts")
-        .select("id, nombre, descripcion, created_at").eq("proyecto_id", proyectoId).order("created_at", { ascending: false });
+        .select("id, nombre, descripcion, created_at, created_by").eq("proyecto_id", proyectoId).order("created_at", { ascending: false });
       if (error) throw error;
       const list = (data ?? []) as ScriptRow[];
       if (list.length > 0 && !selectedScript) setSelectedScript(list[0].id);
