@@ -734,12 +734,12 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
     // Hoja de instrucciones / valores válidos
     const ayuda = [
       ["Campo", "Valores permitidos / formato"],
-      ["Módulo", "Texto libre (ej. Nómina, Ventas, Compras, Inventario, Contabilidad)"],
+      ["Sección", "Texto libre (ej. Nómina, Ventas, Compras, Inventario, Contabilidad)"],
       ["Título", "Obligatorio. Nombre del caso de prueba"],
       ["Ruta de acceso", "Ruta del menú o módulo donde se ejecuta"],
       ["Resultado esperado", "Lo que debe ocurrir"],
       ["Resultado obtenido", "Lo que realmente ocurrió (puede dejarse vacío)"],
-      ["Estado", "Pendiente | En curso | Completada"],
+      ["Estado", "Pendiente | En curso | Completada | Incidencia"],
       ["Entorno", "QA | PRD"],
       ["Responsable", "Nombre del responsable de la prueba"],
     ];
