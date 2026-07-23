@@ -370,7 +370,7 @@ function ProyectoView({ id, navigate }: { id: string; navigate: (v: CertView) =>
           <TabsTrigger value="incidencias"><ListChecks className="mr-1 h-4 w-4" /> Incidencias</TabsTrigger>
           <TabsTrigger value="certificacion"><FileCheck2 className="mr-1 h-4 w-4" /> Certificación</TabsTrigger>
         </TabsList>
-        <TabsContent value="incidencias" className="mt-4"><IncidenciasTab proyectoId={proyecto.id} navigate={navigate} /></TabsContent>
+        <TabsContent value="incidencias" className="mt-4"><IncidenciasTab proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} navigate={navigate} /></TabsContent>
         <TabsContent value="certificacion" className="mt-4"><CertificacionTab proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} /></TabsContent>
       </Tabs>
     </div>
