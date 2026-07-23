@@ -449,7 +449,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
   };
 
 
-  const INC_HEADERS = ["Título", "Descripción", "Módulo", "Prioridad", "Estado", "Sistema", "Código transacción", "Nombre transacción", "Responsable", "Fecha (YYYY-MM-DD)", "Fecha ocurrencia (YYYY-MM-DD)"];
+  const INC_HEADERS = ["Título", "Descripción", "Sección", "Prioridad", "Estado", "Sistema", "Código transacción", "Nombre transacción", "Responsable", "Fecha (YYYY-MM-DD)", "Fecha ocurrencia (YYYY-MM-DD)"];
 
   const descargarPlantillaInc = async () => {
     const XLSX = await import("xlsx");
