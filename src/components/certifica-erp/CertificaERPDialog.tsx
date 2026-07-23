@@ -1557,7 +1557,7 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     proyecto_id: proyectoId ?? "", sistema_nombre: "", titulo: "", descripcion: "",
-    modulo: "ventas" as Modulo, prioridad: "media" as Prioridad,
+    modulo: "", prioridad: "media" as Prioridad,
     codigo_transaccion: "", nombre_transaccion: "", responsable: "",
     fecha_ocurrencia: today, fecha: today,
   });
