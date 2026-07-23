@@ -737,7 +737,7 @@ function IncidenciaFormDialog({
             titulo: data.titulo ?? "",
             descripcion: data.descripcion ?? "",
             sistema_nombre: data.sistema_nombre ?? "",
-            modulo: (data.modulo as Modulo) ?? "ventas",
+            modulo: (data.modulo as string) ?? "",
             prioridad: (data.prioridad as Prioridad) ?? "media",
             responsable: data.responsable ?? "",
             codigo_transaccion: data.codigo_transaccion ?? "",
