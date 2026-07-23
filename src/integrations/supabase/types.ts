@@ -682,6 +682,7 @@ export type Database = {
           proyecto_id: string | null
           responsable: string | null
           sistema_nombre: string | null
+          test_caso_id: string | null
           titulo: string
           updated_at: string
         }
@@ -702,6 +703,7 @@ export type Database = {
           proyecto_id?: string | null
           responsable?: string | null
           sistema_nombre?: string | null
+          test_caso_id?: string | null
           titulo: string
           updated_at?: string
         }
@@ -722,6 +724,7 @@ export type Database = {
           proyecto_id?: string | null
           responsable?: string | null
           sistema_nombre?: string | null
+          test_caso_id?: string | null
           titulo?: string
           updated_at?: string
         }
@@ -731,6 +734,13 @@ export type Database = {
             columns: ["proyecto_id"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidencias_test_caso_id_fkey"
+            columns: ["test_caso_id"]
+            isOneToOne: false
+            referencedRelation: "test_casos"
             referencedColumns: ["id"]
           },
         ]

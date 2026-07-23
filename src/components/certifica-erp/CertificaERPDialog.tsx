@@ -387,12 +387,14 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
     queryKey: ["cert-proyecto-incidencias", proyectoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("incidencias")
-        .select("id, numero, titulo, modulo, prioridad, estado, sistema_nombre, fecha")
+        .select("id, numero, titulo, modulo, prioridad, estado, sistema_nombre, fecha, test_caso_id")
         .eq("proyecto_id", proyectoId).order("numero", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as IncRow[];
+      return (data ?? []) as (IncRow & { test_caso_id: string | null })[];
     },
   });
+
+  const linkedCasoIds = new Set((incidencias ?? []).map((i) => i.test_caso_id).filter(Boolean) as string[]);
 
   const { data: certIncidencias } = useQuery({
     queryKey: ["cert-proyecto-cert-incidencias", proyectoId],
@@ -633,7 +635,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                   </TableCell>
                 </TableRow>
               ))}
-              {(certIncidencias ?? []).map((c) => (
+              {(certIncidencias ?? []).filter((c) => !linkedCasoIds.has(c.id)).map((c) => (
                 <TableRow key={`cert-${c.id}`} className="bg-orange-50/40 dark:bg-orange-950/10">
                   <TableCell className="font-mono text-xs text-muted-foreground">C#{c.numero}</TableCell>
                   <TableCell className="font-medium">{c.titulo}</TableCell>
@@ -660,6 +662,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
         open={!!editingInc || !!creatingFromCert}
         mode={editingInc ? "edit" : "create"}
         proyectoId={proyectoId}
+        testCasoId={creatingFromCert?.id ?? null}
         initial={
           editingInc
             ? { id: editingInc.id }
@@ -673,7 +676,10 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
               : undefined
         }
         onOpenChange={(v) => { if (!v) { setEditingInc(null); setCreatingFromCert(null); } }}
-        onSaved={() => qc.invalidateQueries({ queryKey: ["cert-proyecto-incidencias", proyectoId] })}
+        onSaved={() => {
+          qc.invalidateQueries({ queryKey: ["cert-proyecto-incidencias", proyectoId] });
+          qc.invalidateQueries({ queryKey: ["cert-proyecto-cert-incidencias", proyectoId] });
+        }}
       />
     </div>
   );
@@ -681,11 +687,12 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
 
 /* ============================ INCIDENCIA FORM DIALOG ============================ */
 function IncidenciaFormDialog({
-  open, mode, proyectoId, initial, onOpenChange, onSaved,
+  open, mode, proyectoId, testCasoId, initial, onOpenChange, onSaved,
 }: {
   open: boolean;
   mode: "edit" | "create";
   proyectoId: string;
+  testCasoId?: string | null;
   initial?: Partial<{
     id: string; titulo: string; descripcion: string; sistema_nombre: string;
     modulo: Modulo; prioridad: Prioridad; responsable: string;
@@ -784,7 +791,7 @@ function IncidenciaFormDialog({
         toast.success("Incidencia actualizada");
       } else {
         const { data, error } = await supabase.from("incidencias").insert({
-          ...payload, proyecto_id: proyectoId, created_by: user.id,
+          ...payload, proyecto_id: proyectoId, created_by: user.id, test_caso_id: testCasoId ?? null,
         }).select("id").single();
         if (error) throw error;
         incId = data.id;
