@@ -715,12 +715,12 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
     toast.success(`Exportados ${rows.length} casos`);
   };
 
-  const PLANTILLA_HEADERS = ["Módulo", "Título", "Ruta de acceso", "Resultado esperado", "Resultado obtenido", "Estado", "Entorno", "Responsable"];
+  const PLANTILLA_HEADERS = ["Sección", "Título", "Ruta de acceso", "Resultado esperado", "Resultado obtenido", "Estado", "Entorno", "Responsable"];
 
   const descargarPlantilla = async () => {
     const XLSX = await import("xlsx");
     const ejemplo = [{
-      "Módulo": "Nómina",
+      "Sección": "Nómina",
       "Título": "Ejemplo: Cálculo de quincena",
       "Ruta de acceso": "Nómina > Procesos > Cálculo",
       "Resultado esperado": "Totales coinciden con cálculo manual",
