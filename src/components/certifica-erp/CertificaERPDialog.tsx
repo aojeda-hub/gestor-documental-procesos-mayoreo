@@ -706,7 +706,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
   const exportar = () => {
     if (!casos || casos.length === 0) { toast.info("No hay casos"); return; }
     const rows = casos.map((c) => ({
-      "ID": `#${c.numero}`, "Módulo": c.modulo ?? "", "Título": c.titulo,
+      "ID": `#${c.numero}`, "Sección": c.modulo ?? "", "Título": c.titulo,
       "Ruta de acceso": c.ruta_acceso ?? "", "Resultado esperado": c.resultado_esperado ?? "",
       "Resultado obtenido": c.resultado_obtenido ?? "", "Estado": TEST_ESTADO_LABEL[c.estado],
       "Entorno": c.entorno, "Responsable": c.responsable ?? "",
