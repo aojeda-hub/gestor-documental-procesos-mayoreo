@@ -425,7 +425,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
         numero: r.numero,
         titulo: r.titulo,
         sistema: r.sistema_nombre,
-        modulo: MODULO_LABEL[r.modulo],
+        modulo: r.modulo || "-",
         estado: ESTADO_LABEL[r.estado],
         prioridad: PRIORIDAD_LABEL[r.prioridad],
         responsable: null,
