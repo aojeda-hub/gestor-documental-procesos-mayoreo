@@ -387,12 +387,14 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
     queryKey: ["cert-proyecto-incidencias", proyectoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("incidencias")
-        .select("id, numero, titulo, modulo, prioridad, estado, sistema_nombre, fecha")
+        .select("id, numero, titulo, modulo, prioridad, estado, sistema_nombre, fecha, test_caso_id")
         .eq("proyecto_id", proyectoId).order("numero", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as IncRow[];
+      return (data ?? []) as (IncRow & { test_caso_id: string | null })[];
     },
   });
+
+  const linkedCasoIds = new Set((incidencias ?? []).map((i) => i.test_caso_id).filter(Boolean) as string[]);
 
   const { data: certIncidencias } = useQuery({
     queryKey: ["cert-proyecto-cert-incidencias", proyectoId],
