@@ -1367,7 +1367,7 @@ function PdfAttachmentPreview({ file, blob }: { file: Img; blob: Blob }) {
         canvas.style.width = `${viewport.width}px`;
         canvas.style.height = `${viewport.height}px`;
         context.setTransform(ratio, 0, 0, ratio, 0, 0);
-        renderTask = page.render({ canvasContext: context, viewport });
+        renderTask = page.render({ canvas, canvasContext: context, viewport });
         await renderTask.promise;
       } catch (e) {
         if (!cancelled && !(e instanceof Error && e.name === "RenderingCancelledException")) {
