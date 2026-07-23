@@ -164,3 +164,70 @@ export async function exportIndicatorsPDF(indicators: IndicatorRow[], silo: stri
   footer(doc);
   doc.save(`indicadores_${silo === 'all' ? 'todos' : silo}_${new Date().toISOString().slice(0,10)}.pdf`);
 }
+
+export interface CertCasoRow {
+  numero: number;
+  modulo?: string | null;
+  titulo: string;
+  ruta_acceso?: string | null;
+  resultado_esperado?: string | null;
+  resultado_obtenido?: string | null;
+  estado: string;
+  entorno: string;
+  responsable?: string | null;
+}
+
+export async function exportCertificacionPDF(
+  projectName: string,
+  scriptName: string,
+  casos: CertCasoRow[],
+  estadoLabels: Record<string, string>,
+) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const logo = await getLogoDataUrl();
+  const today = new Date().toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  header(doc, projectName, `${scriptName} · ${today}`, logo);
+
+  const rows = casos.map(c => [
+    `#${c.numero}`,
+    c.modulo || '-',
+    c.titulo,
+    c.ruta_acceso || '-',
+    c.resultado_esperado || '-',
+    c.resultado_obtenido || '-',
+    estadoLabels[c.estado] || c.estado,
+    c.entorno,
+    c.responsable || '-',
+  ]);
+
+  autoTable(doc, {
+    startY: 34,
+    head: [['ID', 'Sección', 'Título', 'Ruta', 'R. Esperado', 'R. Obtenido', 'Estado', 'Entorno', 'Resp.']],
+    body: rows,
+    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', valign: 'top' },
+    headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 14, halign: 'center' },
+      1: { cellWidth: 26 },
+      2: { cellWidth: 48, fontStyle: 'bold' },
+      3: { cellWidth: 38 },
+      4: { cellWidth: 45 },
+      5: { cellWidth: 45 },
+      6: { cellWidth: 24, halign: 'center' },
+      7: { cellWidth: 16, halign: 'center' },
+      8: { cellWidth: 25 },
+    },
+    margin: { left: 14, right: 14 },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY || 40;
+  doc.setFontSize(9);
+  doc.setTextColor(80);
+  doc.text(`Total de casos: ${casos.length}`, 14, finalY + 8);
+
+  footer(doc);
+  const safe = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+  doc.save(`certificacion_${safe(projectName)}_${safe(scriptName)}_${new Date().toISOString().slice(0,10)}.pdf`);
+}
