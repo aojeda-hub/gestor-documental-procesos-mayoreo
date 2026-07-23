@@ -371,7 +371,7 @@ function ProyectoView({ id, navigate }: { id: string; navigate: (v: CertView) =>
           <TabsTrigger value="certificacion"><FileCheck2 className="mr-1 h-4 w-4" /> Certificación</TabsTrigger>
         </TabsList>
         <TabsContent value="incidencias" className="mt-4"><IncidenciasTab proyectoId={proyecto.id} navigate={navigate} /></TabsContent>
-        <TabsContent value="certificacion" className="mt-4"><CertificacionTab proyectoId={proyecto.id} /></TabsContent>
+        <TabsContent value="certificacion" className="mt-4"><CertificacionTab proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} /></TabsContent>
       </Tabs>
     </div>
   );
@@ -588,7 +588,7 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
   );
 }
 
-function CertificacionTab({ proyectoId }: { proyectoId: string }) {
+function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; proyectoNombre: string }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [selectedScript, setSelectedScript] = useState<string | null>(null);
@@ -663,14 +663,20 @@ function CertificacionTab({ proyectoId }: { proyectoId: string }) {
               ))}
             </div>
           )}
-          {selectedScript && <CasosEditor scriptId={selectedScript} />}
+          {selectedScript && (
+            <CasosEditor
+              scriptId={selectedScript}
+              proyectoNombre={proyectoNombre}
+              scriptNombre={(scripts ?? []).find((s) => s.id === selectedScript)?.nombre ?? ""}
+            />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function CasosEditor({ scriptId }: { scriptId: string }) {
+function CasosEditor({ scriptId, proyectoNombre, scriptNombre }: { scriptId: string; proyectoNombre: string; scriptNombre: string }) {
   const qc = useQueryClient();
   const { user } = useAuth();
 
@@ -704,16 +710,26 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
     await qc.invalidateQueries({ queryKey: ["cert-casos", scriptId] });
   };
 
-  const exportar = () => {
+  const exportar = async () => {
     if (!casos || casos.length === 0) { toast.info("No hay casos"); return; }
-    const rows = casos.map((c) => ({
-      "ID": `#${c.numero}`, "Sección": c.modulo ?? "", "Título": c.titulo,
-      "Ruta de acceso": c.ruta_acceso ?? "", "Resultado esperado": c.resultado_esperado ?? "",
-      "Resultado obtenido": c.resultado_obtenido ?? "", "Estado": TEST_ESTADO_LABEL[c.estado],
-      "Entorno": c.entorno, "Responsable": c.responsable ?? "",
-    }));
-    exportToCsv(`certificacion-${format(new Date(), "yyyyMMdd-HHmm")}.csv`, rows);
-    toast.success(`Exportados ${rows.length} casos`);
+    const { exportCertificacionPDF } = await import("@/lib/pdfExport");
+    await exportCertificacionPDF(
+      proyectoNombre || "Proyecto",
+      scriptNombre || "Script",
+      casos.map((c) => ({
+        numero: c.numero,
+        modulo: c.modulo,
+        titulo: c.titulo,
+        ruta_acceso: c.ruta_acceso,
+        resultado_esperado: c.resultado_esperado,
+        resultado_obtenido: c.resultado_obtenido,
+        estado: c.estado,
+        entorno: c.entorno,
+        responsable: c.responsable,
+      })),
+      TEST_ESTADO_LABEL as Record<string, string>,
+    );
+    toast.success(`Exportados ${casos.length} casos`);
   };
 
   const PLANTILLA_HEADERS = ["Sección", "Título", "Ruta de acceso", "Resultado esperado", "Resultado obtenido", "Estado", "Entorno", "Responsable"];
