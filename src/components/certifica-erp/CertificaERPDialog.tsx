@@ -690,7 +690,8 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
     const completadas = (casos ?? []).filter((c) => c.estado === "completada").length;
     const enCurso = (casos ?? []).filter((c) => c.estado === "en_curso").length;
     const pendientes = (casos ?? []).filter((c) => c.estado === "pendiente").length;
-    return { total, completadas, enCurso, pendientes };
+    const incidencias = (casos ?? []).filter((c) => c.estado === "incidencia").length;
+    return { total, completadas, enCurso, pendientes, incidencias };
   }, [casos]);
 
   const agregar = async () => {
@@ -706,7 +707,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
   const exportar = () => {
     if (!casos || casos.length === 0) { toast.info("No hay casos"); return; }
     const rows = casos.map((c) => ({
-      "ID": `#${c.numero}`, "Módulo": c.modulo ?? "", "Título": c.titulo,
+      "ID": `#${c.numero}`, "Sección": c.modulo ?? "", "Título": c.titulo,
       "Ruta de acceso": c.ruta_acceso ?? "", "Resultado esperado": c.resultado_esperado ?? "",
       "Resultado obtenido": c.resultado_obtenido ?? "", "Estado": TEST_ESTADO_LABEL[c.estado],
       "Entorno": c.entorno, "Responsable": c.responsable ?? "",
@@ -715,12 +716,12 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
     toast.success(`Exportados ${rows.length} casos`);
   };
 
-  const PLANTILLA_HEADERS = ["Módulo", "Título", "Ruta de acceso", "Resultado esperado", "Resultado obtenido", "Estado", "Entorno", "Responsable"];
+  const PLANTILLA_HEADERS = ["Sección", "Título", "Ruta de acceso", "Resultado esperado", "Resultado obtenido", "Estado", "Entorno", "Responsable"];
 
   const descargarPlantilla = async () => {
     const XLSX = await import("xlsx");
     const ejemplo = [{
-      "Módulo": "Nómina",
+      "Sección": "Nómina",
       "Título": "Ejemplo: Cálculo de quincena",
       "Ruta de acceso": "Nómina > Procesos > Cálculo",
       "Resultado esperado": "Totales coinciden con cálculo manual",
@@ -734,12 +735,12 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
     // Hoja de instrucciones / valores válidos
     const ayuda = [
       ["Campo", "Valores permitidos / formato"],
-      ["Módulo", "Texto libre (ej. Nómina, Ventas, Compras, Inventario, Contabilidad)"],
+      ["Sección", "Texto libre (ej. Nómina, Ventas, Compras, Inventario, Contabilidad)"],
       ["Título", "Obligatorio. Nombre del caso de prueba"],
       ["Ruta de acceso", "Ruta del menú o módulo donde se ejecuta"],
       ["Resultado esperado", "Lo que debe ocurrir"],
       ["Resultado obtenido", "Lo que realmente ocurrió (puede dejarse vacío)"],
-      ["Estado", "Pendiente | En curso | Completada"],
+      ["Estado", "Pendiente | En curso | Completada | Incidencia"],
       ["Entorno", "QA | PRD"],
       ["Responsable", "Nombre del responsable de la prueba"],
     ];
@@ -755,6 +756,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
   const estadoFromLabel = (s: string): TestEstado => {
     const v = (s ?? "").trim().toLowerCase();
     if (v.startsWith("compl")) return "completada";
+    if (v.startsWith("inc")) return "incidencia";
     if (v.startsWith("en")) return "en_curso";
     return "pendiente";
   };
@@ -780,7 +782,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
           if (!tit) return null;
           return {
             script_id: scriptId,
-            modulo: norm(r["Módulo"] ?? r["Modulo"]) || null,
+            modulo: norm(r["Sección"] ?? r["Seccion"] ?? r["Módulo"] ?? r["Modulo"]) || null,
             titulo: tit,
             ruta_acceso: norm(r["Ruta de acceso"] ?? r["Ruta"]) || null,
             resultado_esperado: norm(r["Resultado esperado"]) || null,
@@ -812,6 +814,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
           <Badge className="bg-red-200 text-black border-red-400" variant="outline">Pendientes: {stats.pendientes}</Badge>
           <Badge className="bg-blue-200 text-black border-blue-400" variant="outline">En curso: {stats.enCurso}</Badge>
           <Badge className="bg-green-200 text-black border-green-400" variant="outline">Completadas: {stats.completadas}</Badge>
+          <Badge className="bg-orange-200 text-black border-orange-400" variant="outline">Incidencias: {stats.incidencias}</Badge>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={descargarPlantilla} title="Descargar plantilla CSV vacía">
@@ -841,7 +844,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[44px] px-1 text-[10px]">ID</TableHead>
-                <TableHead className="w-[9%] px-1 text-[10px]">Módulo</TableHead>
+                <TableHead className="w-[9%] px-1 text-[10px]">Sección</TableHead>
                 <TableHead className="w-[16%] px-1 text-[10px]">Título</TableHead>
                 <TableHead className="w-[14%] px-1 text-[10px]">Ruta</TableHead>
                 <TableHead className="w-[16%] px-1 text-[10px]">R. Esperado</TableHead>
