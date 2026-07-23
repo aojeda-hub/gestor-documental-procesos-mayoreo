@@ -325,7 +325,7 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
 /* ============================ PROYECTO VIEW ============================ */
 type ProyectoFull = { id: string; nombre: string; descripcion: string | null; compania_id: string; compania: { nombre: string; slug: string } | null; };
 type IncRow = { id: string; numero: number; titulo: string; modulo: string | null; prioridad: Prioridad; estado: Estado; sistema_nombre: string | null; fecha: string; };
-type ScriptRow = { id: string; nombre: string; descripcion: string | null; created_at: string; };
+type ScriptRow = { id: string; nombre: string; descripcion: string | null; created_at: string; created_by: string | null; };
 type CasoRow = {
   id: string; script_id: string; numero: number; modulo: string | null; titulo: string;
   ruta_acceso: string | null; resultado_esperado: string | null; resultado_obtenido: string | null;
@@ -899,7 +899,7 @@ function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; 
     queryKey: ["cert-scripts", proyectoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("test_scripts")
-        .select("id, nombre, descripcion, created_at").eq("proyecto_id", proyectoId).order("created_at", { ascending: false });
+        .select("id, nombre, descripcion, created_at, created_by").eq("proyecto_id", proyectoId).order("created_at", { ascending: false });
       if (error) throw error;
       const list = (data ?? []) as ScriptRow[];
       if (list.length > 0 && !selectedScript) setSelectedScript(list[0].id);
@@ -924,9 +924,43 @@ function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; 
     finally { setSubmitting(false); }
   };
 
+  const eliminarScript = async (id: string) => {
+    try {
+      const { error } = await supabase.from("test_scripts").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Script eliminado");
+      if (selectedScript === id) setSelectedScript(null);
+      await qc.invalidateQueries({ queryKey: ["cert-scripts", proyectoId] });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+  };
+
+  const currentScript = (scripts ?? []).find((s) => s.id === selectedScript) ?? null;
+  const canDeleteCurrent = !!currentScript && !!user && currentScript.created_by === user.id;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-end gap-2">
+        {canDeleteCurrent && currentScript && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" /> Eliminar script
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Eliminar script?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Se eliminará "{currentScript.nombre}" y todos sus casos e incidencias asociadas. Esta acción no se puede deshacer.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => eliminarScript(currentScript.id)}>Eliminar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
         <InnerDialog open={openNew} onOpenChange={setOpenNew}>
           <InnerDialogTrigger asChild><Button><Plus className="h-4 w-4" /> Nuevo script</Button></InnerDialogTrigger>
           <InnerDialogContent>
