@@ -644,8 +644,8 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                   <TableCell className="text-[11px] text-muted-foreground">Certificación · {c.script_nombre}</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(c.created_at), "d MMM yyyy", { locale: es })}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setCreatingFromCert(c)}>
-                      <Plus className="h-3 w-3" /> Completar
+                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setCreatingFromCert(c)} title="Editar">
+                      <Pencil className="h-3 w-3" /> Editar
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -696,8 +696,11 @@ function IncidenciaFormDialog({
   onSaved: () => void;
 }) {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
   const [submitting, setSubmitting] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [form, setForm] = useState({
     titulo: "", descripcion: "", sistema_nombre: "",
     modulo: "ventas" as Modulo, prioridad: "media" as Prioridad, responsable: "",
@@ -705,8 +708,21 @@ function IncidenciaFormDialog({
     fecha_ocurrencia: today, fecha: today,
   });
 
+  const handleFiles = (list: FileList | null) => {
+    if (!list) return;
+    const incoming = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    if (incoming.length === 0) return;
+    const next = [...files, ...incoming].slice(0, 10);
+    setFiles(next); setPreviews(next.map((f) => URL.createObjectURL(f)));
+  };
+  const removeFile = (idx: number) => {
+    const next = files.filter((_, i) => i !== idx);
+    setFiles(next); setPreviews(next.map((f) => URL.createObjectURL(f)));
+  };
+
   useEffect(() => {
     if (!open) return;
+    setFiles([]); setPreviews([]);
     if (mode === "edit" && initial?.id) {
       (async () => {
         const { data } = await supabase.from("incidencias")
@@ -758,16 +774,35 @@ function IncidenciaFormDialog({
         fecha_ocurrencia: form.fecha_ocurrencia,
         fecha: form.fecha,
       };
+      let incId: string | null = null;
       if (mode === "edit" && initial?.id) {
         const { error } = await supabase.from("incidencias").update(payload).eq("id", initial.id);
         if (error) throw error;
+        incId = initial.id;
         toast.success("Incidencia actualizada");
       } else {
-        const { error } = await supabase.from("incidencias").insert({
+        const { data, error } = await supabase.from("incidencias").insert({
           ...payload, proyecto_id: proyectoId, created_by: user.id,
-        });
+        }).select("id").single();
         if (error) throw error;
+        incId = data.id;
         toast.success("Incidencia creada");
+      }
+      if (incId && files.length > 0) {
+        const failed: string[] = [];
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+          const path = `${incId}/${Date.now()}_${i}.${ext}`;
+          const { error: upErr } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, { cacheControl: "3600", upsert: false });
+          if (upErr) { failed.push(file.name); continue; }
+          const { error: imgErr } = await supabase.from("incidencia_imagenes").insert({
+            incidencia_id: incId, storage_path: path, nombre_original: file.name, orden: i,
+          });
+          if (imgErr) failed.push(file.name);
+        }
+        if (failed.length > 0) toast.warning(`${failed.length} imagen(es) fallaron`);
+        qc.invalidateQueries({ queryKey: ["cert-incidencia-imgs", incId] });
       }
       onSaved();
       onOpenChange(false);
@@ -807,6 +842,25 @@ function IncidenciaFormDialog({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2"><Label>Código transacción</Label><Input value={form.codigo_transaccion} onChange={(e) => setForm({ ...form, codigo_transaccion: e.target.value })} placeholder="Ej. VA001" /></div>
             <div className="space-y-2"><Label>Nombre transacción</Label><Input value={form.nombre_transaccion} onChange={(e) => setForm({ ...form, nombre_transaccion: e.target.value })} placeholder="Ej. Crear factura" /></div>
+          </div>
+          <div className="space-y-2">
+            <Label>Imágenes ({files.length}/10)</Label>
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 px-6 py-6 text-center hover:bg-muted/50">
+              <Upload className="h-6 w-6 text-muted-foreground" />
+              <div className="text-sm font-medium">Click para subir imágenes</div>
+              <div className="text-xs text-muted-foreground">PNG, JPG, WEBP — hasta 10 archivos</div>
+              <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+            </label>
+            {previews.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {previews.map((src, i) => (
+                  <div key={i} className="relative aspect-square overflow-hidden rounded-md border bg-muted">
+                    <img src={src} alt="" className="h-full w-full object-cover" />
+                    <button type="button" onClick={() => removeFile(i)} className="absolute right-1 top-1 rounded-full bg-background/90 p-1 hover:bg-destructive hover:text-destructive-foreground"><X className="h-3 w-3" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <InnerDialogFooter>
