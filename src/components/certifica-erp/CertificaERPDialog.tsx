@@ -943,7 +943,7 @@ function CasoRowEditor({ caso }: { caso: CasoRow }) {
   return (
     <TableRow className="align-top">
       <TableCell className="px-1 py-1 font-mono text-[10px] text-muted-foreground">#{caso.numero}</TableCell>
-      <TableCell className="px-1 py-1"><Input value={local.modulo ?? ""} onChange={(e) => update("modulo", e.target.value)} onBlur={flushNow} placeholder="—" className="h-7 px-1.5 text-[11px]" /></TableCell>
+      <TableCell className="px-1 py-1"><Textarea value={local.modulo ?? ""} onChange={(e) => update("modulo", e.target.value)} onBlur={flushNow} placeholder="—" rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
       <TableCell className="px-1 py-1"><Textarea value={local.titulo} onChange={(e) => update("titulo", e.target.value)} onBlur={flushNow} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
       <TableCell className="px-1 py-1"><Textarea value={local.ruta_acceso ?? ""} onChange={(e) => update("ruta_acceso", e.target.value)} onBlur={flushNow} placeholder="Menú > Submenú" rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
       <TableCell className="px-1 py-1"><Textarea value={local.resultado_esperado ?? ""} onChange={(e) => update("resultado_esperado", e.target.value)} onBlur={flushNow} rows={2} className="min-h-[36px] resize-none px-1.5 py-1 text-[11px] leading-tight" /></TableCell>
