@@ -391,6 +391,25 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
     },
   });
 
+  const { data: certIncidencias } = useQuery({
+    queryKey: ["cert-proyecto-cert-incidencias", proyectoId],
+    queryFn: async () => {
+      const { data: scriptRows, error: sErr } = await supabase.from("test_scripts")
+        .select("id, nombre").eq("proyecto_id", proyectoId);
+      if (sErr) throw sErr;
+      const scriptIds = (scriptRows ?? []).map((s) => s.id);
+      if (scriptIds.length === 0) return [] as Array<CasoRow & { script_nombre: string; created_at: string }>;
+      const scriptMap = new Map((scriptRows ?? []).map((s) => [s.id, s.nombre]));
+      const { data, error } = await supabase.from("test_casos")
+        .select("id, script_id, numero, modulo, titulo, ruta_acceso, resultado_esperado, resultado_obtenido, estado, entorno, responsable, orden, created_at")
+        .in("script_id", scriptIds).eq("estado", "incidencia")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((c: any) => ({ ...c, script_nombre: scriptMap.get(c.script_id) ?? "" })) as Array<CasoRow & { script_nombre: string; created_at: string }>;
+    },
+  });
+
+
   const exportar = () => {
     if (!incidencias || incidencias.length === 0) { toast.info("No hay incidencias"); return; }
     const rows = incidencias.map((r) => ({
