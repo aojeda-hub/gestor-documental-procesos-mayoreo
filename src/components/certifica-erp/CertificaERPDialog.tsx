@@ -1398,7 +1398,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
         <div className="flex-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Hash className="h-3.5 w-3.5" /><span className="font-mono">{inc.numero}</span>
-            <span>·</span><span>{MODULO_LABEL[inc.modulo]}</span>
+            <span>·</span><span>{inc.modulo || '—'}</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{inc.titulo}</h1>
         </div>
