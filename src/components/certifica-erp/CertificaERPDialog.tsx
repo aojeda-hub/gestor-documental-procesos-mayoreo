@@ -537,7 +537,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
             proyecto_id: proyectoId,
             titulo: tit,
             descripcion: desc || tit,
-            modulo: moduloFromLabel(norm(r["Módulo"] ?? r["Modulo"])),
+            modulo: moduloFromLabel(norm(r["Sección"] ?? r["Seccion"] ?? r["Módulo"] ?? r["Modulo"])),
             prioridad: prioridadFromLabel(norm(r["Prioridad"])),
             estado: estadoIncFromLabel(norm(r["Estado"])),
             sistema_nombre: norm(r["Sistema"]) || null,
