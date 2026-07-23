@@ -755,6 +755,7 @@ function CasosEditor({ scriptId }: { scriptId: string }) {
   const estadoFromLabel = (s: string): TestEstado => {
     const v = (s ?? "").trim().toLowerCase();
     if (v.startsWith("compl")) return "completada";
+    if (v.startsWith("inc")) return "incidencia";
     if (v.startsWith("en")) return "en_curso";
     return "pendiente";
   };
