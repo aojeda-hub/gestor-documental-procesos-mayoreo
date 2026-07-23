@@ -710,14 +710,16 @@ function IncidenciaFormDialog({
 
   const handleFiles = (list: FileList | null) => {
     if (!list) return;
-    const incoming = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    const incoming = Array.from(list);
     if (incoming.length === 0) return;
     const next = [...files, ...incoming].slice(0, 10);
-    setFiles(next); setPreviews(next.map((f) => URL.createObjectURL(f)));
+    setFiles(next);
+    setPreviews(next.map((f) => (f.type.startsWith("image/") ? URL.createObjectURL(f) : "")));
   };
   const removeFile = (idx: number) => {
     const next = files.filter((_, i) => i !== idx);
-    setFiles(next); setPreviews(next.map((f) => URL.createObjectURL(f)));
+    setFiles(next);
+    setPreviews(next.map((f) => (f.type.startsWith("image/") ? URL.createObjectURL(f) : "")));
   };
 
   useEffect(() => {
