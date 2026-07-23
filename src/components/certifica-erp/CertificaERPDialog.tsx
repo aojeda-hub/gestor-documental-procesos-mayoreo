@@ -690,7 +690,7 @@ function IncidenciaFormDialog({
   testCasoId?: string | null;
   initial?: Partial<{
     id: string; titulo: string; descripcion: string; sistema_nombre: string;
-    modulo: Modulo; prioridad: Prioridad; responsable: string;
+    modulo: string; prioridad: Prioridad; responsable: string;
     codigo_transaccion: string; nombre_transaccion: string;
     fecha_ocurrencia: string; fecha: string;
   }>;
@@ -705,7 +705,7 @@ function IncidenciaFormDialog({
   const [previews, setPreviews] = useState<string[]>([]);
   const [form, setForm] = useState({
     titulo: "", descripcion: "", sistema_nombre: "",
-    modulo: "ventas" as Modulo, prioridad: "media" as Prioridad, responsable: "",
+    modulo: "", prioridad: "media" as Prioridad, responsable: "",
     codigo_transaccion: "", nombre_transaccion: "",
     fecha_ocurrencia: today, fecha: today,
   });
