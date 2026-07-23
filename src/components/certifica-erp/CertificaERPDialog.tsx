@@ -456,7 +456,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
     const ejemplo = [{
       "Título": "Ejemplo: Error al generar reporte de ventas",
       "Descripción": "Al intentar generar el reporte mensual el sistema muestra un error 500.",
-      "Módulo": "Ventas",
+      "Sección": "Ventas",
       "Prioridad": "Alta",
       "Estado": "Pendiente",
       "Sistema": "Softland ERP",
