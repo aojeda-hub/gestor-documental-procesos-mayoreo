@@ -1,0 +1,1 @@
+ALTER TYPE test_caso_estado ADD VALUE IF NOT EXISTS 'incidencia';

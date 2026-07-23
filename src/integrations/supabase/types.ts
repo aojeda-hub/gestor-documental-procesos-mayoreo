@@ -2137,7 +2137,7 @@ export type Database = {
         | "procesos"
         | "sinsilo"
         | "datos_maestros"
-      test_caso_estado: "pendiente" | "en_curso" | "completada"
+      test_caso_estado: "pendiente" | "en_curso" | "completada" | "incidencia"
       test_entorno: "QA" | "PRD"
     }
     CompositeTypes: {
@@ -2338,7 +2338,7 @@ export const Constants = {
         "sinsilo",
         "datos_maestros",
       ],
-      test_caso_estado: ["pendiente", "en_curso", "completada"],
+      test_caso_estado: ["pendiente", "en_curso", "completada", "incidencia"],
       test_entorno: ["QA", "PRD"],
     },
   },
