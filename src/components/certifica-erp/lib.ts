@@ -39,17 +39,18 @@ export function getImagePublicUrl(path: string): string {
 export type CompaniaRow = { id: string; nombre: string; slug: string; orden: number; activo: boolean };
 export type ProyectoRow = { id: string; compania_id: string; nombre: string; descripcion: string | null; archivado: boolean; created_at: string; created_by: string | null };
 
-export const TEST_ESTADOS = ["pendiente", "en_curso", "completada"] as const;
+export const TEST_ESTADOS = ["pendiente", "en_curso", "completada", "incidencia"] as const;
 export type TestEstado = (typeof TEST_ESTADOS)[number];
 export const TEST_ENTORNOS = ["QA", "PRD"] as const;
 export type TestEntorno = (typeof TEST_ENTORNOS)[number];
 export const TEST_ESTADO_LABEL: Record<TestEstado, string> = {
-  pendiente: "Pendiente", en_curso: "En curso", completada: "Completada",
+  pendiente: "Pendiente", en_curso: "En curso", completada: "Completada", incidencia: "Incidencia",
 };
 export const TEST_ESTADO_STYLES: Record<TestEstado, string> = {
   pendiente: "bg-red-200 text-black border-red-400",
   en_curso: "bg-blue-200 text-black border-blue-400",
   completada: "bg-green-200 text-black border-green-400",
+  incidencia: "bg-orange-200 text-black border-orange-400",
 };
 
 // --- CSV export ---
