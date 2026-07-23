@@ -604,7 +604,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                 <TableHead className="w-[70px]">N°</TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead className="w-[160px]">Sistema</TableHead>
-                <TableHead className="w-[110px]">Módulo</TableHead>
+                <TableHead className="w-[110px]">Sección</TableHead>
                 <TableHead className="w-[110px]">Estado</TableHead>
                 <TableHead className="w-[100px]">Prioridad</TableHead>
                 <TableHead className="w-[130px]">Origen</TableHead>
