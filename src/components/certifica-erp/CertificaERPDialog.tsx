@@ -377,9 +377,12 @@ function ProyectoView({ id, navigate }: { id: string; navigate: (v: CertView) =>
   );
 }
 
-function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate: (v: CertView) => void }) {
+function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: string; proyectoNombre: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const [editingInc, setEditingInc] = useState<IncRow | null>(null);
+  const [creatingFromCert, setCreatingFromCert] = useState<(CasoRow & { script_nombre: string }) | null>(null);
+
   const { data: incidencias } = useQuery({
     queryKey: ["cert-proyecto-incidencias", proyectoId],
     queryFn: async () => {
@@ -410,16 +413,39 @@ function IncidenciasTab({ proyectoId, navigate }: { proyectoId: string; navigate
   });
 
 
-  const exportar = () => {
-    if (!incidencias || incidencias.length === 0) { toast.info("No hay incidencias"); return; }
-    const rows = incidencias.map((r) => ({
-      "N°": r.numero, "Título": r.titulo, "Sistema": r.sistema_nombre ?? "",
-      "Módulo": MODULO_LABEL[r.modulo], "Estado": ESTADO_LABEL[r.estado],
-      "Prioridad": PRIORIDAD_LABEL[r.prioridad], "Fecha": format(new Date(r.fecha), "yyyy-MM-dd"),
-    }));
-    exportToCsv(`incidencias-${format(new Date(), "yyyyMMdd-HHmm")}.csv`, rows);
+  const exportar = async () => {
+    const totalReal = incidencias?.length ?? 0;
+    const totalCert = certIncidencias?.length ?? 0;
+    if (totalReal === 0 && totalCert === 0) { toast.info("No hay incidencias"); return; }
+    const { exportIncidenciasPDF } = await import("@/lib/pdfExport");
+    const rows = [
+      ...(incidencias ?? []).map((r) => ({
+        numero: r.numero,
+        titulo: r.titulo,
+        sistema: r.sistema_nombre,
+        modulo: MODULO_LABEL[r.modulo],
+        estado: ESTADO_LABEL[r.estado],
+        prioridad: PRIORIDAD_LABEL[r.prioridad],
+        responsable: null,
+        origen: "Incidencia",
+        fecha: format(new Date(r.fecha), "yyyy-MM-dd"),
+      })),
+      ...(certIncidencias ?? []).map((c) => ({
+        numero: `C#${c.numero}`,
+        titulo: c.titulo,
+        sistema: c.entorno,
+        modulo: c.modulo ?? "-",
+        estado: "Incidencia",
+        prioridad: null,
+        responsable: c.responsable,
+        origen: `Certificación · ${c.script_nombre}`,
+        fecha: format(new Date(c.created_at), "yyyy-MM-dd"),
+      })),
+    ];
+    await exportIncidenciasPDF(proyectoNombre || "Proyecto", rows);
     toast.success(`Exportadas ${rows.length} incidencias`);
   };
+
 
   const INC_HEADERS = ["Título", "Descripción", "Módulo", "Prioridad", "Estado", "Sistema", "Código transacción", "Nombre transacción", "Responsable", "Fecha (YYYY-MM-DD)", "Fecha ocurrencia (YYYY-MM-DD)"];
 
