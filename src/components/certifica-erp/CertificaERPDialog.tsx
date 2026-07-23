@@ -924,9 +924,43 @@ function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; 
     finally { setSubmitting(false); }
   };
 
+  const eliminarScript = async (id: string) => {
+    try {
+      const { error } = await supabase.from("test_scripts").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Script eliminado");
+      if (selectedScript === id) setSelectedScript(null);
+      await qc.invalidateQueries({ queryKey: ["cert-scripts", proyectoId] });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+  };
+
+  const currentScript = (scripts ?? []).find((s) => s.id === selectedScript) ?? null;
+  const canDeleteCurrent = !!currentScript && !!user && currentScript.created_by === user.id;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-end gap-2">
+        {canDeleteCurrent && currentScript && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" /> Eliminar script
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Eliminar script?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Se eliminará "{currentScript.nombre}" y todos sus casos e incidencias asociadas. Esta acción no se puede deshacer.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => eliminarScript(currentScript.id)}>Eliminar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
         <InnerDialog open={openNew} onOpenChange={setOpenNew}>
           <InnerDialogTrigger asChild><Button><Plus className="h-4 w-4" /> Nuevo script</Button></InnerDialogTrigger>
           <InnerDialogContent>
