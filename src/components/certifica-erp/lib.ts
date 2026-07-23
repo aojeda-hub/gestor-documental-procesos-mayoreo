@@ -29,10 +29,16 @@ export const PRIORIDAD_STYLES: Record<Prioridad, string> = {
 };
 
 export const STORAGE_BUCKET = "incidencias";
+export const SUPABASE_STORAGE_URL = "https://qtxfokwwwfmovicdbtre.supabase.co/storage/v1";
 
 export function getImagePublicUrl(path: string): string {
-  const SUPABASE_URL = "https://qtxfokwwwfmovicdbtre.supabase.co";
-  return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
+  return `${SUPABASE_STORAGE_URL}/object/public/${STORAGE_BUCKET}/${path}`;
+}
+
+export function normalizeSignedStorageUrl(url?: string | null): string {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${SUPABASE_STORAGE_URL}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
 // --- Companias / Test ---
