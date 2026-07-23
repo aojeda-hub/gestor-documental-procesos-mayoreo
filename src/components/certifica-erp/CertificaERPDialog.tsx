@@ -585,7 +585,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
               <span className="cursor-pointer"><Upload className="h-4 w-4" /> Importar</span>
             </Button>
           </label>
-          <Button variant="outline" onClick={exportar} disabled={!incidencias || incidencias.length === 0}>
+          <Button variant="outline" onClick={exportar} disabled={(!incidencias || incidencias.length === 0) && (!certIncidencias || certIncidencias.length === 0)}>
             <Download className="h-4 w-4" /> Exportar
           </Button>
           <Button onClick={() => navigate({ name: "nueva", proyectoId })}><Plus className="h-4 w-4" /> Nueva incidencia</Button>
@@ -610,8 +610,9 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                 <TableHead className="w-[110px]">Módulo</TableHead>
                 <TableHead className="w-[110px]">Estado</TableHead>
                 <TableHead className="w-[100px]">Prioridad</TableHead>
-                <TableHead className="w-[110px]">Origen</TableHead>
+                <TableHead className="w-[130px]">Origen</TableHead>
                 <TableHead className="w-[110px]">Fecha</TableHead>
+                <TableHead className="w-[90px] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -625,6 +626,11 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${PRIORIDAD_STYLES[r.prioridad]}`}>{PRIORIDAD_LABEL[r.prioridad]}</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Incidencia</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(r.fecha), "d MMM yyyy", { locale: es })}</TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setEditingInc(r)}>
+                      <Pencil className="h-3 w-3" /> Editar
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {(certIncidencias ?? []).map((c) => (
@@ -637,8 +643,14 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                   <TableCell><span className="text-[11px] text-muted-foreground">—</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Certificación · {c.script_nombre}</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(c.created_at), "d MMM yyyy", { locale: es })}</TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setCreatingFromCert(c)}>
+                      <Plus className="h-3 w-3" /> Completar
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
+
             </TableBody>
           </Table>
         </Card>
