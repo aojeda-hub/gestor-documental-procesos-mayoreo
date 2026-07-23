@@ -472,7 +472,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
       ["Campo", "Valores permitidos / formato"],
       ["Título", "Obligatorio. Resumen breve de la incidencia"],
       ["Descripción", "Obligatorio. Detalle completo"],
-      ["Módulo", "Nómina | Ventas | Compras | Inventario | Contabilidad"],
+      ["Sección", "Texto libre (ej. Nómina, Ventas, Compras, Inventario, Contabilidad)"],
       ["Prioridad", "Baja | Media | Alta"],
       ["Estado", "Pendiente | En curso | Solventado"],
       ["Sistema", "Nombre del sistema donde ocurrió"],
