@@ -491,14 +491,9 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
     toast.success("Plantilla descargada. Llénala y luego usa Importar.");
   };
 
-  const moduloFromLabel = (s: string): Modulo => {
-    const v = (s ?? "").trim().toLowerCase();
-    if (v.startsWith("nóm") || v.startsWith("nom")) return "nomina";
-    if (v.startsWith("vent")) return "ventas";
-    if (v.startsWith("comp")) return "compras";
-    if (v.startsWith("inv")) return "inventario";
-    if (v.startsWith("cont")) return "contabilidad";
-    return "ventas";
+  const moduloFromLabel = (s: string): string | null => {
+    const v = (s ?? "").trim();
+    return v ? v : null;
   };
   const prioridadFromLabel = (s: string): Prioridad => {
     const v = (s ?? "").trim().toLowerCase();
