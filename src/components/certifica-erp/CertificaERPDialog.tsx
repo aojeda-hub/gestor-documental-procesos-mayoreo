@@ -1691,18 +1691,25 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
           </div>
 
           <div className="space-y-2">
-            <Label>Imágenes ({files.length}/10)</Label>
+            <Label>Archivos adjuntos ({files.length}/10)</Label>
             <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 px-6 py-8 text-center hover:bg-muted/50">
               <Upload className="h-6 w-6 text-muted-foreground" />
-              <div className="text-sm font-medium">Click para subir imágenes</div>
-              <div className="text-xs text-muted-foreground">PNG, JPG, WEBP — hasta 10 archivos</div>
-              <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+              <div className="text-sm font-medium">Click para subir archivos</div>
+              <div className="text-xs text-muted-foreground">PDF, Word, Excel, imágenes y otros — hasta 10 archivos</div>
+              <input type="file" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
             </label>
-            {previews.length > 0 && (
+            {files.length > 0 && (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                {previews.map((src, i) => (
+                {files.map((file, i) => (
                   <div key={i} className="relative aspect-square overflow-hidden rounded-md border bg-muted">
-                    <img src={src} alt="" className="h-full w-full object-cover" />
+                    {previews[i] ? (
+                      <img src={previews[i]} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center">
+                        <FileText className="h-8 w-8 text-muted-foreground" />
+                        <div className="line-clamp-2 text-[10px] text-muted-foreground break-all">{file.name}</div>
+                      </div>
+                    )}
                     <button type="button" onClick={() => removeFile(i)} className="absolute right-1 top-1 rounded-full bg-background/90 p-1 hover:bg-destructive hover:text-destructive-foreground"><X className="h-3 w-3" /></button>
                   </div>
                 ))}
