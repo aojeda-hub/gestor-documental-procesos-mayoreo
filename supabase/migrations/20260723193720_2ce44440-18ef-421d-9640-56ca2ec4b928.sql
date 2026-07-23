@@ -1,0 +1,2 @@
+ALTER TABLE public.incidencias ADD COLUMN IF NOT EXISTS test_caso_id uuid REFERENCES public.test_casos(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_incidencias_test_caso ON public.incidencias(test_caso_id);
