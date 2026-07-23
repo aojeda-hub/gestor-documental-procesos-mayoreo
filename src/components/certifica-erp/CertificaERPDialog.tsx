@@ -791,7 +791,7 @@ function IncidenciaFormDialog({
         toast.success("Incidencia actualizada");
       } else {
         const { data, error } = await supabase.from("incidencias").insert({
-          ...payload, proyecto_id: proyectoId, created_by: user.id,
+          ...payload, proyecto_id: proyectoId, created_by: user.id, test_caso_id: testCasoId ?? null,
         }).select("id").single();
         if (error) throw error;
         incId = data.id;
