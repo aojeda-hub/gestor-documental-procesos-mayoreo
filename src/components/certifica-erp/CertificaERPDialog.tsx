@@ -687,11 +687,12 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
 
 /* ============================ INCIDENCIA FORM DIALOG ============================ */
 function IncidenciaFormDialog({
-  open, mode, proyectoId, initial, onOpenChange, onSaved,
+  open, mode, proyectoId, testCasoId, initial, onOpenChange, onSaved,
 }: {
   open: boolean;
   mode: "edit" | "create";
   proyectoId: string;
+  testCasoId?: string | null;
   initial?: Partial<{
     id: string; titulo: string; descripcion: string; sistema_nombre: string;
     modulo: Modulo; prioridad: Prioridad; responsable: string;
