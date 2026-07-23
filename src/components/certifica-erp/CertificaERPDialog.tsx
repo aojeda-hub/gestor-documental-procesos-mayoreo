@@ -319,7 +319,7 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
 
 /* ============================ PROYECTO VIEW ============================ */
 type ProyectoFull = { id: string; nombre: string; descripcion: string | null; compania_id: string; compania: { nombre: string; slug: string } | null; };
-type IncRow = { id: string; numero: number; titulo: string; modulo: Modulo; prioridad: Prioridad; estado: Estado; sistema_nombre: string | null; fecha: string; };
+type IncRow = { id: string; numero: number; titulo: string; modulo: string | null; prioridad: Prioridad; estado: Estado; sistema_nombre: string | null; fecha: string; };
 type ScriptRow = { id: string; nombre: string; descripcion: string | null; created_at: string; };
 type CasoRow = {
   id: string; script_id: string; numero: number; modulo: string | null; titulo: string;
@@ -425,7 +425,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
         numero: r.numero,
         titulo: r.titulo,
         sistema: r.sistema_nombre,
-        modulo: MODULO_LABEL[r.modulo],
+        modulo: r.modulo || "-",
         estado: ESTADO_LABEL[r.estado],
         prioridad: PRIORIDAD_LABEL[r.prioridad],
         responsable: null,
@@ -449,14 +449,14 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
   };
 
 
-  const INC_HEADERS = ["Título", "Descripción", "Módulo", "Prioridad", "Estado", "Sistema", "Código transacción", "Nombre transacción", "Responsable", "Fecha (YYYY-MM-DD)", "Fecha ocurrencia (YYYY-MM-DD)"];
+  const INC_HEADERS = ["Título", "Descripción", "Sección", "Prioridad", "Estado", "Sistema", "Código transacción", "Nombre transacción", "Responsable", "Fecha (YYYY-MM-DD)", "Fecha ocurrencia (YYYY-MM-DD)"];
 
   const descargarPlantillaInc = async () => {
     const XLSX = await import("xlsx");
     const ejemplo = [{
       "Título": "Ejemplo: Error al generar reporte de ventas",
       "Descripción": "Al intentar generar el reporte mensual el sistema muestra un error 500.",
-      "Módulo": "Ventas",
+      "Sección": "Ventas",
       "Prioridad": "Alta",
       "Estado": "Pendiente",
       "Sistema": "Softland ERP",
@@ -472,7 +472,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
       ["Campo", "Valores permitidos / formato"],
       ["Título", "Obligatorio. Resumen breve de la incidencia"],
       ["Descripción", "Obligatorio. Detalle completo"],
-      ["Módulo", "Nómina | Ventas | Compras | Inventario | Contabilidad"],
+      ["Sección", "Texto libre (ej. Nómina, Ventas, Compras, Inventario, Contabilidad)"],
       ["Prioridad", "Baja | Media | Alta"],
       ["Estado", "Pendiente | En curso | Solventado"],
       ["Sistema", "Nombre del sistema donde ocurrió"],
@@ -491,14 +491,9 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
     toast.success("Plantilla descargada. Llénala y luego usa Importar.");
   };
 
-  const moduloFromLabel = (s: string): Modulo => {
-    const v = (s ?? "").trim().toLowerCase();
-    if (v.startsWith("nóm") || v.startsWith("nom")) return "nomina";
-    if (v.startsWith("vent")) return "ventas";
-    if (v.startsWith("comp")) return "compras";
-    if (v.startsWith("inv")) return "inventario";
-    if (v.startsWith("cont")) return "contabilidad";
-    return "ventas";
+  const moduloFromLabel = (s: string): string | null => {
+    const v = (s ?? "").trim();
+    return v ? v : null;
   };
   const prioridadFromLabel = (s: string): Prioridad => {
     const v = (s ?? "").trim().toLowerCase();
@@ -542,7 +537,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
             proyecto_id: proyectoId,
             titulo: tit,
             descripcion: desc || tit,
-            modulo: moduloFromLabel(norm(r["Módulo"] ?? r["Modulo"])),
+            modulo: moduloFromLabel(norm(r["Sección"] ?? r["Seccion"] ?? r["Módulo"] ?? r["Modulo"])),
             prioridad: prioridadFromLabel(norm(r["Prioridad"])),
             estado: estadoIncFromLabel(norm(r["Estado"])),
             sistema_nombre: norm(r["Sistema"]) || null,
@@ -609,7 +604,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                 <TableHead className="w-[70px]">N°</TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead className="w-[160px]">Sistema</TableHead>
-                <TableHead className="w-[110px]">Módulo</TableHead>
+                <TableHead className="w-[110px]">Sección</TableHead>
                 <TableHead className="w-[110px]">Estado</TableHead>
                 <TableHead className="w-[100px]">Prioridad</TableHead>
                 <TableHead className="w-[130px]">Origen</TableHead>
@@ -623,7 +618,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                   <TableCell className="font-mono text-xs text-muted-foreground">#{r.numero}</TableCell>
                   <TableCell className="font-medium">{r.titulo}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.sistema_nombre ?? <span className="opacity-50">—</span>}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-[10px]">{MODULO_LABEL[r.modulo]}</Badge></TableCell>
+                  <TableCell><Badge variant="outline" className="text-[10px]">{r.modulo || '—'}</Badge></TableCell>
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${ESTADO_STYLES[r.estado]}`}>{ESTADO_LABEL[r.estado]}</span></TableCell>
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${PRIORIDAD_STYLES[r.prioridad]}`}>{PRIORIDAD_LABEL[r.prioridad]}</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Incidencia</TableCell>
@@ -695,7 +690,7 @@ function IncidenciaFormDialog({
   testCasoId?: string | null;
   initial?: Partial<{
     id: string; titulo: string; descripcion: string; sistema_nombre: string;
-    modulo: Modulo; prioridad: Prioridad; responsable: string;
+    modulo: string; prioridad: Prioridad; responsable: string;
     codigo_transaccion: string; nombre_transaccion: string;
     fecha_ocurrencia: string; fecha: string;
   }>;
@@ -710,7 +705,7 @@ function IncidenciaFormDialog({
   const [previews, setPreviews] = useState<string[]>([]);
   const [form, setForm] = useState({
     titulo: "", descripcion: "", sistema_nombre: "",
-    modulo: "ventas" as Modulo, prioridad: "media" as Prioridad, responsable: "",
+    modulo: "", prioridad: "media" as Prioridad, responsable: "",
     codigo_transaccion: "", nombre_transaccion: "",
     fecha_ocurrencia: today, fecha: today,
   });
@@ -742,7 +737,7 @@ function IncidenciaFormDialog({
             titulo: data.titulo ?? "",
             descripcion: data.descripcion ?? "",
             sistema_nombre: data.sistema_nombre ?? "",
-            modulo: (data.modulo as Modulo) ?? "ventas",
+            modulo: (data.modulo as string) ?? "",
             prioridad: (data.prioridad as Prioridad) ?? "media",
             responsable: data.responsable ?? "",
             codigo_transaccion: data.codigo_transaccion ?? "",
@@ -830,11 +825,8 @@ function IncidenciaFormDialog({
           <div className="space-y-2"><Label>Título *</Label><Input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} /></div>
           <div className="space-y-2"><Label>Descripción *</Label><Textarea rows={4} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} /></div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Módulo *</Label>
-              <Select value={form.modulo} onValueChange={(v) => setForm({ ...form, modulo: v as Modulo })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{MODULOS.map((m) => <SelectItem key={m} value={m}>{MODULO_LABEL[m]}</SelectItem>)}</SelectContent>
-              </Select>
+            <div className="space-y-2"><Label>Sección</Label>
+              <Input value={form.modulo} onChange={(e) => setForm({ ...form, modulo: e.target.value })} placeholder="Escribe la sección" />
             </div>
             <div className="space-y-2"><Label>Prioridad *</Label>
               <Select value={form.prioridad} onValueChange={(v) => setForm({ ...form, prioridad: v as Prioridad })}>
@@ -1296,7 +1288,7 @@ function CasoRowEditor({ caso }: { caso: CasoRow }) {
 
 /* ============================ INCIDENCIA DETAIL ============================ */
 type Inc = {
-  id: string; numero: number; titulo: string; descripcion: string; modulo: Modulo;
+  id: string; numero: number; titulo: string; descripcion: string; modulo: string | null;
   prioridad: Prioridad; estado: Estado; fecha: string; codigo_transaccion: string | null;
   nombre_transaccion: string | null; responsable: string | null; fecha_ocurrencia: string | null;
   fecha_completado: string | null; created_at: string; updated_at: string;
@@ -1304,7 +1296,7 @@ type Inc = {
 };
 type Img = { id: string; storage_path: string; nombre_original: string | null; orden: number };
 type EditForm = {
-  titulo: string; descripcion: string; modulo: Modulo; prioridad: Prioridad; fecha: string;
+  titulo: string; descripcion: string; modulo: string; prioridad: Prioridad; fecha: string;
   codigo_transaccion: string; nombre_transaccion: string; responsable: string; fecha_ocurrencia: string;
 };
 
@@ -1342,7 +1334,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
   useEffect(() => {
     if (inc && !editing) {
       setForm({
-        titulo: inc.titulo, descripcion: inc.descripcion, modulo: inc.modulo, prioridad: inc.prioridad,
+        titulo: inc.titulo, descripcion: inc.descripcion, modulo: inc.modulo ?? "", prioridad: inc.prioridad,
         fecha: inc.fecha, codigo_transaccion: inc.codigo_transaccion ?? "",
         nombre_transaccion: inc.nombre_transaccion ?? "", responsable: inc.responsable ?? "",
         fecha_ocurrencia: inc.fecha_ocurrencia ?? inc.fecha,
@@ -1406,7 +1398,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
         <div className="flex-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Hash className="h-3.5 w-3.5" /><span className="font-mono">{inc.numero}</span>
-            <span>·</span><span>{MODULO_LABEL[inc.modulo]}</span>
+            <span>·</span><span>{inc.modulo || '—'}</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{inc.titulo}</h1>
         </div>
@@ -1494,11 +1486,8 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
 
           {editing && form ? (
             <Card className="space-y-4 p-6">
-              <div className="space-y-2"><Label>Módulo</Label>
-                <Select value={form.modulo} onValueChange={(v) => setForm({ ...form, modulo: v as Modulo })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{MODULOS.map((m) => <SelectItem key={m} value={m}>{MODULO_LABEL[m]}</SelectItem>)}</SelectContent>
-                </Select>
+              <div className="space-y-2"><Label>Sección</Label>
+                <Input value={form.modulo} onChange={(e) => setForm({ ...form, modulo: e.target.value })} placeholder="Escribe la sección" />
               </div>
               <div className="space-y-2"><Label>Prioridad</Label>
                 <Select value={form.prioridad} onValueChange={(v) => setForm({ ...form, prioridad: v as Prioridad })}>
@@ -1514,7 +1503,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
           ) : (
             <Card className="space-y-3 p-6">
               <Detail label="Prioridad" icon={<Tag className="h-4 w-4" />}><span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${PRIORIDAD_STYLES[inc.prioridad]}`}>{PRIORIDAD_LABEL[inc.prioridad]}</span></Detail>
-              <Detail label="Módulo" icon={<Tag className="h-4 w-4" />}><span className="text-sm font-medium">{MODULO_LABEL[inc.modulo]}</span></Detail>
+              <Detail label="Sección" icon={<Tag className="h-4 w-4" />}><span className="text-sm font-medium">{inc.modulo || '—'}</span></Detail>
               <Detail label="Responsable" icon={<User className="h-4 w-4" />}><span className="text-sm font-medium">{inc.responsable ?? <span className="text-muted-foreground italic">Sin asignar</span>}</span></Detail>
               <Detail label="Fecha ocurrencia" icon={<Calendar className="h-4 w-4" />}><span className="text-sm">{inc.fecha_ocurrencia ? format(new Date(inc.fecha_ocurrencia), "d 'de' MMMM yyyy", { locale: es }) : "—"}</span></Detail>
               <Detail label="Fecha registro" icon={<Calendar className="h-4 w-4" />}><span className="text-sm">{format(new Date(inc.fecha), "d 'de' MMMM yyyy", { locale: es })}</span></Detail>
@@ -1568,7 +1557,7 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     proyecto_id: proyectoId ?? "", sistema_nombre: "", titulo: "", descripcion: "",
-    modulo: "ventas" as Modulo, prioridad: "media" as Prioridad,
+    modulo: "", prioridad: "media" as Prioridad,
     codigo_transaccion: "", nombre_transaccion: "", responsable: "",
     fecha_ocurrencia: today, fecha: today,
   });
@@ -1672,11 +1661,8 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
           <div className="space-y-2"><Label>Descripción *</Label><Textarea rows={5} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} /></div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Módulo *</Label>
-              <Select value={form.modulo} onValueChange={(v) => setForm({ ...form, modulo: v as Modulo })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{MODULOS.map((m) => <SelectItem key={m} value={m}>{MODULO_LABEL[m]}</SelectItem>)}</SelectContent>
-              </Select>
+            <div className="space-y-2"><Label>Sección</Label>
+              <Input value={form.modulo} onChange={(e) => setForm({ ...form, modulo: e.target.value })} placeholder="Escribe la sección" />
             </div>
             <div className="space-y-2"><Label>Prioridad *</Label>
               <Select value={form.prioridad} onValueChange={(v) => setForm({ ...form, prioridad: v as Prioridad })}>
