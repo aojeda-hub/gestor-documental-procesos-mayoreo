@@ -635,7 +635,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                   </TableCell>
                 </TableRow>
               ))}
-              {(certIncidencias ?? []).map((c) => (
+              {(certIncidencias ?? []).filter((c) => !linkedCasoIds.has(c.id)).map((c) => (
                 <TableRow key={`cert-${c.id}`} className="bg-orange-50/40 dark:bg-orange-950/10">
                   <TableCell className="font-mono text-xs text-muted-foreground">C#{c.numero}</TableCell>
                   <TableCell className="font-medium">{c.titulo}</TableCell>
@@ -662,6 +662,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
         open={!!editingInc || !!creatingFromCert}
         mode={editingInc ? "edit" : "create"}
         proyectoId={proyectoId}
+        testCasoId={creatingFromCert?.id ?? null}
         initial={
           editingInc
             ? { id: editingInc.id }
@@ -675,7 +676,10 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
               : undefined
         }
         onOpenChange={(v) => { if (!v) { setEditingInc(null); setCreatingFromCert(null); } }}
-        onSaved={() => qc.invalidateQueries({ queryKey: ["cert-proyecto-incidencias", proyectoId] })}
+        onSaved={() => {
+          qc.invalidateQueries({ queryKey: ["cert-proyecto-incidencias", proyectoId] });
+          qc.invalidateQueries({ queryKey: ["cert-proyecto-cert-incidencias", proyectoId] });
+        }}
       />
     </div>
   );
