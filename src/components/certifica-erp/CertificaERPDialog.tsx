@@ -644,8 +644,8 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                   <TableCell className="text-[11px] text-muted-foreground">Certificación · {c.script_nombre}</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(c.created_at), "d MMM yyyy", { locale: es })}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setCreatingFromCert(c)}>
-                      <Plus className="h-3 w-3" /> Completar
+                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setCreatingFromCert(c)} title="Editar">
+                      <Pencil className="h-3 w-3" /> Editar
                     </Button>
                   </TableCell>
                 </TableRow>
