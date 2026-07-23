@@ -1294,7 +1294,7 @@ type Inc = {
   fecha_completado: string | null; created_at: string; updated_at: string;
   proyecto_id: string | null;
 };
-type Img = { id: string; storage_path: string; nombre_original: string | null; orden: number };
+type Img = { id: string; storage_path: string; nombre_original: string | null; orden: number; signed_url: string };
 type EditForm = {
   titulo: string; descripcion: string; modulo: string; prioridad: Prioridad; fecha: string;
   codigo_transaccion: string; nombre_transaccion: string; responsable: string; fecha_ocurrencia: string;
