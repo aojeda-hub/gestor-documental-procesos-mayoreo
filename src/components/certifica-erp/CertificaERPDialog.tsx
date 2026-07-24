@@ -1869,6 +1869,8 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
                   <img src={previewUrl} alt={attachmentName(selectedAttachment)} className="h-full w-full object-contain" />
                 ) : previewBlob && isPdfAttachment(selectedAttachment) ? (
                   <PdfAttachmentPreview file={selectedAttachment} blob={previewBlob} />
+                ) : previewBlob && isSpreadsheetAttachment(selectedAttachment) ? (
+                  <XlsxAttachmentPreview file={selectedAttachment} blob={previewBlob} />
                 ) : (
                   <div className="flex max-w-sm flex-col items-center gap-3 p-6 text-center text-sm text-muted-foreground">
                     <FileText className="h-12 w-12" />
