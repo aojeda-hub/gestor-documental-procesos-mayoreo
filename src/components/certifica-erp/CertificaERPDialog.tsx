@@ -1353,6 +1353,71 @@ function isPdfAttachment(file: Img): boolean {
   return /\.pdf$/i.test(value);
 }
 
+function isSpreadsheetAttachment(file: Img): boolean {
+  const value = `${file.nombre_original ?? ""} ${file.storage_path}`;
+  return /\.(xlsx|xls|xlsm|xlsb|csv|ods)$/i.test(value);
+}
+
+function XlsxAttachmentPreview({ file, blob }: { file: Img; blob: Blob }) {
+  const [sheets, setSheets] = useState<{ name: string; html: string }[]>([]);
+  const [activeSheet, setActiveSheet] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const XLSX = await import("xlsx");
+        const data = new Uint8Array(await blob.arrayBuffer());
+        const wb = XLSX.read(data, { type: "array" });
+        const result = wb.SheetNames.map((name) => ({
+          name,
+          html: XLSX.utils.sheet_to_html(wb.Sheets[name], { editable: false }),
+        }));
+        if (!cancelled) {
+          setSheets(result);
+          setActiveSheet(0);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "No se pudo mostrar la hoja de cálculo");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [file.id, blob]);
+
+  if (loading) return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando hoja de cálculo…</div>;
+  if (error) return <div className="max-w-sm text-center text-sm text-muted-foreground">{error}</div>;
+  if (!sheets.length) return <div className="text-sm text-muted-foreground">Sin contenido</div>;
+
+  return (
+    <div className="flex h-full w-full flex-col">
+      {sheets.length > 1 && (
+        <div className="flex flex-wrap gap-1 border-b bg-background/60 px-3 py-2">
+          {sheets.map((s, i) => (
+            <button
+              key={s.name}
+              onClick={() => setActiveSheet(i)}
+              className={`rounded-md px-2 py-1 text-xs ${i === activeSheet ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+      <div
+        className="xlsx-preview flex-1 overflow-auto bg-white p-3 text-xs text-black"
+        dangerouslySetInnerHTML={{ __html: sheets[activeSheet].html }}
+      />
+      <style>{`.xlsx-preview table{border-collapse:collapse;font-family:inherit}.xlsx-preview td,.xlsx-preview th{border:1px solid #d4d4d8;padding:4px 8px;white-space:nowrap}`}</style>
+    </div>
+  );
+}
+
 function PdfAttachmentPreview({ file, blob }: { file: Img; blob: Blob }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -1804,6 +1869,8 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
                   <img src={previewUrl} alt={attachmentName(selectedAttachment)} className="h-full w-full object-contain" />
                 ) : previewBlob && isPdfAttachment(selectedAttachment) ? (
                   <PdfAttachmentPreview file={selectedAttachment} blob={previewBlob} />
+                ) : previewBlob && isSpreadsheetAttachment(selectedAttachment) ? (
+                  <XlsxAttachmentPreview file={selectedAttachment} blob={previewBlob} />
                 ) : (
                   <div className="flex max-w-sm flex-col items-center gap-3 p-6 text-center text-sm text-muted-foreground">
                     <FileText className="h-12 w-12" />
