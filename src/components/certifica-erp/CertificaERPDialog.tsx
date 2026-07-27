@@ -636,7 +636,11 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                 </TableRow>
               ))}
               {(certIncidencias ?? []).filter((c) => !linkedCasoIds.has(c.id)).map((c) => (
-                <TableRow key={`cert-${c.id}`} className="bg-orange-50/40 dark:bg-orange-950/10">
+                <TableRow
+                  key={`cert-${c.id}`}
+                  className="bg-orange-50/40 dark:bg-orange-950/10 cursor-pointer"
+                  onClick={() => openCertAsIncidencia(c)}
+                >
                   <TableCell className="font-mono text-xs text-muted-foreground">C#{c.numero}</TableCell>
                   <TableCell className="font-medium">{c.titulo}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{c.entorno}</TableCell>
@@ -645,9 +649,9 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                   <TableCell><span className="text-[11px] text-muted-foreground">—</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Certificación · {c.script_nombre}</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(c.created_at), "d MMM yyyy", { locale: es })}</TableCell>
-                  <TableCell className="text-right">
-                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setCreatingFromCert(c)} title="Editar">
-                      <Pencil className="h-3 w-3" /> Editar
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openCertAsIncidencia(c)} title="Abrir">
+                      <Pencil className="h-3 w-3" /> Abrir
                     </Button>
                   </TableCell>
                 </TableRow>
