@@ -93,6 +93,16 @@ export function UserModal({ open, onOpenChange, user, onSave, loading }: UserMod
           </div>
 
           <div className="space-y-2">
+            <Label>Correo electrónico</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="usuario@mayoreo.biz"
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label>Silos asignados</Label>
             <div className="flex flex-wrap gap-1.5 min-h-[40px] p-2 border rounded-md bg-background">
               {silos.length === 0 && (
