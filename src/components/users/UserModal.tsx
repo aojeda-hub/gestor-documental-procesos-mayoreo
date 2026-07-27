@@ -34,16 +34,19 @@ interface UserModalProps {
 
 export function UserModal({ open, onOpenChange, user, onSave, loading }: UserModalProps) {
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [silos, setSilos] = useState<SiloType[]>([]);
   const [userRoles, setUserRoles] = useState<Partial<UserRole>[]>([]);
 
   useEffect(() => {
     if (user) {
       setFullName(user.full_name || '');
+      setEmail(user.email || '');
       setSilos(user.silos || []);
       setUserRoles(user.roles.map(r => ({ ...r })));
     } else {
       setFullName('');
+      setEmail('');
       setSilos([]);
       setUserRoles([]);
     }
@@ -64,6 +67,7 @@ export function UserModal({ open, onOpenChange, user, onSave, loading }: UserMod
   const handleSave = async () => {
     await onSave({ 
       full_name: fullName, 
+      email: email.trim(),
       silo: silos[0] ?? null, // mantener compat: silo principal = primero
       silos, 
       roles: userRoles 
@@ -86,6 +90,16 @@ export function UserModal({ open, onOpenChange, user, onSave, loading }: UserMod
           <div className="space-y-2">
             <Label>Nombre Completo</Label>
             <Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Nombre completo" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Correo electrónico</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="usuario@mayoreo.biz"
+            />
           </div>
 
           <div className="space-y-2">

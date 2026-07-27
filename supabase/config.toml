@@ -2,3 +2,6 @@ project_id = "qtxfokwwwfmovicdbtre"
 
 [functions.create-responsable]
 verify_jwt = true
+
+[functions.update-user-email]
+verify_jwt = true
