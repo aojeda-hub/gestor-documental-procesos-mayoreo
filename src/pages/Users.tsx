@@ -124,12 +124,22 @@ function UserList() {
   const handleSave = async (data: any) => {
     setSaving(true);
     try {
-      const { roles, silos, ...profileData } = data;
+      const { roles, silos, email, ...profileData } = data;
       
       if (selectedUser) {
+        // Si el email cambió, actualizar en auth vía edge function
+        if (email && email !== selectedUser.email) {
+          const { data: fnData, error: fnErr } = await supabase.functions.invoke('update-user-email', {
+            body: { user_id: selectedUser.user_id, email },
+          });
+          if (fnErr || (fnData as any)?.error) {
+            throw new Error(fnErr?.message || (fnData as any)?.error || 'No se pudo actualizar el correo');
+          }
+        }
+
         const { error: profileError } = await supabase
           .from('profiles')
-          .update(profileData)
+          .update({ ...profileData, email })
           .eq('user_id', selectedUser.user_id);
         
         if (profileError) throw profileError;
