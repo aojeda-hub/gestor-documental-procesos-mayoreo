@@ -401,6 +401,37 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
 
   const linkedCasoIds = new Set((incidencias ?? []).map((i) => i.test_caso_id).filter(Boolean) as string[]);
 
+  const openCertAsIncidencia = async (c: CasoRow & { script_nombre: string }) => {
+    if (!user) { toast.error("Sesión no válida"); return; }
+    try {
+      const { data: existing } = await supabase.from("incidencias")
+        .select("id").eq("test_caso_id", c.id).maybeSingle();
+      if (existing?.id) { navigate({ name: "incidencia", id: existing.id }); return; }
+      const today = new Date().toISOString().slice(0, 10);
+      const descripcion = (c.resultado_obtenido || c.resultado_esperado || c.titulo || "Incidencia detectada en certificación").toString();
+      const { data, error } = await supabase.from("incidencias").insert({
+        titulo: c.titulo,
+        descripcion: descripcion.length >= 5 ? descripcion : `${descripcion} - certificación`,
+        sistema_nombre: c.entorno || "Certificación",
+        modulo: c.modulo || null,
+        prioridad: "media",
+        estado: "pendiente",
+        responsable: c.responsable || "",
+        fecha: today,
+        fecha_ocurrencia: today,
+        proyecto_id: proyectoId,
+        created_by: user.id,
+        test_caso_id: c.id,
+      }).select("id").single();
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["cert-proyecto-incidencias", proyectoId] });
+      qc.invalidateQueries({ queryKey: ["cert-proyecto-cert-incidencias", proyectoId] });
+      navigate({ name: "incidencia", id: data.id });
+    } catch (e: any) {
+      toast.error(e?.message || "No se pudo abrir la incidencia");
+    }
+  };
+
   const { data: certIncidencias } = useQuery({
     queryKey: ["cert-proyecto-cert-incidencias", proyectoId],
     queryFn: async () => {
