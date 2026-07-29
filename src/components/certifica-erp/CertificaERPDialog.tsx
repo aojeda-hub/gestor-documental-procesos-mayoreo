@@ -28,7 +28,7 @@ import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
 import {
   Building2, FolderKanban, Plus, ChevronRight, Loader2, ListChecks, FileCheck2,
   Trash2, Check, Download, ChevronLeft, X, Save, Pencil, Hash, Tag, FileText,
-  Image as ImageIcon, User, Calendar, CheckCircle2, ArrowLeft, Upload, Home,
+  Image as ImageIcon, User, Calendar, CheckCircle2, ArrowLeft, Upload, Home, MessageSquare,
 } from "lucide-react";
 import {
   CertView, CompaniaRow, ProyectoRow, Modulo, Estado, Prioridad,
@@ -1622,7 +1622,11 @@ function PdfAttachmentPreview({ file, blob }: { file: Img; blob: Blob }) {
 
 function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const [nuevaObs, setNuevaObs] = useState("");
+  const [savingObs, setSavingObs] = useState(false);
   const [updating, setUpdating] = useState(false);
+
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
@@ -1664,7 +1668,41 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     },
   });
 
+  const { data: observaciones, isLoading: obsLoading } = useQuery({
+    queryKey: ["cert-incidencia-obs", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("incidencia_observaciones")
+        .select("id, contenido, autor_nombre, created_at")
+        .eq("incidencia_id", id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as { id: string; contenido: string; autor_nombre: string | null; created_at: string }[];
+    },
+  });
+
+  const agregarObservacion = async () => {
+    const texto = nuevaObs.trim();
+    if (!texto || !user) return;
+    setSavingObs(true);
+    try {
+      let autor: string | null = ((user.user_metadata as Record<string, unknown> | undefined)?.full_name as string) ?? null;
+      if (!autor) {
+        const { data: prof } = await supabase.from("profiles").select("full_name, email").eq("user_id", user.id).maybeSingle();
+        autor = prof?.full_name || prof?.email || user.email || null;
+      }
+      const { error } = await supabase.from("incidencia_observaciones").insert({
+        incidencia_id: id, contenido: texto, user_id: user.id, autor_nombre: autor,
+      });
+      if (error) throw error;
+      setNuevaObs("");
+      await qc.invalidateQueries({ queryKey: ["cert-incidencia-obs", id] });
+      toast.success("Observación agregada");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+    finally { setSavingObs(false); }
+  };
+
   const images = imgs ?? [];
+
   const selectedAttachment = previewIndex !== null ? images[previewIndex] : undefined;
 
   useEffect(() => {
@@ -1909,6 +1947,47 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
               </div>
             )}
           </Card>
+
+          <Card className="p-6">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <MessageSquare className="h-4 w-4" /> Observaciones ({observaciones?.length ?? 0})
+            </div>
+            <div className="space-y-2">
+              <Textarea
+                rows={3}
+                value={nuevaObs}
+                onChange={(e) => setNuevaObs(e.target.value)}
+                placeholder="Escribe una nueva observación…"
+              />
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" disabled={!nuevaObs.trim() || savingObs} onClick={agregarObservacion}>
+                  {savingObs && <Loader2 className="h-4 w-4 animate-spin" />} Agregar observación
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Historial</div>
+              {obsLoading ? (
+                <p className="text-sm text-muted-foreground">Cargando…</p>
+              ) : (observaciones ?? []).length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">Sin observaciones registradas</p>
+              ) : (
+                <div className="space-y-2">
+                  {(observaciones ?? []).map((o) => (
+                    <div key={o.id} className="rounded-md border border-border bg-muted/30 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{o.autor_nombre || "Usuario"}</span>
+                        <span>{format(new Date(o.created_at), "d MMM yyyy · HH:mm", { locale: es })}</span>
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{o.contenido}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+
+
 
         </div>
 
