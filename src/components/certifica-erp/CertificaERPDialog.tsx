@@ -797,8 +797,10 @@ function IncidenciaFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setFiles([]); setPreviews([]);
+    setFiles([]); setPreviews([]); setNuevaObs(""); setObsList([]);
     if (mode === "edit" && initial?.id) {
+      cargarObs(initial.id);
+
       (async () => {
         const { data } = await supabase.from("incidencias")
           .select("titulo, descripcion, sistema_nombre, modulo, prioridad, responsable, codigo_transaccion, nombre_transaccion, fecha_ocurrencia, fecha")
