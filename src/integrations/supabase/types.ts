@@ -664,6 +664,44 @@ export type Database = {
           },
         ]
       }
+      incidencia_observaciones: {
+        Row: {
+          autor_nombre: string | null
+          contenido: string
+          created_at: string
+          id: string
+          incidencia_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          autor_nombre?: string | null
+          contenido: string
+          created_at?: string
+          id?: string
+          incidencia_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          autor_nombre?: string | null
+          contenido?: string
+          created_at?: string
+          id?: string
+          incidencia_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidencia_observaciones_incidencia_id_fkey"
+            columns: ["incidencia_id"]
+            isOneToOne: false
+            referencedRelation: "incidencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incidencias: {
         Row: {
           codigo_transaccion: string | null

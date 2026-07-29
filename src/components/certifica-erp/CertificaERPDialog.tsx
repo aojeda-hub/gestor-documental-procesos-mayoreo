@@ -743,12 +743,43 @@ function IncidenciaFormDialog({
   const [submitting, setSubmitting] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [nuevaObs, setNuevaObs] = useState("");
+  const [obsList, setObsList] = useState<{ id: string; contenido: string; autor_nombre: string | null; created_at: string }[]>([]);
+  const [obsLoading, setObsLoading] = useState(false);
   const [form, setForm] = useState({
     titulo: "", descripcion: "", sistema_nombre: "",
     modulo: "", prioridad: "media" as Prioridad, responsable: "",
     codigo_transaccion: "", nombre_transaccion: "",
     fecha_ocurrencia: today, fecha: today,
   });
+
+  const cargarObs = async (incId: string) => {
+    setObsLoading(true);
+    const { data } = await supabase
+      .from("incidencia_observaciones")
+      .select("id, contenido, autor_nombre, created_at")
+      .eq("incidencia_id", incId)
+      .order("created_at", { ascending: false });
+    setObsList((data ?? []) as typeof obsList);
+    setObsLoading(false);
+  };
+
+  const guardarObs = async (incId: string) => {
+    const texto = nuevaObs.trim();
+    if (!texto || !user) return;
+    let autor: string | null = (user.user_metadata as Record<string, unknown> | undefined)?.full_name as string ?? null;
+    if (!autor) {
+      const { data: prof } = await supabase.from("profiles").select("full_name, email").eq("user_id", user.id).maybeSingle();
+      autor = prof?.full_name || prof?.email || user.email || null;
+    }
+    const { error } = await supabase.from("incidencia_observaciones").insert({
+      incidencia_id: incId, contenido: texto, user_id: user.id, autor_nombre: autor,
+    });
+    if (error) { toast.error("No se pudo guardar la observación"); return; }
+    setNuevaObs("");
+    await cargarObs(incId);
+  };
+
 
   const handleFiles = (list: FileList | null) => {
     if (!list) return;
@@ -766,8 +797,10 @@ function IncidenciaFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setFiles([]); setPreviews([]);
+    setFiles([]); setPreviews([]); setNuevaObs(""); setObsList([]);
     if (mode === "edit" && initial?.id) {
+      cargarObs(initial.id);
+
       (async () => {
         const { data } = await supabase.from("incidencias")
           .select("titulo, descripcion, sistema_nombre, modulo, prioridad, responsable, codigo_transaccion, nombre_transaccion, fecha_ocurrencia, fecha")
@@ -848,7 +881,9 @@ function IncidenciaFormDialog({
         if (failed.length > 0) toast.warning(`${failed.length} imagen(es) fallaron`);
         qc.invalidateQueries({ queryKey: ["cert-incidencia-imgs", incId] });
       }
+      if (incId && nuevaObs.trim()) await guardarObs(incId);
       onSaved();
+
       onOpenChange(false);
     } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
     finally { setSubmitting(false); }
@@ -910,7 +945,49 @@ function IncidenciaFormDialog({
               </div>
             )}
           </div>
+
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <Label>Observaciones</Label>
+            <Textarea
+              rows={3}
+              value={nuevaObs}
+              onChange={(e) => setNuevaObs(e.target.value)}
+              placeholder="Escribe una nueva observación…"
+            />
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!nuevaObs.trim() || mode !== "edit" || !initial?.id}
+                onClick={() => initial?.id && guardarObs(initial.id)}
+              >
+                Agregar observación
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">Historial de observaciones</div>
+              {obsLoading ? (
+                <div className="text-xs text-muted-foreground">Cargando…</div>
+              ) : obsList.length === 0 ? (
+                <div className="text-xs text-muted-foreground">Sin observaciones registradas.</div>
+              ) : (
+                <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                  {obsList.map((o) => (
+                    <div key={o.id} className="rounded-md border border-border bg-muted/30 p-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground">{o.autor_nombre || "Usuario"}</span>
+                        <span>{format(new Date(o.created_at), "d MMM yyyy · HH:mm", { locale: es })}</span>
+                      </div>
+                      <div className="mt-1 whitespace-pre-wrap text-xs">{o.contenido}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
         <InnerDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancelar</Button>
           <Button onClick={save} disabled={submitting}>{submitting && <Loader2 className="h-4 w-4 animate-spin" />} Guardar</Button>
