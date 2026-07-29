@@ -28,7 +28,7 @@ import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
 import {
   Building2, FolderKanban, Plus, ChevronRight, Loader2, ListChecks, FileCheck2,
   Trash2, Check, Download, ChevronLeft, X, Save, Pencil, Hash, Tag, FileText,
-  Image as ImageIcon, User, Calendar, CheckCircle2, ArrowLeft, Upload, Home,
+  Image as ImageIcon, User, Calendar, CheckCircle2, ArrowLeft, Upload, Home, MessageSquare,
 } from "lucide-react";
 import {
   CertView, CompaniaRow, ProyectoRow, Modulo, Estado, Prioridad,
