@@ -743,12 +743,43 @@ function IncidenciaFormDialog({
   const [submitting, setSubmitting] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [nuevaObs, setNuevaObs] = useState("");
+  const [obsList, setObsList] = useState<{ id: string; contenido: string; autor_nombre: string | null; created_at: string }[]>([]);
+  const [obsLoading, setObsLoading] = useState(false);
   const [form, setForm] = useState({
     titulo: "", descripcion: "", sistema_nombre: "",
     modulo: "", prioridad: "media" as Prioridad, responsable: "",
     codigo_transaccion: "", nombre_transaccion: "",
     fecha_ocurrencia: today, fecha: today,
   });
+
+  const cargarObs = async (incId: string) => {
+    setObsLoading(true);
+    const { data } = await supabase
+      .from("incidencia_observaciones")
+      .select("id, contenido, autor_nombre, created_at")
+      .eq("incidencia_id", incId)
+      .order("created_at", { ascending: false });
+    setObsList((data ?? []) as typeof obsList);
+    setObsLoading(false);
+  };
+
+  const guardarObs = async (incId: string) => {
+    const texto = nuevaObs.trim();
+    if (!texto || !user) return;
+    let autor: string | null = (user.user_metadata as Record<string, unknown> | undefined)?.full_name as string ?? null;
+    if (!autor) {
+      const { data: prof } = await supabase.from("profiles").select("full_name, email").eq("user_id", user.id).maybeSingle();
+      autor = prof?.full_name || prof?.email || user.email || null;
+    }
+    const { error } = await supabase.from("incidencia_observaciones").insert({
+      incidencia_id: incId, contenido: texto, user_id: user.id, autor_nombre: autor,
+    });
+    if (error) { toast.error("No se pudo guardar la observación"); return; }
+    setNuevaObs("");
+    await cargarObs(incId);
+  };
+
 
   const handleFiles = (list: FileList | null) => {
     if (!list) return;
