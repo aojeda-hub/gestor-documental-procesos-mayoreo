@@ -1948,6 +1948,47 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
             )}
           </Card>
 
+          <Card className="p-6">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <MessageSquare className="h-4 w-4" /> Observaciones ({observaciones?.length ?? 0})
+            </div>
+            <div className="space-y-2">
+              <Textarea
+                rows={3}
+                value={nuevaObs}
+                onChange={(e) => setNuevaObs(e.target.value)}
+                placeholder="Escribe una nueva observación…"
+              />
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" disabled={!nuevaObs.trim() || savingObs} onClick={agregarObservacion}>
+                  {savingObs && <Loader2 className="h-4 w-4 animate-spin" />} Agregar observación
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Historial</div>
+              {obsLoading ? (
+                <p className="text-sm text-muted-foreground">Cargando…</p>
+              ) : (observaciones ?? []).length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">Sin observaciones registradas</p>
+              ) : (
+                <div className="space-y-2">
+                  {(observaciones ?? []).map((o) => (
+                    <div key={o.id} className="rounded-md border border-border bg-muted/30 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{o.autor_nombre || "Usuario"}</span>
+                        <span>{format(new Date(o.created_at), "d MMM yyyy · HH:mm", { locale: es })}</span>
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{o.contenido}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+
+
+
         </div>
 
         <div className="space-y-6">
