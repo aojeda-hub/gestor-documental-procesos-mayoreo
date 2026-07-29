@@ -881,7 +881,9 @@ function IncidenciaFormDialog({
         if (failed.length > 0) toast.warning(`${failed.length} imagen(es) fallaron`);
         qc.invalidateQueries({ queryKey: ["cert-incidencia-imgs", incId] });
       }
+      if (incId && nuevaObs.trim()) await guardarObs(incId);
       onSaved();
+
       onOpenChange(false);
     } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
     finally { setSubmitting(false); }
