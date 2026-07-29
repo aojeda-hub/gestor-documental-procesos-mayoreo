@@ -1622,7 +1622,11 @@ function PdfAttachmentPreview({ file, blob }: { file: Img; blob: Blob }) {
 
 function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const [nuevaObs, setNuevaObs] = useState("");
+  const [savingObs, setSavingObs] = useState(false);
   const [updating, setUpdating] = useState(false);
+
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
