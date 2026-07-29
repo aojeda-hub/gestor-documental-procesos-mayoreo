@@ -1668,7 +1668,41 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     },
   });
 
+  const { data: observaciones, isLoading: obsLoading } = useQuery({
+    queryKey: ["cert-incidencia-obs", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("incidencia_observaciones")
+        .select("id, contenido, autor_nombre, created_at")
+        .eq("incidencia_id", id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as { id: string; contenido: string; autor_nombre: string | null; created_at: string }[];
+    },
+  });
+
+  const agregarObservacion = async () => {
+    const texto = nuevaObs.trim();
+    if (!texto || !user) return;
+    setSavingObs(true);
+    try {
+      let autor: string | null = ((user.user_metadata as Record<string, unknown> | undefined)?.full_name as string) ?? null;
+      if (!autor) {
+        const { data: prof } = await supabase.from("profiles").select("full_name, email").eq("user_id", user.id).maybeSingle();
+        autor = prof?.full_name || prof?.email || user.email || null;
+      }
+      const { error } = await supabase.from("incidencia_observaciones").insert({
+        incidencia_id: id, contenido: texto, user_id: user.id, autor_nombre: autor,
+      });
+      if (error) throw error;
+      setNuevaObs("");
+      await qc.invalidateQueries({ queryKey: ["cert-incidencia-obs", id] });
+      toast.success("Observación agregada");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+    finally { setSavingObs(false); }
+  };
+
   const images = imgs ?? [];
+
   const selectedAttachment = previewIndex !== null ? images[previewIndex] : undefined;
 
   useEffect(() => {
