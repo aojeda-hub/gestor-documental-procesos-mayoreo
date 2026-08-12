@@ -186,6 +186,7 @@ export interface Project {
   responsible?: string | null;
   priority?: string | null;
   kickoff_data?: any | null;
+  baseline_captured_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -202,6 +203,8 @@ export interface ProjectTask {
   progress_percent: number;
   start_date?: string | null;
   end_date?: string | null;
+  baseline_start_date?: string | null;
+  baseline_end_date?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -221,6 +224,75 @@ export interface ProjectPhase {
   created_at: string;
   updated_at: string;
 }
+
+export interface PhaseGateItem {
+  id: string;
+  project_id: string;
+  fase: string;
+  item: string;
+  completado: boolean;
+  evidencia_url?: string | null;
+  comentario?: string | null;
+  fecha_completado?: string | null;
+  usuario_completado?: string | null;
+  orden: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type ProbabilidadType = 'Baja' | 'Media' | 'Alta';
+export type ImpactoType = 'Bajo' | 'Medio' | 'Alto' | 'Crítico';
+export type NivelRiesgoType = 'CRITICO' | 'ALTO' | 'MEDIO' | 'BAJO';
+export type RiesgoEstado = 'Activo' | 'Mitigado' | 'Cerrado';
+export type CategoriaRiesgo = 'Técnico' | 'Organizacional' | 'Externo' | 'Costo' | 'Tiempo' | 'Otro';
+
+export interface ProyectoRiesgo {
+  id: string;
+  proyecto_id: string;
+  descripcion: string;
+  probabilidad: ProbabilidadType;
+  impacto: ImpactoType;
+  categoria: CategoriaRiesgo;
+  fase_afectada?: string | null;
+  tarea_afectada?: string | null;
+  plan_mitigacion?: string | null;
+  responsable_mitigacion?: string | null;
+  fecha_identificacion: string;
+  estado: RiesgoEstado;
+  fecha_cierre?: string | null;
+  evidencia_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProjectMilestone {
+  id: string;
+  proyecto_id: string;
+  nombre: string;
+  descripcion?: string | null;
+  fecha_planeada: string;
+  fecha_real?: string | null;
+  completado: boolean;
+  fase_asociada?: string | null;
+  orden: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type TipoDependencia = 'FS' | 'SS' | 'FF' | 'SF';
+
+export interface TaskDependency {
+  id: string;
+  proyecto_id: string;
+  tarea_origen: string;
+  tarea_destino: string;
+  tipo: TipoDependencia;
+  retraso_dias: number;
+  activa: boolean;
+  created_at?: string;
+}
+
+
 
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
   anexo: 'Anexos',

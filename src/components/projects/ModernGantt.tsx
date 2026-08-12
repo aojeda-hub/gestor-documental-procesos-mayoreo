@@ -1,16 +1,19 @@
 import { useMemo } from 'react';
 import { format, startOfYear, addMonths, eachMonthOfInterval, endOfYear, isWithinInterval, differenceInDays, startOfMonth, endOfMonth, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { ProjectTask } from '@/types/database';
+import type { ProjectTask, ProyectoRiesgo, ProjectMilestone } from '@/types/database';
 
 interface ModernGanttProps {
   tasks: ProjectTask[];
+  risks?: ProyectoRiesgo[];
+  criticalTaskIds?: Set<string>;
+  milestones?: ProjectMilestone[];
 }
 
 const MONTHS_SHORT = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 const PHASES = ['Alineación', 'Diseño', 'Construcción', 'Implementación', 'Adopción'];
 
-export function ModernGantt({ tasks }: ModernGanttProps) {
+export function ModernGantt({ tasks, risks = [], criticalTaskIds, milestones = [] }: ModernGanttProps) {
   const today = new Date();
   const currentYear = today.getFullYear();
   const yearStart = startOfYear(today);
@@ -76,6 +79,25 @@ export function ModernGantt({ tasks }: ModernGanttProps) {
             </div>
           </div>
 
+          {/* Milestone Markers */}
+          {milestones.filter(m => m.fecha_planeada).map(m => {
+            const offset = getLeftOffset(m.fecha_planeada) / 100;
+            const color = m.completado ? 'bg-emerald-500' : 'bg-blue-500';
+            return (
+              <div
+                key={m.id}
+                className="absolute top-0 bottom-0 z-10 flex flex-col items-center pointer-events-none"
+                style={{ left: `calc(280px + (100% - 280px) * ${offset})` }}
+              >
+                <div
+                  title={`📌 ${m.nombre} — ${new Date(m.fecha_planeada).toLocaleDateString()}${m.completado ? ' (completado)' : ''}`}
+                  className={`w-3 h-3 rotate-45 -mt-1.5 border-2 border-white shadow pointer-events-auto ${color}`}
+                />
+                <div className="h-full w-px border-l border-dashed border-blue-400/40"></div>
+              </div>
+            );
+          })}
+
           {PHASES.map(phase => {
             const phaseTasks = groupedTasks[phase] || [];
             if (phaseTasks.length === 0) return null;
@@ -117,31 +139,31 @@ export function ModernGantt({ tasks }: ModernGanttProps) {
                   const tStart = new Date(task.start_date!);
                   const tEnd = new Date(task.end_date!);
                   const tDuration = getTaskDuration(task.start_date!, task.end_date!);
-                  
-                  let barColor = 'bg-red-500'; // No iniciado
-                  if (task.status === 'Completada') barColor = 'bg-green-500';
-                  else if (task.status === 'En Progreso') {
-                    // Split bar logic like in Activity 1? 
-                    // Actually let's follow the legend: Green=Completo, Orange=Incompleto, Red=No iniciado
-                    barColor = today > tEnd ? 'bg-orange-500' : 'bg-green-500'; 
-                  }
+                  const hasRisk = risks.some(r => r.tarea_afectada === task.id);
+                  const isCritical = criticalTaskIds?.has(task.id) ?? false;
 
                   return (
-                    <div key={task.id} className="flex items-center min-h-[40px] hover:bg-slate-100/30 transition-colors">
+                    <div key={task.id} className={`flex items-center min-h-[40px] hover:bg-slate-100/30 transition-colors ${isCritical ? 'bg-red-50/60' : ''}`}>
                       <div className="w-[200px] flex-shrink-0 pr-4 pl-4">
-                        <div className="bg-[#5c85ff] text-white text-[10px] font-medium py-1.5 px-3 rounded-md truncate">
-                          {task.name}
+                        <div className={`text-white text-[10px] font-medium py-1.5 px-3 rounded-md truncate flex items-center justify-between ${isCritical ? 'bg-red-600 ring-2 ring-red-300' : 'bg-[#5c85ff]'}`}>
+                          <span className="truncate">{isCritical ? '🔺 ' : ''}{task.name}</span>
+                          {hasRisk && <span className="text-amber-300 ml-1 font-bold shrink-0" title="Riesgo asociado">⚠️</span>}
                         </div>
                       </div>
                       <div className="w-[80px] text-[10px] font-medium text-slate-400 pl-2">
                         {tDuration} Días
                       </div>
                       <div className="flex-1 h-full relative py-2.5">
-                        <div 
-                          className={`absolute h-4 rounded-sm ${task.status === 'Pendiente' ? 'bg-red-500' : (today > tEnd ? 'bg-orange-500' : 'bg-green-500')}`}
-                          style={{ 
-                            left: `${getLeftOffset(task.start_date!)}%`, 
-                            width: `${getWidth(task.start_date!, task.end_date!)}%` 
+                        <div
+                          className={`absolute rounded-sm ${
+                            isCritical
+                              ? 'h-5 -my-0.5 bg-red-600 ring-2 ring-red-300'
+                              : `h-4 ${task.status === 'Pendiente' ? 'bg-red-500' : (today > tEnd ? 'bg-orange-500' : 'bg-green-500')}`
+                          }`}
+                          title={isCritical ? 'Tarea crítica: un atraso aquí atrasa el fin del proyecto' : undefined}
+                          style={{
+                            left: `${getLeftOffset(task.start_date!)}%`,
+                            width: `${getWidth(task.start_date!, task.end_date!)}%`
                           }}
                         ></div>
                       </div>
@@ -167,6 +189,18 @@ export function ModernGantt({ tasks }: ModernGanttProps) {
             <div className="w-4 h-4 bg-red-500 rounded-sm"></div>
             <span className="text-xs text-slate-600 font-medium">No iniciado</span>
           </div>
+          {criticalTaskIds && criticalTaskIds.size > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-600 ring-2 ring-red-300 rounded-sm"></div>
+              <span className="text-xs text-slate-600 font-medium">🔺 Ruta crítica</span>
+            </div>
+          )}
+          {milestones.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rotate-45 bg-blue-500 border-2 border-white shadow"></div>
+              <span className="text-xs text-slate-600 font-medium">📌 Hito (azul = pendiente, verde = completado)</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

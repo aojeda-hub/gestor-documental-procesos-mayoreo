@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { SILO_LABELS } from '@/types/database';
 import type { Project, SiloType } from '@/types/database';
+import { ensureProjectChecklist } from '@/lib/phaseGateDefaults';
 
 interface ProjectFormDialogProps {
   open: boolean;
@@ -77,7 +78,11 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
       if (project) {
         ({ error } = await supabase.from('projects').update(payload).eq('id', project.id));
       } else {
-        ({ error } = await supabase.from('projects').insert({ ...payload, created_by: user?.id }));
+        const { data: newProj, error: insErr } = await supabase.from('projects').insert({ ...payload, created_by: user?.id }).select().single();
+        error = insErr;
+        if (newProj?.id) {
+          await ensureProjectChecklist(newProj.id);
+        }
       }
 
       if (error) throw error;

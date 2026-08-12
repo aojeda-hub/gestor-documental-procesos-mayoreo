@@ -1075,6 +1075,236 @@ export type Database = {
           },
         ]
       }
+      dependencias: {
+        Row: {
+          activa: boolean
+          created_at: string | null
+          id: string
+          proyecto_id: string
+          retraso_dias: number | null
+          tarea_destino: string
+          tarea_origen: string
+          tipo: string
+        }
+        Insert: {
+          activa?: boolean
+          created_at?: string | null
+          id?: string
+          proyecto_id: string
+          retraso_dias?: number | null
+          tarea_destino: string
+          tarea_origen: string
+          tipo?: string
+        }
+        Update: {
+          activa?: boolean
+          created_at?: string | null
+          id?: string
+          proyecto_id?: string
+          retraso_dias?: number | null
+          tarea_destino?: string
+          tarea_origen?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dependencias_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dependencias_tarea_origen_fkey"
+            columns: ["tarea_origen"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dependencias_tarea_destino_fkey"
+            columns: ["tarea_destino"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hitos: {
+        Row: {
+          completado: boolean | null
+          created_at: string | null
+          descripcion: string | null
+          fase_asociada: string | null
+          fecha_planeada: string
+          fecha_real: string | null
+          id: string
+          nombre: string
+          orden: number | null
+          proyecto_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          completado?: boolean | null
+          created_at?: string | null
+          descripcion?: string | null
+          fase_asociada?: string | null
+          fecha_planeada: string
+          fecha_real?: string | null
+          id?: string
+          nombre: string
+          orden?: number | null
+          proyecto_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          completado?: boolean | null
+          created_at?: string | null
+          descripcion?: string | null
+          fase_asociada?: string | null
+          fecha_planeada?: string
+          fecha_real?: string | null
+          id?: string
+          nombre?: string
+          orden?: number | null
+          proyecto_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hitos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phase_gate_checklist: {
+        Row: {
+          comentario: string | null
+          completado: boolean | null
+          created_at: string | null
+          evidencia_url: string | null
+          fase: string
+          fecha_completado: string | null
+          id: string
+          item: string
+          orden: number | null
+          project_id: string
+          updated_at: string | null
+          usuario_completado: string | null
+        }
+        Insert: {
+          comentario?: string | null
+          completado?: boolean | null
+          created_at?: string | null
+          evidencia_url?: string | null
+          fase: string
+          fecha_completado?: string | null
+          id?: string
+          item: string
+          orden?: number | null
+          project_id: string
+          updated_at?: string | null
+          usuario_completado?: string | null
+        }
+        Update: {
+          comentario?: string | null
+          completado?: boolean | null
+          created_at?: string | null
+          evidencia_url?: string | null
+          fase?: string
+          fecha_completado?: string | null
+          id?: string
+          item?: string
+          orden?: number | null
+          project_id?: string
+          updated_at?: string | null
+          usuario_completado?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phase_gate_checklist_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      riesgos: {
+        Row: {
+          categoria: string | null
+          created_at: string | null
+          descripcion: string
+          estado: string | null
+          evidencia_url: string | null
+          fase_afectada: string | null
+          fecha_cierre: string | null
+          fecha_identificacion: string
+          id: string
+          impacto: string
+          plan_mitigacion: string | null
+          probabilidad: string
+          proyecto_id: string
+          responsable_mitigacion: string | null
+          tarea_afectada: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string | null
+          descripcion: string
+          estado?: string | null
+          evidencia_url?: string | null
+          fase_afectada?: string | null
+          fecha_cierre?: string | null
+          fecha_identificacion?: string
+          id?: string
+          impacto: string
+          plan_mitigacion?: string | null
+          probabilidad: string
+          proyecto_id: string
+          responsable_mitigacion?: string | null
+          tarea_afectada?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string | null
+          descripcion?: string
+          estado?: string | null
+          evidencia_url?: string | null
+          fase_afectada?: string | null
+          fecha_cierre?: string | null
+          fecha_identificacion?: string
+          id?: string
+          impacto?: string
+          plan_mitigacion?: string | null
+          probabilidad?: string
+          proyecto_id?: string
+          responsable_mitigacion?: string | null
+          tarea_afectada?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "riesgos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riesgos_tarea_afectada_fkey"
+            columns: ["tarea_afectada"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_phases: {
         Row: {
           actual_end: string | null
@@ -1158,6 +1388,8 @@ export type Database = {
         Row: {
           actual_progress: number
           assignee_id: string | null
+          baseline_end_date: string | null
+          baseline_start_date: string | null
           created_at: string | null
           end_date: string | null
           id: string
@@ -1174,6 +1406,8 @@ export type Database = {
         Insert: {
           actual_progress?: number
           assignee_id?: string | null
+          baseline_end_date?: string | null
+          baseline_start_date?: string | null
           created_at?: string | null
           end_date?: string | null
           id?: string
@@ -1190,6 +1424,8 @@ export type Database = {
         Update: {
           actual_progress?: number
           assignee_id?: string | null
+          baseline_end_date?: string | null
+          baseline_start_date?: string | null
           created_at?: string | null
           end_date?: string | null
           id?: string
@@ -1222,6 +1458,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          baseline_captured_at: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
@@ -1240,6 +1477,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          baseline_captured_at?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
@@ -1258,6 +1496,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          baseline_captured_at?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null

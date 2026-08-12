@@ -7,7 +7,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format } from 'date-fns';
 import {
   Tooltip,
   TooltipContent,
@@ -17,15 +16,16 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
-import type { Project, ProjectTask, ProjectPhase, SiloType } from '@/types/database';
+import type { Project, ProjectTask, ProjectPhase, SiloType, TaskDependency, ProyectoRiesgo, ProjectMilestone } from '@/types/database';
+import { calculateProjectScheduleVariance, VARIANCE_STATUS_META } from '@/lib/baselineUtils';
+import { ensureProjectMilestones } from '@/lib/milestoneDefaults';
 import { SILO_LABELS } from '@/types/database';
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog';
 import { ProjectPhasesPanel } from '@/components/projects/ProjectPhasesPanel';
 import { ProjectKickoffDialog } from '@/components/projects/ProjectKickoffDialog';
 import { ProjectDocumentsDialog } from '@/components/projects/ProjectDocumentsDialog';
 import { ProjectSummaryDialog } from '@/components/projects/ProjectSummaryDialog';
-import { ModernGantt } from '@/components/projects/ModernGantt';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ProjectScheduleDialog } from '@/components/projects/ProjectScheduleDialog';
 import { ExportPDFDialog } from '@/components/ExportPDFDialog';
 import { exportProjectsPDF } from '@/lib/pdfExport';
 
@@ -56,20 +56,23 @@ function businessDaysBetween(start: Date, end: Date): number {
 export default function Projects() {
   const { hasRole } = useAuth();
   const { toast } = useToast();
-  const [projects, setProjects] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[] })[]>([]);
+  const [projects, setProjects] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[]; scheduleVariance: ReturnType<typeof calculateProjectScheduleVariance> })[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSilo, setFilterSilo] = useState('all');
   const [search, setSearch] = useState('');
-  
+
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [tasksDialogOpen, setTasksDialogOpen] = useState(false);
-  const [ganttDialogOpen, setGanttDialogOpen] = useState(false);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
   const [docsDialogOpen, setDocsDialogOpen] = useState(false);
   const [certificaErpOpen, setCertificaErpOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[] }) | null>(null);
+  const [selectedProject, setSelectedProject] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[]; scheduleVariance: ReturnType<typeof calculateProjectScheduleVariance> }) | null>(null);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
+  const [projectDependencies, setProjectDependencies] = useState<TaskDependency[]>([]);
+  const [projectRisks, setProjectRisks] = useState<ProyectoRiesgo[]>([]);
+  const [projectMilestones, setProjectMilestones] = useState<ProjectMilestone[]>([]);
 
   const canEdit = hasRole('admin') || hasRole('editor') || hasRole('responsable_metodos') || hasRole('viewer');
 
@@ -85,7 +88,7 @@ export default function Projects() {
 
       const { data: tasksData, error: tasksError } = await supabase
         .from('project_tasks')
-        .select('project_id, weight, status, progress_percent');
+        .select('id, project_id, weight, status, progress_percent, start_date, end_date, baseline_start_date, baseline_end_date');
 
       if (tasksError) throw tasksError;
 
@@ -122,8 +125,9 @@ export default function Projects() {
         }
 
         const phases = ((phasesData || []) as ProjectPhase[]).filter(p => p.project_id === project.id);
+        const scheduleVariance = calculateProjectScheduleVariance(projectTasks as unknown as ProjectTask[]);
 
-        return { ...project, actual_progress, planned_progress, phases };
+        return { ...project, actual_progress, planned_progress, phases, scheduleVariance };
       });
 
       setProjects(projectsWithProgress as any);
@@ -134,25 +138,18 @@ export default function Projects() {
     }
   };
 
-  const fetchProjectTasks = async (id: string) => {
+  const fetchProjectTasks = async (id: string, projectDates?: { start_date?: string | null; end_date?: string | null }) => {
     const { data } = await supabase.from('project_tasks').select('*').eq('project_id', id).order('created_at');
     setProjectTasks((data || []) as ProjectTask[]);
-  };
 
-  const handleDateChange = async (task: ProjectTask, start: Date, end: Date) => {
-    const { error } = await supabase
-      .from('project_tasks')
-      .update({ 
-        start_date: format(start, 'yyyy-MM-dd'),
-        end_date: format(end, 'yyyy-MM-dd')
-      })
-      .eq('id', task.id);
-    
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      fetchProjectTasks(task.project_id);
-    }
+    const { data: depsData } = await supabase.from('dependencias').select('*').eq('proyecto_id', id);
+    setProjectDependencies((depsData || []) as TaskDependency[]);
+
+    const { data: risksData } = await supabase.from('riesgos').select('*').eq('proyecto_id', id);
+    setProjectRisks((risksData || []) as ProyectoRiesgo[]);
+
+    const milestones = await ensureProjectMilestones(id, projectDates || {});
+    setProjectMilestones(milestones);
   };
 
   useEffect(() => { fetchProjects(); }, []);
@@ -227,9 +224,9 @@ export default function Projects() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No se encontraron proyectos.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No se encontraron proyectos.</TableCell></TableRow>
               ) : filtered.map(project => {
                 const planned = project.planned_progress as number | null;
                 const actual = project.actual_progress as number | null;
@@ -289,8 +286,23 @@ export default function Projects() {
                     <TableCell className="text-sm">{project.end_date || '-'}</TableCell>
                     <TableCell className="text-center">{planned !== null ? `${planned.toFixed(1)}%` : ND}</TableCell>
                     <TableCell className="text-center">{actual !== null ? `${actual.toFixed(1)}%` : ND}</TableCell>
-                    <TableCell className={`text-center font-bold ${devClass}`}>
-                      {deviation !== null ? `${deviation > 0 ? '+' : ''}${deviation.toFixed(1)}%` : ND}
+                    <TableCell className="text-center font-bold">
+                      {project.scheduleVariance ? (
+                        <span
+                          className={VARIANCE_STATUS_META[project.scheduleVariance.status].cls}
+                          title="Basado en la línea base del cronograma (días de diferencia entre fin planeado y fin proyectado)"
+                        >
+                          {VARIANCE_STATUS_META[project.scheduleVariance.status].icon}{' '}
+                          {project.scheduleVariance.varianceDays > 0 ? '+' : ''}{project.scheduleVariance.varianceDays}d
+                        </span>
+                      ) : deviation !== null ? (
+                        <span
+                          className={devClass}
+                          title="Estimado: % de avance vs. tiempo transcurrido. Guarda una línea base en Cronograma para una medición más precisa (en días)."
+                        >
+                          ~{deviation > 0 ? '+' : ''}{deviation.toFixed(1)}%
+                        </span>
+                      ) : ND}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -302,15 +314,15 @@ export default function Projects() {
                         >
                           <Rocket className="h-4 w-4 text-orange-500" />
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => { 
-                            setSelectedProject(project); 
-                            fetchProjectTasks(project.id);
-                            setGanttDialogOpen(true); 
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedProject(project);
+                            fetchProjectTasks(project.id, { start_date: project.start_date, end_date: project.end_date });
+                            setScheduleDialogOpen(true);
                           }}
-                          title="Vista Gantt"
+                          title="Cronograma (Gantt, ruta crítica, hitos y desvío)"
                         >
                           <CalendarRange className="h-4 w-4 text-purple-600" />
                         </Button>
@@ -368,22 +380,21 @@ export default function Projects() {
       />
 
       {selectedProject && (
-        <Dialog open={ganttDialogOpen} onOpenChange={setGanttDialogOpen}>
-          <DialogContent className="max-w-[95vw] w-[1200px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Gantt del Proyecto: {selectedProject.name}</DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              {projectTasks.length > 0 ? (
-                <ModernGantt tasks={projectTasks} />
-              ) : (
-                <div className="text-center py-20 text-muted-foreground border rounded-lg bg-slate-50">
-                  No hay tareas con fechas definidas para mostrar en el Gantt.
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+        <ProjectScheduleDialog
+          open={scheduleDialogOpen}
+          onOpenChange={setScheduleDialogOpen}
+          projectId={selectedProject.id}
+          projectName={selectedProject.name}
+          tasks={projectTasks}
+          dependencies={projectDependencies}
+          risks={projectRisks}
+          milestones={projectMilestones}
+          baselineCapturedAt={selectedProject.baseline_captured_at}
+          onDataChange={() => {
+            fetchProjectTasks(selectedProject.id, { start_date: selectedProject.start_date, end_date: selectedProject.end_date });
+            fetchProjects();
+          }}
+        />
       )}
 
       {selectedProject && (
@@ -402,6 +413,9 @@ export default function Projects() {
           projectId={selectedProject.id}
           projectName={selectedProject.name}
           projectPhase={selectedProject.phase}
+          projectStartDate={selectedProject.start_date}
+          projectEndDate={selectedProject.end_date}
+          baselineCapturedAt={selectedProject.baseline_captured_at}
           onTasksChange={fetchProjects}
         />
       )}
