@@ -19,7 +19,3 @@ export const PRIORIDAD_COLOR: Record<Prioridad, string> = {
   alta: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
   critica: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
 };
-
-// Sentinel id used in place of a real board UUID to select the cross-board
-// "Asignado a mí" view instead of a specific SeguimientoBoard.
-export const ASSIGNED_TO_ME_ID = '__assigned__';

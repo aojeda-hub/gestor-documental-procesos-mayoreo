@@ -10,10 +10,10 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { 
-  Plus, Calendar, User, Tag, Trash2, Pencil, 
-  AlertCircle, StickyNote, Send, Maximize2, 
-  LayoutGrid, Trello, ChevronLeft 
+import {
+  Plus, Calendar, User, Tag, Trash2, Pencil,
+  AlertCircle, StickyNote, Send, Maximize2,
+  LayoutGrid, Trello, ChevronLeft, Layout,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -24,27 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BoardList } from '@/components/seguimientos/BoardList';
 import { CustomBoardView } from '@/components/seguimientos/CustomBoardView';
 import type { Seguimiento, SeguimientoBoard, SeguimientoColumn } from '@/types/database';
-
-type Estado = 'pendiente' | 'en_revision' | 'en_progreso' | 'completado' | 'cancelado';
-type Prioridad = 'baja' | 'media' | 'alta' | 'critica';
-
-const COLUMNS: { key: Estado; label: string; color: string }[] = [
-  { key: 'pendiente', label: 'Pendiente', color: 'bg-slate-500' },
-  { key: 'en_revision', label: 'En Revisión', color: 'bg-amber-500' },
-  { key: 'en_progreso', label: 'En Progreso', color: 'bg-blue-500' },
-  { key: 'completado', label: 'Completado', color: 'bg-emerald-500' },
-  { key: 'cancelado', label: 'Cancelado', color: 'bg-rose-500' },
-];
-
-const PRIORIDAD_LABEL: Record<Prioridad, string> = {
-  baja: 'Baja', media: 'Media', alta: 'Alta', critica: 'Crítica',
-};
-const PRIORIDAD_COLOR: Record<Prioridad, string> = {
-  baja: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
-  media: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-  alta: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  critica: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-};
+import { COLUMNS, PRIORIDAD_LABEL, PRIORIDAD_COLOR, type Estado, type Prioridad } from '@/lib/seguimientoConstants';
 
 const empty = {
   titulo: '', descripcion: '', estado: 'pendiente' as Estado, prioridad: 'media' as Prioridad,
@@ -66,6 +46,7 @@ export default function Seguimientos() {
   const [newNote, setNewNote] = useState('');
   const [notesLoading, setNotesLoading] = useState(false);
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
+  const [assignedContext, setAssignedContext] = useState<Record<string, { boardName: string | null; ownerName: string }>>({});
   const [cardOpen, setCardOpen] = useState(false);
   const [cardId, setCardId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('general');
@@ -96,10 +77,21 @@ export default function Seguimientos() {
   const load = async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('seguimientos' as any)
-      .select('*')
-      .is('board_id', null)
+
+    // Seguimientos donde me agregaron como colaborador, sin importar el tablero de origen.
+    const { data: memberRows, error: memErr } = await supabase
+      .from('seguimiento_miembros' as any)
+      .select('seguimiento_id')
+      .eq('member_user_id', user.id);
+    if (memErr) toast({ title: 'Error al cargar', description: memErr.message, variant: 'destructive' });
+    const memberIds = ((memberRows as any[]) || []).map(r => r.seguimiento_id as string);
+
+    let query = supabase.from('seguimientos' as any).select('*');
+    query = memberIds.length > 0
+      ? query.or(`board_id.is.null,id.in.(${memberIds.join(',')})`)
+      : query.is('board_id', null);
+
+    const { data, error } = await query
       .order('orden', { ascending: true })
       .order('created_at', { ascending: false });
     if (error) toast({ title: 'Error al cargar', description: error.message, variant: 'destructive' });
@@ -117,6 +109,31 @@ export default function Seguimientos() {
           counts[n.seguimiento_id] = (counts[n.seguimiento_id] || 0) + 1;
         });
         setNoteCounts(counts);
+      }
+
+      // Contexto (tablero + dueño) para tarjetas que no son propias, agregadas por membresía.
+      const foreign = list.filter(s => s.user_id !== user.id);
+      if (foreign.length > 0) {
+        const boardIds = [...new Set(foreign.map(s => s.board_id).filter(Boolean))] as string[];
+        const ownerIds = [...new Set(foreign.map(s => s.user_id))];
+        const [{ data: boardsData }, { data: profilesData }] = await Promise.all([
+          boardIds.length
+            ? supabase.from('seguimiento_boards').select('id, nombre').in('id', boardIds)
+            : Promise.resolve({ data: [] as any[] }),
+          supabase.from('profiles').select('user_id, full_name, email').in('user_id', ownerIds),
+        ]);
+        const boardMap = new Map((boardsData || []).map((b: any) => [b.id, b.nombre]));
+        const profileMap = new Map((profilesData || []).map((p: any) => [p.user_id, p.full_name || p.email]));
+        const ctx: Record<string, { boardName: string | null; ownerName: string }> = {};
+        foreign.forEach(s => {
+          ctx[s.id] = {
+            boardName: s.board_id ? (boardMap.get(s.board_id) || null) : null,
+            ownerName: profileMap.get(s.user_id) || 'otro usuario',
+          };
+        });
+        setAssignedContext(ctx);
+      } else {
+        setAssignedContext({});
       }
     }
     setLoading(false);
@@ -333,6 +350,8 @@ export default function Seguimientos() {
               <div className="space-y-2 flex-1">
                 {grouped[col.key].map(s => {
                   const vencido = s.fecha_limite && new Date(s.fecha_limite) < new Date() && s.estado !== 'completado' && s.estado !== 'cancelado';
+                  const isForeign = s.user_id !== user?.id;
+                  const ctx = assignedContext[s.id];
                   return (
                     <Card
                       key={s.id}
@@ -357,9 +376,11 @@ export default function Seguimientos() {
                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(s)}>
                               <Pencil className="h-3 w-3" />
                             </Button>
-                            <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-400" onClick={() => remove(s.id)}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            {!isForeign && (
+                              <Button size="icon" variant="ghost" className="h-6 w-6 text-rose-400" onClick={() => remove(s.id)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -372,6 +393,12 @@ export default function Seguimientos() {
                         </Badge>
                         {s.categoria && (
                           <Badge variant="outline" className="gap-1"><Tag className="h-2.5 w-2.5" />{s.categoria}</Badge>
+                        )}
+                        {isForeign && ctx && (
+                          <Badge variant="outline" className="gap-1 border-indigo-300 text-indigo-600" title={`Te agregaron como colaborador${ctx.boardName ? ` en el tablero "${ctx.boardName}"` : ''}`}>
+                            <Layout className="h-2.5 w-2.5" />
+                            {ctx.boardName ? ctx.boardName : `De ${ctx.ownerName}`}
+                          </Badge>
                         )}
                       </div>
                       <div className="flex flex-wrap gap-3 mt-2 text-[11px] text-muted-foreground">
