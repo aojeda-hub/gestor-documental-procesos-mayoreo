@@ -547,7 +547,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
               </DropdownMenu>
             </div>
 
-            <div className="space-y-3 flex-1">
+            <div className="space-y-3 flex-1 overflow-y-auto max-h-[560px] pr-1">
               {groupedTasks[col.id]?.map(task => (
                 <div
                   key={task.id}

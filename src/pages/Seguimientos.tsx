@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import {
   Plus, Calendar, User, Tag, Trash2, Pencil,
   AlertCircle, StickyNote, Send, Maximize2,
-  LayoutGrid, Trello, ChevronLeft, Layout,
+  LayoutGrid, Trello, ChevronLeft, Layout, Search, Loader2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -57,6 +57,12 @@ export default function Seguimientos() {
   const [customBoardRefresh, setCustomBoardRefresh] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Seguimiento[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+
   const openCard = (id: string) => { setCardId(id); setCardOpen(true); };
 
   const handleCardChanged = () => {
@@ -84,6 +90,52 @@ export default function Seguimientos() {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  // Buscador predictivo: busca por título/descripción en cualquier seguimiento
+  // al que tengas acceso (propio, de un tablero, o donde te agregaron), sin
+  // importar en qué pestaña o tablero estés parado.
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearchOpen(false);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    const timer = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from('seguimientos' as any)
+        .select('*')
+        .or(`titulo.ilike.%${q}%,descripcion.ilike.%${q}%`)
+        .order('created_at', { ascending: false })
+        .limit(8);
+      if (!error) {
+        setSearchResults((data as any[] as Seguimiento[]) || []);
+        setSearchOpen(true);
+      }
+      setSearchLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Cierra el dropdown de resultados al hacer clic fuera del buscador
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const selectSearchResult = (s: Seguimiento) => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearchOpen(false);
+    openCard(s.id);
+  };
 
   const load = async () => {
     if (!user) return;
@@ -304,6 +356,47 @@ export default function Seguimientos() {
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Seguimientos</h1>
           <p className="text-slate-500 mt-1">Gestión de proyectos, tareas e iniciativas del equipo.</p>
         </div>
+
+        <div ref={searchBoxRef} className="relative w-full sm:w-80">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
+              placeholder="Buscar seguimientos..."
+              className="pl-9 pr-8"
+            />
+            {searchLoading && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 animate-spin" />
+            )}
+          </div>
+          {searchOpen && (
+            <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 border rounded-lg shadow-lg max-h-80 overflow-y-auto">
+              {searchResults.length === 0 ? (
+                <div className="p-3 text-sm text-muted-foreground text-center">Sin resultados</div>
+              ) : (
+                searchResults.map(s => {
+                  const colMeta = COLUMNS.find(c => c.key === s.estado);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => selectSearchResult(s)}
+                      className="w-full text-left px-3 py-2 hover:bg-accent flex items-center gap-2 border-b last:border-b-0"
+                    >
+                      <span className={cn("w-2 h-2 rounded-full shrink-0", colMeta?.color)} />
+                      <span className="flex-1 min-w-0 truncate text-sm font-medium">{s.titulo}</span>
+                      <Badge className={cn("border shrink-0", PRIORIDAD_COLOR[s.prioridad])} variant="outline">
+                        {PRIORIDAD_LABEL[s.prioridad]}
+                      </Badge>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+
         {!(activeTab === 'custom' && selectedBoardId) && (
           <Button 
             onClick={() => openNew()}
@@ -358,7 +451,7 @@ export default function Seguimientos() {
                 </Button>
               </div>
 
-              <div className="space-y-2 flex-1">
+              <div className="space-y-2 flex-1 overflow-y-auto max-h-[560px] pr-1">
                 {grouped[col.key].map(s => {
                   const vencido = s.fecha_limite && new Date(s.fecha_limite) < new Date() && s.estado !== 'completado' && s.estado !== 'cancelado';
                   const isForeign = s.user_id !== user?.id;

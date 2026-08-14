@@ -62,9 +62,9 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
   const [currentBoardId, setCurrentBoardId] = useState<string | null>(null);
   const [currentColId, setCurrentColId] = useState<string | null>(null);
 
-  const loadAll = async () => {
+  const loadAll = async (silent = false) => {
     if (!seguimientoId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const results = await Promise.all([
         supabase.from('seguimientos' as any).select('*').eq('id', seguimientoId).single(),
@@ -131,7 +131,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
       console.error('Error in loadAll:', error);
       toast({ title: 'Error', description: 'No se pudo cargar la información de la tarea', variant: 'destructive' });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -148,13 +148,13 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
     });
     if (error) return notify(error);
     setNewCLTitle('');
-    loadAll();
+    loadAll(true);
   };
   const delChecklist = async (id: string) => {
     if (!confirm('¿Eliminar checklist?')) return;
     const { error } = await supabase.from('seguimiento_checklists' as any).delete().eq('id', id);
     if (error) return notify(error);
-    loadAll();
+    loadAll(true);
   };
   const addItem = async (clId: string) => {
     if (!newItemText.trim()) return;
@@ -165,7 +165,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
     if (error) return notify(error);
     setNewItemText('');
     setNewItemFor(null);
-    loadAll();
+    loadAll(true);
   };
   const toggleItem = async (it: any) => {
     const { error } = await supabase.from('seguimiento_checklist_items' as any)
@@ -200,7 +200,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
       seguimiento_id: seguimientoId, etiqueta_id: etiquetaId,
     });
     if (error) return notify(error);
-    loadAll();
+    loadAll(true);
     refreshOuter();
   };
   const detachLabel = async (itemId: string) => {
@@ -231,7 +231,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
         metadata: { seguimiento_id: seguimientoId },
       });
     }
-    loadAll();
+    loadAll(true);
   };
   const removeMember = async (id: string) => {
     const { error } = await supabase.from('seguimiento_miembros' as any).delete().eq('id', id);
@@ -254,7 +254,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
     if (error) notify(error); else toast({ title: 'Archivo subido' });
     setUploading(false);
     if (fileRef.current) fileRef.current.value = '';
-    loadAll();
+    loadAll(true);
   };
   const addLink = async () => {
     if (!user || !newLink.trim()) return;
@@ -265,7 +265,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
     });
     if (error) return notify(error);
     setNewLink(''); setNewLinkName('');
-    loadAll();
+    loadAll(true);
   };
   const downloadAdj = async (a: any) => {
     if (a.enlace) { window.open(a.enlace, '_blank'); return; }
@@ -290,7 +290,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
     });
     if (error) return notify(error);
     setNewNote('');
-    loadAll();
+    loadAll(true);
 
     // Notificar a miembros del seguimiento + miembros del tablero + dueño (excluyendo al autor)
     try {
@@ -388,7 +388,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
     }).eq('id', seguimientoId);
     if (error) return notify(error);
     toast({ title: 'Seguimiento movido', description: val ? 'Se movió al tablero seleccionado.' : 'Se movió al Tablero General.' });
-    loadAll();
+    loadAll(true);
     refreshOuter();
   };
 
@@ -397,7 +397,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
        column_id: colId
     }).eq('id', seguimientoId);
     if (error) return notify(error);
-    loadAll();
+    loadAll(true);
     refreshOuter();
   };
 
