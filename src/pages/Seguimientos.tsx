@@ -74,6 +74,17 @@ export default function Seguimientos() {
     }
   }, [searchParams, setSearchParams]);
 
+  // Abrir tablero personalizado desde notificación (?board=<id>)
+  useEffect(() => {
+    const boardParam = searchParams.get('board');
+    if (boardParam) {
+      setActiveTab('custom');
+      setSelectedBoardId(boardParam);
+      searchParams.delete('board');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const load = async () => {
     if (!user) return;
     setLoading(true);
@@ -429,17 +440,26 @@ export default function Seguimientos() {
 
         <TabsContent value="custom" className="mt-0 outline-none">
           {selectedBoardId ? (
-            <CustomBoardView 
-              board={boards.find(b => b.id === selectedBoardId)!} 
-              onBack={() => setSelectedBoardId(null)}
-              onOpenTask={openCard}
-              refreshKey={customBoardRefresh}
-            />
+            (() => {
+              const board = boards.find(b => b.id === selectedBoardId);
+              return board ? (
+                <CustomBoardView
+                  board={board}
+                  onBack={() => setSelectedBoardId(null)}
+                  onOpenTask={openCard}
+                  refreshKey={customBoardRefresh}
+                />
+              ) : (
+                <div className="text-center text-slate-400 py-12">
+                  {loadingBoards ? 'Cargando tablero...' : 'No tienes acceso a este tablero o ya no existe.'}
+                </div>
+              );
+            })()
           ) : (
-            <BoardList 
-              boards={boards} 
-              onSelectBoard={setSelectedBoardId} 
-              onRefresh={loadBoards} 
+            <BoardList
+              boards={boards}
+              onSelectBoard={setSelectedBoardId}
+              onRefresh={loadBoards}
             />
           )}
         </TabsContent>

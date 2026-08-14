@@ -227,7 +227,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
         tipo: 'seguimiento_miembro',
         titulo: 'Fuiste agregado a un seguimiento',
         mensaje: `${actorName} te agregó a "${seg?.titulo || 'un seguimiento'}" para colaborar.`,
-        link: '/seguimientos',
+        link: `/seguimientos?card=${seguimientoId}`,
         metadata: { seguimiento_id: seguimientoId },
       });
     }
