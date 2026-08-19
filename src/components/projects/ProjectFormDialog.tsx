@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { SILO_LABELS } from '@/types/database';
-import type { Project, SiloType } from '@/types/database';
+import type { Project, SiloType, ObjetivoEstrategico } from '@/types/database';
 import { ensureProjectChecklist } from '@/lib/phaseGateDefaults';
 
 interface ProjectFormDialogProps {
@@ -40,6 +40,7 @@ const emptyForm = {
   specific_goals: [] as string[],
   responsible: '',
   priority: 'Media',
+  objetivo_estrategico_id: '',
 };
 
 export function ProjectFormDialog({ open, onOpenChange, project, onSave }: ProjectFormDialogProps) {
@@ -47,6 +48,14 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [objetivos, setObjetivos] = useState<ObjetivoEstrategico[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    supabase.from('objetivos_estrategicos').select('*').order('orden').then(({ data }) => {
+      setObjetivos((data || []) as ObjetivoEstrategico[]);
+    });
+  }, [open]);
 
   useEffect(() => {
     if (project) {
@@ -61,6 +70,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
         specific_goals: project.specific_goals || [],
         responsible: project.responsible || '',
         priority: project.priority || 'Media',
+        objetivo_estrategico_id: project.objetivo_estrategico_id || '',
       });
     } else {
       setForm(emptyForm);
@@ -72,7 +82,11 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
   const handleSave = async () => {
     setLoading(true);
     try {
-      const payload = { ...form, specific_goals: form.specific_goals.map(g => g.trim()).filter(Boolean) };
+      const payload = {
+        ...form,
+        specific_goals: form.specific_goals.map(g => g.trim()).filter(Boolean),
+        objetivo_estrategico_id: form.objetivo_estrategico_id || null,
+      };
       let error;
 
       if (project) {
@@ -139,6 +153,18 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Objetivo Estratégico al que impacta *</Label>
+            <Select value={form.objetivo_estrategico_id} onValueChange={v => setField('objetivo_estrategico_id', v)}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar objetivo" /></SelectTrigger>
+              <SelectContent>
+                {objetivos.map(o => (
+                  <SelectItem key={o.id} value={o.id}>{o.nombre}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -244,7 +270,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
 
         </div>
         <div className="px-6 py-3 border-t bg-background">
-          <Button onClick={handleSave} disabled={loading || !form.name} className="w-full">
+          <Button onClick={handleSave} disabled={loading || !form.name || !form.objetivo_estrategico_id} className="w-full">
             {loading ? 'Guardando...' : 'Guardar Proyecto'}
           </Button>
         </div>

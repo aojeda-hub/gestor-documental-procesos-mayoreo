@@ -13,6 +13,7 @@ import BPA from "@/pages/BPA";
 import Desarrollos from "@/pages/Desarrollos";
 import Projects from "@/pages/Projects";
 import Seguimientos from "@/pages/Seguimientos";
+import Skills from "@/pages/Skills";
 import Users from "@/pages/Users";
 import Admin from "@/pages/Admin";
 import NotFound from "./pages/NotFound.tsx";
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/seguimientos" element={<ProtectedRoute><Seguimientos /></ProtectedRoute>} />
             <Route path="/bpa" element={<ProtectedRoute><BPA /></ProtectedRoute>} />
             <Route path="/desarrollos" element={<ProtectedRoute><Desarrollos /></ProtectedRoute>} />
+            <Route path="/skills" element={<ProtectedRoute><Skills /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute><Users /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

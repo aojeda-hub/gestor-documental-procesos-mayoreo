@@ -933,6 +933,33 @@ export type Database = {
         }
         Relationships: []
       }
+      objetivos_estrategicos: {
+        Row: {
+          color: string
+          created_at: string | null
+          id: string
+          nombre: string
+          orden: number
+          pilar: string
+        }
+        Insert: {
+          color: string
+          created_at?: string | null
+          id?: string
+          nombre: string
+          orden?: number
+          pilar: string
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          nombre?: string
+          orden?: number
+          pilar?: string
+        }
+        Relationships: []
+      }
       parametros_configuracion: {
         Row: {
           ciclo: string | null
@@ -1467,6 +1494,7 @@ export type Database = {
           id: string
           kickoff_data: Json | null
           name: string
+          objetivo_estrategico_id: string | null
           phase: string
           planned_progress: number
           priority: string | null
@@ -1486,6 +1514,7 @@ export type Database = {
           id?: string
           kickoff_data?: Json | null
           name: string
+          objetivo_estrategico_id?: string | null
           phase?: string
           planned_progress?: number
           priority?: string | null
@@ -1505,6 +1534,7 @@ export type Database = {
           id?: string
           kickoff_data?: Json | null
           name?: string
+          objetivo_estrategico_id?: string | null
           phase?: string
           planned_progress?: number
           priority?: string | null
@@ -1514,7 +1544,15 @@ export type Database = {
           start_date?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_objetivo_estrategico_id_fkey"
+            columns: ["objetivo_estrategico_id"]
+            isOneToOne: false
+            referencedRelation: "objetivos_estrategicos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proyectos: {
         Row: {

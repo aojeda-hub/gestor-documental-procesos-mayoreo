@@ -187,9 +187,71 @@ export interface Project {
   priority?: string | null;
   kickoff_data?: any | null;
   baseline_captured_at?: string | null;
+  objetivo_estrategico_id?: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export interface ObjetivoEstrategico {
+  id: string;
+  nombre: string;
+  pilar: string;
+  color: string;
+  orden: number;
+  created_at?: string;
+}
+
+export const OBJETIVO_COLOR_CLASSES: Record<string, {
+  dot: string;
+  text: string;
+  iconBg: string;
+  iconText: string;
+  bar: string;
+  barBg: string;
+  ring: string;
+  chipActive: string;
+}> = {
+  green: {
+    dot: 'bg-emerald-500',
+    text: 'text-emerald-700 dark:text-emerald-400',
+    iconBg: 'bg-emerald-100 dark:bg-emerald-500/15',
+    iconText: 'text-emerald-600 dark:text-emerald-400',
+    bar: 'bg-emerald-500',
+    barBg: 'bg-emerald-100 dark:bg-emerald-500/15',
+    ring: 'ring-emerald-300',
+    chipActive: 'bg-emerald-500 text-white border-emerald-500',
+  },
+  orange: {
+    dot: 'bg-orange-500',
+    text: 'text-orange-700 dark:text-orange-400',
+    iconBg: 'bg-orange-100 dark:bg-orange-500/15',
+    iconText: 'text-orange-600 dark:text-orange-400',
+    bar: 'bg-orange-500',
+    barBg: 'bg-orange-100 dark:bg-orange-500/15',
+    ring: 'ring-orange-300',
+    chipActive: 'bg-orange-500 text-white border-orange-500',
+  },
+  blue: {
+    dot: 'bg-blue-500',
+    text: 'text-blue-700 dark:text-blue-400',
+    iconBg: 'bg-blue-100 dark:bg-blue-500/15',
+    iconText: 'text-blue-600 dark:text-blue-400',
+    bar: 'bg-blue-500',
+    barBg: 'bg-blue-100 dark:bg-blue-500/15',
+    ring: 'ring-blue-300',
+    chipActive: 'bg-blue-500 text-white border-blue-500',
+  },
+  purple: {
+    dot: 'bg-purple-500',
+    text: 'text-purple-700 dark:text-purple-400',
+    iconBg: 'bg-purple-100 dark:bg-purple-500/15',
+    iconText: 'text-purple-600 dark:text-purple-400',
+    bar: 'bg-purple-500',
+    barBg: 'bg-purple-100 dark:bg-purple-500/15',
+    ring: 'ring-purple-300',
+    chipActive: 'bg-purple-500 text-white border-purple-500',
+  },
+};
 
 export interface ProjectTask {
   id: string;

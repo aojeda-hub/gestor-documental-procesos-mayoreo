@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Tooltip,
   TooltipContent,
@@ -16,11 +17,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
-import type { Project, ProjectTask, ProjectPhase, SiloType, TaskDependency, ProyectoRiesgo, ProjectMilestone } from '@/types/database';
+import type { Project, ProjectTask, ProjectPhase, SiloType, TaskDependency, ProyectoRiesgo, ProjectMilestone, ObjetivoEstrategico } from '@/types/database';
 import { calculateProjectScheduleVariance, VARIANCE_STATUS_META } from '@/lib/baselineUtils';
 import { ensureProjectMilestones } from '@/lib/milestoneDefaults';
-import { SILO_LABELS } from '@/types/database';
+import { SILO_LABELS, OBJETIVO_COLOR_CLASSES } from '@/types/database';
 import { ProjectFormDialog } from '@/components/projects/ProjectFormDialog';
+import { ProjectObjectiveTimeline } from '@/components/projects/ProjectObjectiveTimeline';
 import { ProjectPhasesPanel } from '@/components/projects/ProjectPhasesPanel';
 import { ProjectKickoffDialog } from '@/components/projects/ProjectKickoffDialog';
 import { ProjectDocumentsDialog } from '@/components/projects/ProjectDocumentsDialog';
@@ -57,6 +59,7 @@ export default function Projects() {
   const { hasRole } = useAuth();
   const { toast } = useToast();
   const [projects, setProjects] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[]; scheduleVariance: ReturnType<typeof calculateProjectScheduleVariance> })[]>([]);
+  const [objetivos, setObjetivos] = useState<ObjetivoEstrategico[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSilo, setFilterSilo] = useState('all');
   const [search, setSearch] = useState('');
@@ -152,7 +155,14 @@ export default function Projects() {
     setProjectMilestones(milestones);
   };
 
-  useEffect(() => { fetchProjects(); }, []);
+  const fetchObjetivos = async () => {
+    const { data } = await supabase.from('objetivos_estrategicos').select('*').order('orden');
+    setObjetivos((data || []) as ObjetivoEstrategico[]);
+  };
+
+  useEffect(() => { fetchProjects(); fetchObjetivos(); }, []);
+
+  const objetivoById = new Map(objetivos.map(o => [o.id, o]));
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('¿Estás seguro de eliminar este proyecto?')) return;
@@ -206,12 +216,24 @@ export default function Projects() {
 
       <CertificaERPDialog open={certificaErpOpen} onOpenChange={setCertificaErpOpen} />
 
+      <Tabs defaultValue="tabla" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="tabla">Tabla</TabsTrigger>
+          <TabsTrigger value="objetivo">Por Objetivo</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="objetivo" className="mt-0">
+          <ProjectObjectiveTimeline projects={projects} objetivos={objetivos} />
+        </TabsContent>
+
+        <TabsContent value="tabla" className="mt-0">
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre del Proyecto</TableHead>
+                <TableHead>Objetivo Estratégico</TableHead>
                 <TableHead>Silo</TableHead>
                 <TableHead>Fases</TableHead>
                 <TableHead>Inicio</TableHead>
@@ -224,10 +246,12 @@ export default function Projects() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No se encontraron proyectos.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No se encontraron proyectos.</TableCell></TableRow>
               ) : filtered.map(project => {
+                const objetivo = project.objetivo_estrategico_id ? objetivoById.get(project.objetivo_estrategico_id) : undefined;
+                const objetivoColors = objetivo ? OBJETIVO_COLOR_CLASSES[objetivo.color] : undefined;
                 const planned = project.planned_progress as number | null;
                 const actual = project.actual_progress as number | null;
                 const hasBoth = planned !== null && actual !== null;
@@ -257,6 +281,16 @@ export default function Projects() {
                       >
                         {project.name}
                       </button>
+                    </TableCell>
+                    <TableCell>
+                      {objetivo ? (
+                        <Badge variant="outline" className={`gap-1.5 ${objetivoColors?.text}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${objetivoColors?.dot}`} />
+                          {objetivo.nombre}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Sin asignar</span>
+                      )}
                     </TableCell>
                     <TableCell><Badge variant="outline">{SILO_LABELS[project.silo]}</Badge></TableCell>
                     <TableCell>
@@ -371,8 +405,10 @@ export default function Projects() {
           </Table>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
 
-      <ProjectFormDialog 
+      <ProjectFormDialog
         open={formDialogOpen} 
         onOpenChange={setFormDialogOpen}
         project={selectedProject}
