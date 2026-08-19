@@ -6,11 +6,19 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Bot, User, Send, Loader2, Wand2, FileText, Download, RotateCcw } from 'lucide-react';
+import {
+  Bot, User, Send, Loader2, Wand2, FileText, Download, RotateCcw,
+  IdCard, Gavel, ListChecks, BookOpen, type LucideIcon,
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
 import { buildCargoDocxBlob, getCompetencias, type CargoData, type NivelCompetencias } from '@/lib/cargoDocx';
+import { buildNormaDocxBlob, type NormaData } from '@/lib/normaDocx';
+import { buildProcedimientoDocxBlob, type ProcedimientoData } from '@/lib/procedimientoDocx';
+import { buildManualDocxBlob, type ManualData } from '@/lib/manualDocx';
+
+type DocType = 'cargo' | 'norma' | 'procedimiento' | 'manual';
 
 interface ChatMessage {
   id: string;
@@ -18,19 +26,41 @@ interface ChatMessage {
   content: string;
 }
 
-const WELCOME: ChatMessage = {
-  id: 'welcome',
-  role: 'assistant',
-  content: '¡Hola! Vamos a construir juntos una Descripción de Cargo siguiendo la plantilla corporativa de Mayoreo. Para empezar, ¿cuál es el nombre del cargo que quieres documentar?',
+const DOC_TYPE_INFO: Record<DocType, { label: string; description: string; icon: LucideIcon }> = {
+  cargo: { label: 'Descripción de Cargo', description: 'Perfil de puesto, 12 secciones corporativas.', icon: IdCard },
+  norma: { label: 'Norma', description: 'Objetivo, responsabilidades y reglas.', icon: Gavel },
+  procedimiento: { label: 'Procedimiento', description: 'Subprocesos con pasos por cargo.', icon: ListChecks },
+  manual: { label: 'Manual', description: 'Guía de uso de una herramienta.', icon: BookOpen },
 };
+
+const WELCOME_MESSAGES: Record<DocType, string> = {
+  cargo: '¡Hola! Vamos a construir juntos una Descripción de Cargo siguiendo la plantilla corporativa de Mayoreo. Para empezar, ¿cuál es el nombre del cargo que quieres documentar?',
+  norma: '¡Hola! Vamos a construir juntos una Norma siguiendo la plantilla corporativa de Mayoreo. Para empezar, ¿sobre qué tema trata la norma que quieres documentar?',
+  procedimiento: '¡Hola! Vamos a construir juntos un Procedimiento siguiendo la plantilla corporativa de Mayoreo. Para empezar, ¿qué proceso quieres documentar?',
+  manual: '¡Hola! Vamos a construir juntos un Manual de usuario siguiendo la plantilla corporativa de Mayoreo. Para empezar, ¿qué herramienta o proceso quieres documentar?',
+};
+
+const FILENAME_PREFIX: Record<DocType, string> = {
+  cargo: 'Descripcion_Cargo',
+  norma: 'Norma',
+  procedimiento: 'Procedimiento',
+  manual: 'Manual',
+};
+
+function welcomeMessage(docType: DocType): ChatMessage {
+  return { id: 'welcome', role: 'assistant', content: WELCOME_MESSAGES[docType] };
+}
+
+function stripJsonFences(raw: string) {
+  return raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+}
 
 function inferNivelCompetencias(nombreCargo: string): NivelCompetencias {
   return /gerente|jefe|director/i.test(nombreCargo) ? 'gerencial' : 'comercial';
 }
 
 function parseCargoData(raw: string): CargoData {
-  const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
-  const parsed = JSON.parse(cleaned);
+  const parsed = JSON.parse(stripJsonFences(raw));
   const nombreCargo = parsed.nombre_cargo || '';
   return {
     nombre_cargo: nombreCargo,
@@ -63,12 +93,70 @@ function parseCargoData(raw: string): CargoData {
   };
 }
 
+function defaultHistorial(parsed: any) {
+  return Array.isArray(parsed.historial) && parsed.historial.length
+    ? parsed.historial
+    : [{ version: '0', fecha: new Date().toLocaleDateString('es-VE'), descripcion: 'Versión Inicial', autor: '', aprobado: '' }];
+}
+
+function defaultDocumentosReferencia(parsed: any) {
+  return Array.isArray(parsed.documentos_referencia) && parsed.documentos_referencia.length
+    ? parsed.documentos_referencia
+    : [{ tipo: 'Glosario', descripcion: 'Glosario en línea' }];
+}
+
+function parseNormaData(raw: string): NormaData {
+  const parsed = JSON.parse(stripJsonFences(raw));
+  return {
+    titulo: parsed.titulo || '',
+    informacion: parsed.informacion || 'Interna',
+    distribucion: parsed.distribucion || '',
+    objetivo: parsed.objetivo || '',
+    responsable_norma: parsed.responsable_norma || '',
+    responsables_cumplimiento: parsed.responsables_cumplimiento || '',
+    reglas: parsed.reglas || [],
+    historial: defaultHistorial(parsed),
+    documentos_referencia: defaultDocumentosReferencia(parsed),
+  };
+}
+
+function parseProcedimientoData(raw: string): ProcedimientoData {
+  const parsed = JSON.parse(stripJsonFences(raw));
+  return {
+    titulo: parsed.titulo || '',
+    informacion: parsed.informacion || 'Restringida',
+    distribucion: parsed.distribucion || '',
+    desarrollo: parsed.desarrollo || '',
+    subprocesos: parsed.subprocesos || [],
+    historial: defaultHistorial(parsed),
+    documentos_referencia: defaultDocumentosReferencia(parsed),
+  };
+}
+
+function parseManualData(raw: string): ManualData {
+  const parsed = JSON.parse(stripJsonFences(raw));
+  return {
+    titulo: parsed.titulo || '',
+    informacion: parsed.informacion || 'Interna',
+    distribucion: parsed.distribucion || '',
+    objetivo: parsed.objetivo || '',
+    glosario: parsed.glosario || [],
+    descripcion_general: parsed.descripcion_general || '',
+    ruta_acceso: parsed.ruta_acceso || '',
+    secciones: parsed.secciones || [],
+    recomendaciones_uso: parsed.recomendaciones_uso || [],
+    historial: defaultHistorial(parsed),
+    documentos_referencia: defaultDocumentosReferencia(parsed),
+  };
+}
+
 export default function Skills() {
   const { toast } = useToast();
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
+  const [docType, setDocType] = useState<DocType>('cargo');
+  const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage('cargo')]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [cargoData, setCargoData] = useState<CargoData | null>(null);
+  const [resultData, setResultData] = useState<CargoData | NormaData | ProcedimientoData | ManualData | null>(null);
   const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -77,11 +165,20 @@ export default function Skills() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
+  const handleDocTypeChange = (next: DocType) => {
+    if (next === docType) return;
+    setDocType(next);
+    setMessages([welcomeMessage(next)]);
+    setResultData(null);
+    setInput('');
+  };
+
   const callAssistant = async (allMessages: ChatMessage[], mode?: 'finalize') => {
     const { data, error } = await supabase.functions.invoke('generate-skill-document', {
       body: {
         messages: allMessages.filter(m => m.id !== 'welcome').map(m => ({ role: m.role, content: m.content })),
         mode,
+        docType,
       },
     });
     if (error) {
@@ -120,8 +217,11 @@ export default function Skills() {
     setGenerating(true);
     try {
       const raw = await callAssistant(messages, 'finalize');
-      const data = parseCargoData(raw);
-      setCargoData(data);
+      const data = docType === 'cargo' ? parseCargoData(raw)
+        : docType === 'norma' ? parseNormaData(raw)
+        : docType === 'procedimiento' ? parseProcedimientoData(raw)
+        : parseManualData(raw);
+      setResultData(data);
       toast({ title: 'Documento generado', description: 'Revisa la vista previa y descarga el Word.' });
     } catch (err: any) {
       toast({ title: 'Error al generar el documento', description: err.message || 'Intenta de nuevo.', variant: 'destructive' });
@@ -131,17 +231,21 @@ export default function Skills() {
   };
 
   const handleReset = () => {
-    setMessages([WELCOME]);
-    setCargoData(null);
+    setMessages([welcomeMessage(docType)]);
+    setResultData(null);
   };
 
   const handleDownload = async () => {
-    if (!cargoData) return;
+    if (!resultData) return;
     setDownloading(true);
     try {
-      const blob = await buildCargoDocxBlob(cargoData);
-      const safeName = (cargoData.nombre_cargo || 'Descripcion_de_Cargo').replace(/\s+/g, '_');
-      saveAs(blob, `Descripcion_Cargo_${safeName}.docx`);
+      const blob = docType === 'cargo' ? await buildCargoDocxBlob(resultData as CargoData)
+        : docType === 'norma' ? await buildNormaDocxBlob(resultData as NormaData)
+        : docType === 'procedimiento' ? await buildProcedimientoDocxBlob(resultData as ProcedimientoData)
+        : await buildManualDocxBlob(resultData as ManualData);
+      const nombre = (resultData as any).nombre_cargo || (resultData as any).titulo || FILENAME_PREFIX[docType];
+      const safeName = String(nombre).replace(/\s+/g, '_');
+      saveAs(blob, `${FILENAME_PREFIX[docType]}_${safeName}.docx`);
     } catch (err: any) {
       toast({ title: 'Error al generar el Word', description: err.message, variant: 'destructive' });
     } finally {
@@ -150,6 +254,8 @@ export default function Skills() {
   };
 
   const userTurns = messages.filter(m => m.role === 'user').length;
+  const activeInfo = DOC_TYPE_INFO[docType];
+  const ActiveIcon = activeInfo.icon;
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] gap-4">
@@ -158,8 +264,33 @@ export default function Skills() {
           <Wand2 className="h-6 w-6 text-indigo-600" /> Skills
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Chat guiado para crear documentos — hoy: Descripción de Cargo / Perfil de Puesto.
+          Chat guiado para crear documentos controlados con la plantilla corporativa de Mayoreo.
         </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {(Object.keys(DOC_TYPE_INFO) as DocType[]).map(key => {
+          const info = DOC_TYPE_INFO[key];
+          const Icon = info.icon;
+          const active = key === docType;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleDocTypeChange(key)}
+              className={cn(
+                'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors',
+                active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-900' : 'border-border hover:bg-muted/50',
+              )}
+            >
+              <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-indigo-600' : 'text-muted-foreground')} />
+              <span>
+                <span className="block font-semibold">{info.label}</span>
+                <span className="block text-muted-foreground">{info.description}</span>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
@@ -167,7 +298,7 @@ export default function Skills() {
         <Card className="flex flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-semibold">
-              <Bot className="h-4 w-4 text-indigo-600" /> Descripción de Cargo
+              <ActiveIcon className="h-4 w-4 text-indigo-600" /> {activeInfo.label}
             </div>
             <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleReset}>
               <RotateCcw className="h-3.5 w-3.5" /> Reiniciar
@@ -224,108 +355,29 @@ export default function Skills() {
         <Card className="flex flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-semibold">
-              <FileText className="h-4 w-4 text-indigo-600" /> Vista Previa — Descripción de Cargo
+              <FileText className="h-4 w-4 text-indigo-600" /> Vista Previa — {activeInfo.label}
             </div>
-            {cargoData && (
+            {resultData && (
               <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleDownload} disabled={downloading}>
                 <Download className="h-3.5 w-3.5" /> {downloading ? 'Generando Word...' : 'Descargar Word (.docx)'}
               </Button>
             )}
           </div>
           <ScrollArea className="flex-1 p-5">
-            {!cargoData ? (
+            {!resultData ? (
               <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground py-20">
                 <FileText className="h-10 w-10 opacity-20 mb-3" />
-                <p className="text-sm">Aquí verás la Descripción de Cargo con la plantilla corporativa de 12 secciones.</p>
+                <p className="text-sm">Aquí verás el documento con la plantilla corporativa de {activeInfo.label.toLowerCase()}.</p>
                 {userTurns < 2 && <p className="text-xs mt-1">Responde algunas preguntas para habilitar "Generar Documento".</p>}
               </div>
+            ) : docType === 'cargo' ? (
+              <CargoPreview data={resultData as CargoData} />
+            ) : docType === 'norma' ? (
+              <NormaPreview data={resultData as NormaData} />
+            ) : docType === 'procedimiento' ? (
+              <ProcedimientoPreview data={resultData as ProcedimientoData} />
             ) : (
-              <div className="space-y-6 text-sm">
-                <h2 className="text-lg font-bold text-center text-indigo-900">DESCRIPCIÓN DE CARGO</h2>
-
-                <PreviewSection title="1. Identificación del Cargo">
-                  <LabelValueRows rows={[
-                    ['Nombre del Cargo', cargoData.nombre_cargo],
-                    ['Departamento', cargoData.departamento],
-                    ['Sección / área', cargoData.seccion_area],
-                    ['Cargo de reporte funcional', cargoData.reporte_funcional],
-                    ['Cargo de reporte disciplinario', cargoData.reporte_disciplinario],
-                  ]} />
-                </PreviewSection>
-
-                <PreviewSection title="2. Dimensiones">
-                  <p className="font-medium text-xs mb-1">Cargos que le reportan al cargo:</p>
-                  <SimpleTable
-                    headers={['Cargos Directos', 'Cantidad', 'Cargos Indirectos', 'Cantidad']}
-                    rows={Array.from({ length: Math.max(cargoData.cargos_directos.length, cargoData.cargos_indirectos.length, 1) }).map((_, i) => [
-                      cargoData.cargos_directos[i]?.cargo || '', cargoData.cargos_directos[i]?.cantidad || '',
-                      cargoData.cargos_indirectos[i]?.cargo || '', cargoData.cargos_indirectos[i]?.cantidad || '',
-                    ])}
-                  />
-                  <div className="mt-2">
-                    <SimpleTable headers={['Financieras', 'No Financieras']} rows={[[cargoData.dimension_financiera, cargoData.dimension_no_financiera]]} />
-                  </div>
-                </PreviewSection>
-
-                <PreviewSection title="3. Finalidad del Cargo">
-                  <p className="text-muted-foreground">{cargoData.finalidad || '—'}</p>
-                </PreviewSection>
-
-                <PreviewSection title="4. Responsabilidades del Cargo">
-                  <SimpleTable
-                    headers={['N°', '¿Qué hace?', '¿Para qué?']}
-                    rows={(cargoData.responsabilidades.length ? cargoData.responsabilidades : [{ que_hace: '', para_que: '' }])
-                      .map((r, i) => [String(i + 1), r.que_hace, r.para_que])}
-                  />
-                </PreviewSection>
-
-                <PreviewSection title="5. Perfil del Cargo">
-                  <LabelValueRows rows={[
-                    ['Formación profesional', cargoData.formacion_profesional],
-                    ['Estudios de postgrado', cargoData.estudios_postgrado],
-                    ['Conocimientos Específicos', cargoData.conocimientos_especificos],
-                    ['Idiomas', cargoData.idiomas],
-                    ['Experiencia', cargoData.experiencia],
-                  ]} />
-                </PreviewSection>
-
-                <PreviewSection title="6. Relaciones Internas y Externas">
-                  <p className="font-medium text-xs mb-1">Internamente</p>
-                  <SimpleTable headers={['¿Con quién?', '¿Para qué?']} rows={(cargoData.relaciones_internas.length ? cargoData.relaciones_internas : [{ con_quien: '', para_que: '' }]).map(r => [r.con_quien, r.para_que])} />
-                  <p className="font-medium text-xs mb-1 mt-3">Externamente</p>
-                  <SimpleTable headers={['¿Con quién?', '¿Para qué?']} rows={(cargoData.relaciones_externas.length ? cargoData.relaciones_externas : [{ con_quien: '', para_que: '' }]).map(r => [r.con_quien, r.para_que])} />
-                </PreviewSection>
-
-                <PreviewSection title="7. Naturaleza de la Responsabilidad">
-                  <SimpleTable headers={['Decisiones', 'Propuestas']} rows={[[cargoData.decisiones, cargoData.propuestas]]} />
-                </PreviewSection>
-
-                <PreviewSection title="8. Indicadores">
-                  <SimpleTable
-                    headers={['Macroproceso', 'Proceso', 'Indicador']}
-                    rows={(cargoData.indicadores.length ? cargoData.indicadores : [{ macroproceso: '', proceso: '', indicador: '' }])
-                      .map(i => [i.macroproceso, i.proceso, i.indicador])}
-                  />
-                </PreviewSection>
-
-                <PreviewSection title={`9. Competencias (fijas — ${cargoData.nivel_competencias === 'gerencial' ? 'gerenciales' : 'comerciales'})`}>
-                  <SimpleTable headers={['Competencia', 'Descriptor']} rows={getCompetencias(cargoData.nivel_competencias).map(c => [c.nombre, c.descriptor])} />
-                </PreviewSection>
-
-                <PreviewSection title="10. Condiciones de Trabajo">
-                  <p className="text-muted-foreground">{cargoData.condiciones_trabajo || '—'}</p>
-                </PreviewSection>
-
-                <PreviewSection title="11. Medidas de Seguridad a Observar">
-                  <p className="text-muted-foreground">{cargoData.medidas_seguridad || '—'}</p>
-                </PreviewSection>
-
-                <PreviewSection title="12. Otros Roles">
-                  <p className="text-muted-foreground">{cargoData.otros_roles || '—'}</p>
-                  <p className="font-medium text-xs mt-3 mb-1">Documentos de Referencia</p>
-                  <SimpleTable headers={['Tipo de Documento', 'Descripción']} rows={[['Glosario', 'Glosario en línea']]} />
-                </PreviewSection>
-              </div>
+              <ManualPreview data={resultData as ManualData} />
             )}
           </ScrollArea>
         </Card>
@@ -369,6 +421,278 @@ function SimpleTable({ headers, rows }: { headers: string[]; rows: string[][] })
           ))}
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+function DocMetaPreview({ informacion, tipo, distribucion }: { informacion: string; tipo: string; distribucion: string }) {
+  return (
+    <LabelValueRows rows={[
+      ['Información', informacion],
+      ['Tipo de Documento', tipo],
+      ['Distribución', distribucion],
+    ]} />
+  );
+}
+
+function ControlCambiosPreview({ historial }: { historial: { version: string; fecha: string; descripcion: string; autor: string; aprobado: string }[] }) {
+  return (
+    <SimpleTable
+      headers={['Versión', 'Fecha', 'Descripción del cambio', 'Autor & CO-Autor', 'Aprobado por']}
+      rows={historial.map(h => [h.version, h.fecha, h.descripcion, h.autor, h.aprobado])}
+    />
+  );
+}
+
+function DocumentosReferenciaPreview({ rows }: { rows: { tipo: string; descripcion: string }[] }) {
+  return <SimpleTable headers={['Tipo de Documento', 'Descripción']} rows={rows.map(r => [r.tipo, r.descripcion])} />;
+}
+
+function CargoPreview({ data }: { data: CargoData }) {
+  return (
+    <div className="space-y-6 text-sm">
+      <h2 className="text-lg font-bold text-center text-indigo-900">DESCRIPCIÓN DE CARGO</h2>
+
+      <PreviewSection title="1. Identificación del Cargo">
+        <LabelValueRows rows={[
+          ['Nombre del Cargo', data.nombre_cargo],
+          ['Departamento', data.departamento],
+          ['Sección / área', data.seccion_area],
+          ['Cargo de reporte funcional', data.reporte_funcional],
+          ['Cargo de reporte disciplinario', data.reporte_disciplinario],
+        ]} />
+      </PreviewSection>
+
+      <PreviewSection title="2. Dimensiones">
+        <p className="font-medium text-xs mb-1">Cargos que le reportan al cargo:</p>
+        <SimpleTable
+          headers={['Cargos Directos', 'Cantidad', 'Cargos Indirectos', 'Cantidad']}
+          rows={Array.from({ length: Math.max(data.cargos_directos.length, data.cargos_indirectos.length, 1) }).map((_, i) => [
+            data.cargos_directos[i]?.cargo || '', data.cargos_directos[i]?.cantidad || '',
+            data.cargos_indirectos[i]?.cargo || '', data.cargos_indirectos[i]?.cantidad || '',
+          ])}
+        />
+        <div className="mt-2">
+          <SimpleTable headers={['Financieras', 'No Financieras']} rows={[[data.dimension_financiera, data.dimension_no_financiera]]} />
+        </div>
+      </PreviewSection>
+
+      <PreviewSection title="3. Finalidad del Cargo">
+        <p className="text-muted-foreground">{data.finalidad || '—'}</p>
+      </PreviewSection>
+
+      <PreviewSection title="4. Responsabilidades del Cargo">
+        <SimpleTable
+          headers={['N°', '¿Qué hace?', '¿Para qué?']}
+          rows={(data.responsabilidades.length ? data.responsabilidades : [{ que_hace: '', para_que: '' }])
+            .map((r, i) => [String(i + 1), r.que_hace, r.para_que])}
+        />
+      </PreviewSection>
+
+      <PreviewSection title="5. Perfil del Cargo">
+        <LabelValueRows rows={[
+          ['Formación profesional', data.formacion_profesional],
+          ['Estudios de postgrado', data.estudios_postgrado],
+          ['Conocimientos Específicos', data.conocimientos_especificos],
+          ['Idiomas', data.idiomas],
+          ['Experiencia', data.experiencia],
+        ]} />
+      </PreviewSection>
+
+      <PreviewSection title="6. Relaciones Internas y Externas">
+        <p className="font-medium text-xs mb-1">Internamente</p>
+        <SimpleTable headers={['¿Con quién?', '¿Para qué?']} rows={(data.relaciones_internas.length ? data.relaciones_internas : [{ con_quien: '', para_que: '' }]).map(r => [r.con_quien, r.para_que])} />
+        <p className="font-medium text-xs mb-1 mt-3">Externamente</p>
+        <SimpleTable headers={['¿Con quién?', '¿Para qué?']} rows={(data.relaciones_externas.length ? data.relaciones_externas : [{ con_quien: '', para_que: '' }]).map(r => [r.con_quien, r.para_que])} />
+      </PreviewSection>
+
+      <PreviewSection title="7. Naturaleza de la Responsabilidad">
+        <SimpleTable headers={['Decisiones', 'Propuestas']} rows={[[data.decisiones, data.propuestas]]} />
+      </PreviewSection>
+
+      <PreviewSection title="8. Indicadores">
+        <SimpleTable
+          headers={['Macroproceso', 'Proceso', 'Indicador']}
+          rows={(data.indicadores.length ? data.indicadores : [{ macroproceso: '', proceso: '', indicador: '' }])
+            .map(i => [i.macroproceso, i.proceso, i.indicador])}
+        />
+      </PreviewSection>
+
+      <PreviewSection title={`9. Competencias (fijas — ${data.nivel_competencias === 'gerencial' ? 'gerenciales' : 'comerciales'})`}>
+        <SimpleTable headers={['Competencia', 'Descriptor']} rows={getCompetencias(data.nivel_competencias).map(c => [c.nombre, c.descriptor])} />
+      </PreviewSection>
+
+      <PreviewSection title="10. Condiciones de Trabajo">
+        <p className="text-muted-foreground">{data.condiciones_trabajo || '—'}</p>
+      </PreviewSection>
+
+      <PreviewSection title="11. Medidas de Seguridad a Observar">
+        <p className="text-muted-foreground">{data.medidas_seguridad || '—'}</p>
+      </PreviewSection>
+
+      <PreviewSection title="12. Otros Roles">
+        <p className="text-muted-foreground">{data.otros_roles || '—'}</p>
+        <p className="font-medium text-xs mt-3 mb-1">Documentos de Referencia</p>
+        <SimpleTable headers={['Tipo de Documento', 'Descripción']} rows={[['Glosario', 'Glosario en línea']]} />
+      </PreviewSection>
+    </div>
+  );
+}
+
+function NormaPreview({ data }: { data: NormaData }) {
+  return (
+    <div className="space-y-6 text-sm">
+      <h2 className="text-lg font-bold text-center text-indigo-900">{data.titulo || 'NORMA'}</h2>
+
+      <PreviewSection title="Encabezado">
+        <DocMetaPreview informacion={data.informacion} tipo="Norma" distribucion={data.distribucion} />
+      </PreviewSection>
+
+      <PreviewSection title="Control de cambios del documento">
+        <ControlCambiosPreview historial={data.historial} />
+      </PreviewSection>
+
+      <PreviewSection title="Objetivo">
+        <p className="text-muted-foreground">{data.objetivo || '—'}</p>
+      </PreviewSection>
+
+      <PreviewSection title="Responsabilidades">
+        <LabelValueRows rows={[
+          ['Norma', data.responsable_norma],
+          ['Cumplimiento', data.responsables_cumplimiento],
+        ]} />
+      </PreviewSection>
+
+      <PreviewSection title="Reglas">
+        <div className="space-y-3">
+          {(data.reglas.length ? data.reglas : [{ titulo: '', items: [] }]).map((grupo, i) => (
+            <div key={i}>
+              <p className="font-semibold">{i + 1}. {grupo.titulo || '—'}</p>
+              <ul className="mt-1 space-y-1 pl-4">
+                {(grupo.items.length ? grupo.items : ['—']).map((item, j) => (
+                  <li key={j} className="text-muted-foreground">{i + 1}.{j + 1}. {item}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </PreviewSection>
+
+      <PreviewSection title="Documentos de Referencia">
+        <DocumentosReferenciaPreview rows={data.documentos_referencia} />
+      </PreviewSection>
+    </div>
+  );
+}
+
+function ProcedimientoPreview({ data }: { data: ProcedimientoData }) {
+  return (
+    <div className="space-y-6 text-sm">
+      <h2 className="text-lg font-bold text-center text-indigo-900">{data.titulo || 'PROCEDIMIENTO'}</h2>
+
+      <PreviewSection title="Encabezado">
+        <DocMetaPreview informacion={data.informacion} tipo="Procedimiento" distribucion={data.distribucion} />
+      </PreviewSection>
+
+      <PreviewSection title="Control de cambios del documento">
+        <ControlCambiosPreview historial={data.historial} />
+      </PreviewSection>
+
+      <PreviewSection title="Desarrollo">
+        <p className="text-muted-foreground">{data.desarrollo || '—'}</p>
+      </PreviewSection>
+
+      <PreviewSection title="Procedimiento">
+        <div className="space-y-4">
+          {(data.subprocesos.length ? data.subprocesos : [{ titulo: '', filas: [] }]).map((sp, i) => {
+            let counter = 1;
+            const rows = (sp.filas.length ? sp.filas : [{ cargo: '', pasos: [''] }]).map(fila => {
+              const numbered = (fila.pasos.length ? fila.pasos : ['']).map(p => `${counter++}. ${p}`).join('\n');
+              return [fila.cargo, numbered];
+            });
+            return (
+              <div key={i}>
+                <p className="font-semibold mb-1">{i + 1}. Subproceso: {sp.titulo || '—'}</p>
+                <div className="border rounded-md overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow><TableHead className="text-xs font-bold w-1/3">Cargo</TableHead><TableHead className="text-xs font-bold">Pasos</TableHead></TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rows.map((row, ri) => (
+                        <TableRow key={ri}>
+                          <TableCell className="text-xs font-medium align-top">{row[0] || '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-pre-line">{row[1] || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </PreviewSection>
+
+      <PreviewSection title="Documentos de Referencia">
+        <DocumentosReferenciaPreview rows={data.documentos_referencia} />
+      </PreviewSection>
+    </div>
+  );
+}
+
+function ManualPreview({ data }: { data: ManualData }) {
+  return (
+    <div className="space-y-6 text-sm">
+      <h2 className="text-lg font-bold text-center text-indigo-900">{data.titulo || 'MANUAL'}</h2>
+
+      <PreviewSection title="Encabezado">
+        <DocMetaPreview informacion={data.informacion} tipo="Manual" distribucion={data.distribucion} />
+      </PreviewSection>
+
+      <PreviewSection title="Control de cambios del documento">
+        <ControlCambiosPreview historial={data.historial} />
+      </PreviewSection>
+
+      <PreviewSection title="Objetivo">
+        <p className="text-muted-foreground">{data.objetivo || '—'}</p>
+      </PreviewSection>
+
+      <PreviewSection title="Glosario de términos clave">
+        <ul className="space-y-1">
+          {(data.glosario.length ? data.glosario : [{ termino: '', definicion: '' }]).map((g, i) => (
+            <li key={i}><span className="font-semibold">{g.termino || '—'}:</span> <span className="text-muted-foreground">{g.definicion}</span></li>
+          ))}
+        </ul>
+      </PreviewSection>
+
+      <PreviewSection title={data.titulo || 'Descripción de la herramienta'}>
+        <p className="text-muted-foreground">{data.descripcion_general || '—'}</p>
+        {data.ruta_acceso && <p className="mt-2"><span className="font-semibold">Ruta de acceso:</span> {data.ruta_acceso}</p>}
+      </PreviewSection>
+
+      {(data.secciones.length ? data.secciones : [{ titulo: '', funcionalidades: [] }]).map((seccion, i) => (
+        <PreviewSection key={i} title={seccion.titulo || '—'}>
+          <ol className="space-y-2 list-decimal list-inside">
+            {(seccion.funcionalidades.length ? seccion.funcionalidades : [{ titulo: '', descripcion: '' }]).map((f, j) => (
+              <li key={j}>
+                <span className="font-semibold">{f.titulo}</span>
+                <p className="text-muted-foreground pl-4">{f.descripcion}</p>
+              </li>
+            ))}
+          </ol>
+        </PreviewSection>
+      ))}
+
+      <PreviewSection title="Recomendaciones de uso">
+        <ol className="space-y-1 list-decimal list-inside text-muted-foreground">
+          {(data.recomendaciones_uso.length ? data.recomendaciones_uso : ['—']).map((r, i) => <li key={i}>{r}</li>)}
+        </ol>
+      </PreviewSection>
+
+      <PreviewSection title="Documentos de Referencia">
+        <DocumentosReferenciaPreview rows={data.documentos_referencia} />
+      </PreviewSection>
     </div>
   );
 }
