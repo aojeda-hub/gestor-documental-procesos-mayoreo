@@ -1041,8 +1041,15 @@ function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; 
       const { error } = await supabase.from("test_scripts").delete().eq("id", id);
       if (error) throw error;
       toast.success("Script eliminado");
-      if (selectedScript === id) setSelectedScript(null);
-      await qc.invalidateQueries({ queryKey: ["cert-scripts", proyectoId] });
+
+      // Actualiza la caché local al instante en vez de esperar el refetch:
+      // así los scripts que no se eliminaron nunca desaparecen de pantalla
+      // mientras llega la respuesta del servidor.
+      const remaining = (qc.getQueryData<ScriptRow[]>(["cert-scripts", proyectoId]) ?? []).filter((s) => s.id !== id);
+      qc.setQueryData(["cert-scripts", proyectoId], remaining);
+      if (selectedScript === id) setSelectedScript(remaining[0]?.id ?? null);
+
+      qc.invalidateQueries({ queryKey: ["cert-scripts", proyectoId] });
     } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
   };
 

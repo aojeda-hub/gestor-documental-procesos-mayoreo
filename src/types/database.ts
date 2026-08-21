@@ -382,7 +382,7 @@ export const SILO_LABELS: Record<SiloType, string> = {
   mercadeo: 'Mercadeo',
   sistemas: 'Sistemas',
   procesos: 'Procesos',
-  datos_maestros: 'Datos Maestros',
+  datos_maestros: 'Integridad de Datos',
   sinsilo: 'Sin Silo',
 };
 
