@@ -1767,9 +1767,19 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
   const cambiarEstado = async (nuevo: Estado) => {
     if (!inc || nuevo === inc.estado) return;
     setUpdating(true);
-    const { error } = await supabase.from("incidencias").update({ estado: nuevo }).eq("id", inc.id);
+    const { data, error } = await supabase.from("incidencias").update({ estado: nuevo }).eq("id", inc.id).select("id");
     setUpdating(false);
     if (error) { toast.error(error.message); return; }
+    if (!data || data.length === 0) {
+      // El permiso de la base de datos (RLS) rechazó el cambio sin devolver un
+      // error explícito — sucede si el usuario no es el creador, un admin, ni
+      // coincide con el "Responsable" de la incidencia. Sin esta verificación
+      // se mostraba un falso "Estado actualizado" y el valor volvía solo al
+      // refrescar, generando la sensación de que el cambio no se guardó.
+      toast.error("No tienes permiso para cambiar el estado de esta incidencia.");
+      qc.invalidateQueries({ queryKey: ["cert-incidencia", id] });
+      return;
+    }
     toast.success(`Estado: ${ESTADO_LABEL[nuevo]}`);
 
     // Refleja el cambio de inmediato en esta vista y en el listado del proyecto
