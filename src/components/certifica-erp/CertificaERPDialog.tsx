@@ -1771,7 +1771,21 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     setUpdating(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`Estado: ${ESTADO_LABEL[nuevo]}`);
+
+    // Refleja el cambio de inmediato en esta vista y en el listado del proyecto
+    // (antes solo se invalidaba "cert-incidencia": el detalle se veía correcto,
+    // pero al volver a la lista de incidencias el estado seguía mostrando el
+    // valor anterior hasta que venciera el staleTime, dando la impresión de
+    // que el cambio nunca se guardó).
+    qc.setQueryData<Inc | undefined>(["cert-incidencia", id], (prev) => prev ? { ...prev, estado: nuevo } : prev);
     qc.invalidateQueries({ queryKey: ["cert-incidencia", id] });
+    if (inc.proyecto_id) {
+      qc.setQueryData<(IncRow & { test_caso_id: string | null })[] | undefined>(
+        ["cert-proyecto-incidencias", inc.proyecto_id],
+        (prev) => prev?.map((r) => (r.id === inc.id ? { ...r, estado: nuevo } : r)),
+      );
+      qc.invalidateQueries({ queryKey: ["cert-proyecto-incidencias", inc.proyecto_id] });
+    }
   };
 
   const eliminarAdjunto = async (img: Img) => {
