@@ -719,6 +719,7 @@ export type Database = {
           prioridad: Database["public"]["Enums"]["incidencia_prioridad"]
           proyecto_id: string | null
           responsable: string | null
+          responsable_funcional: string | null
           sistema_nombre: string | null
           test_caso_id: string | null
           titulo: string
@@ -740,6 +741,7 @@ export type Database = {
           prioridad?: Database["public"]["Enums"]["incidencia_prioridad"]
           proyecto_id?: string | null
           responsable?: string | null
+          responsable_funcional?: string | null
           sistema_nombre?: string | null
           test_caso_id?: string | null
           titulo: string
@@ -761,6 +763,7 @@ export type Database = {
           prioridad?: Database["public"]["Enums"]["incidencia_prioridad"]
           proyecto_id?: string | null
           responsable?: string | null
+          responsable_funcional?: string | null
           sistema_nombre?: string | null
           test_caso_id?: string | null
           titulo?: string
@@ -2368,6 +2371,10 @@ export type Database = {
       is_seguimiento_member: {
         Args: { _seguimiento_id: string; _user_id: string }
         Returns: boolean
+      }
+      list_user_directory: {
+        Args: Record<PropertyKey, never>
+        Returns: { full_name: string; user_id: string }[]
       }
       obtener_documentos_por_nodo: {
         Args: { p_id_nodo: number; p_tipo_nodo: string }

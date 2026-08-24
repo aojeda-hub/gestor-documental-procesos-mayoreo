@@ -45,6 +45,43 @@ const queryClient = new QueryClient({
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
+/* ============================ DIRECTORIO DE RESPONSABLES ============================ */
+type UserDirectoryEntry = { user_id: string; full_name: string };
+const SIN_ASIGNAR = "__sin_asignar__";
+
+function useResponsablesDirectory() {
+  return useQuery({
+    queryKey: ["cert-user-directory"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("list_user_directory");
+      if (error) throw error;
+      return (data ?? []) as UserDirectoryEntry[];
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+function ResponsableSelect({ label, required, value, onChange, directory }: {
+  label: string;
+  required?: boolean;
+  value: string;
+  onChange: (v: string) => void;
+  directory: UserDirectoryEntry[];
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}{required ? " *" : ""}</Label>
+      <Select value={value} onValueChange={(v) => onChange(v === SIN_ASIGNAR ? "" : v)}>
+        <SelectTrigger><SelectValue placeholder="Selecciona un responsable" /></SelectTrigger>
+        <SelectContent>
+          {!required && <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>}
+          {directory.map((u) => <SelectItem key={u.user_id} value={u.full_name}>{u.full_name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 interface Props { open: boolean; onOpenChange: (v: boolean) => void; }
 
 export function CertificaERPDialog({ open, onOpenChange }: Props) {
@@ -730,7 +767,7 @@ function IncidenciaFormDialog({
   testCasoId?: string | null;
   initial?: Partial<{
     id: string; titulo: string; descripcion: string; sistema_nombre: string;
-    modulo: string; prioridad: Prioridad; responsable: string;
+    modulo: string; prioridad: Prioridad; responsable: string; responsable_funcional: string;
     codigo_transaccion: string; nombre_transaccion: string;
     fecha_ocurrencia: string; fecha: string;
   }>;
@@ -739,6 +776,7 @@ function IncidenciaFormDialog({
 }) {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { data: directory } = useResponsablesDirectory();
   const today = new Date().toISOString().slice(0, 10);
   const [submitting, setSubmitting] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -748,7 +786,7 @@ function IncidenciaFormDialog({
   const [obsLoading, setObsLoading] = useState(false);
   const [form, setForm] = useState({
     titulo: "", descripcion: "", sistema_nombre: "",
-    modulo: "", prioridad: "media" as Prioridad, responsable: "",
+    modulo: "", prioridad: "media" as Prioridad, responsable: "", responsable_funcional: "",
     codigo_transaccion: "", nombre_transaccion: "",
     fecha_ocurrencia: today, fecha: today,
   });
@@ -803,7 +841,7 @@ function IncidenciaFormDialog({
 
       (async () => {
         const { data } = await supabase.from("incidencias")
-          .select("titulo, descripcion, sistema_nombre, modulo, prioridad, responsable, codigo_transaccion, nombre_transaccion, fecha_ocurrencia, fecha")
+          .select("titulo, descripcion, sistema_nombre, modulo, prioridad, responsable, responsable_funcional, codigo_transaccion, nombre_transaccion, fecha_ocurrencia, fecha")
           .eq("id", initial.id).maybeSingle();
         if (data) {
           setForm({
@@ -813,6 +851,7 @@ function IncidenciaFormDialog({
             modulo: (data.modulo as string) ?? "",
             prioridad: (data.prioridad as Prioridad) ?? "media",
             responsable: data.responsable ?? "",
+            responsable_funcional: (data as { responsable_funcional?: string | null }).responsable_funcional ?? "",
             codigo_transaccion: data.codigo_transaccion ?? "",
             nombre_transaccion: data.nombre_transaccion ?? "",
             fecha_ocurrencia: (data.fecha_ocurrencia as string) ?? today,
@@ -827,6 +866,7 @@ function IncidenciaFormDialog({
         descripcion: initial?.descripcion ?? "",
         sistema_nombre: initial?.sistema_nombre ?? "",
         responsable: initial?.responsable ?? "",
+        responsable_funcional: initial?.responsable_funcional ?? "",
       }));
     }
   }, [open, mode, initial?.id]);
@@ -836,7 +876,7 @@ function IncidenciaFormDialog({
     if (form.titulo.trim().length < 3) { toast.error("Título mínimo 3 caracteres"); return; }
     if (form.descripcion.trim().length < 5) { toast.error("Descripción mínimo 5 caracteres"); return; }
     if (form.sistema_nombre.trim().length < 2) { toast.error("Indica el sistema"); return; }
-    if (form.responsable.trim().length < 2) { toast.error("Indica el responsable"); return; }
+    if (form.responsable.trim().length < 2) { toast.error("Indica el responsable técnico"); return; }
     setSubmitting(true);
     try {
       const payload = {
@@ -846,6 +886,7 @@ function IncidenciaFormDialog({
         modulo: form.modulo,
         prioridad: form.prioridad,
         responsable: form.responsable.trim(),
+        responsable_funcional: form.responsable_funcional.trim() || null,
         codigo_transaccion: form.codigo_transaccion.trim() || null,
         nombre_transaccion: form.nombre_transaccion.trim() || null,
         fecha_ocurrencia: form.fecha_ocurrencia,
@@ -910,8 +951,11 @@ function IncidenciaFormDialog({
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-2"><Label>Responsable *</Label><Input value={form.responsable} onChange={(e) => setForm({ ...form, responsable: e.target.value })} /></div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <ResponsableSelect label="Responsable Técnico" required value={form.responsable} onChange={(v) => setForm({ ...form, responsable: v })} directory={directory ?? []} />
+            <ResponsableSelect label="Responsable Funcional" value={form.responsable_funcional} onChange={(v) => setForm({ ...form, responsable_funcional: v })} directory={directory ?? []} />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2"><Label>Fecha ocurrencia *</Label><Input type="date" value={form.fecha_ocurrencia} onChange={(e) => setForm({ ...form, fecha_ocurrencia: e.target.value })} /></div>
             <div className="space-y-2"><Label>Fecha registro *</Label><Input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} /></div>
           </div>
@@ -1448,14 +1492,16 @@ function CasoRowEditor({ caso }: { caso: CasoRow }) {
 type Inc = {
   id: string; numero: number; titulo: string; descripcion: string; modulo: string | null;
   prioridad: Prioridad; estado: Estado; fecha: string; codigo_transaccion: string | null;
-  nombre_transaccion: string | null; responsable: string | null; fecha_ocurrencia: string | null;
+  nombre_transaccion: string | null; responsable: string | null; responsable_funcional: string | null;
+  fecha_ocurrencia: string | null;
   fecha_completado: string | null; created_at: string; updated_at: string;
   proyecto_id: string | null;
 };
 type Img = { id: string; storage_path: string; nombre_original: string | null; orden: number; signed_url: string };
 type EditForm = {
   titulo: string; descripcion: string; modulo: string; prioridad: Prioridad; fecha: string;
-  codigo_transaccion: string; nombre_transaccion: string; responsable: string; fecha_ocurrencia: string;
+  codigo_transaccion: string; nombre_transaccion: string; responsable: string; responsable_funcional: string;
+  fecha_ocurrencia: string;
 };
 
 function attachmentName(file: Img): string {
@@ -1630,6 +1676,7 @@ function PdfAttachmentPreview({ file, blob }: { file: Img; blob: Blob }) {
 function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { data: directory } = useResponsablesDirectory();
   const [nuevaObs, setNuevaObs] = useState("");
   const [savingObs, setSavingObs] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -1649,7 +1696,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     queryKey: ["cert-incidencia", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("incidencias")
-        .select("id, numero, titulo, descripcion, modulo, prioridad, estado, fecha, codigo_transaccion, nombre_transaccion, responsable, fecha_ocurrencia, fecha_completado, created_at, updated_at, proyecto_id")
+        .select("id, numero, titulo, descripcion, modulo, prioridad, estado, fecha, codigo_transaccion, nombre_transaccion, responsable, responsable_funcional, fecha_ocurrencia, fecha_completado, created_at, updated_at, proyecto_id")
         .eq("id", id).maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("No encontrada");
@@ -1759,6 +1806,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
         titulo: inc.titulo, descripcion: inc.descripcion, modulo: inc.modulo ?? "", prioridad: inc.prioridad,
         fecha: inc.fecha, codigo_transaccion: inc.codigo_transaccion ?? "",
         nombre_transaccion: inc.nombre_transaccion ?? "", responsable: inc.responsable ?? "",
+        responsable_funcional: inc.responsable_funcional ?? "",
         fecha_ocurrencia: inc.fecha_ocurrencia ?? inc.fecha,
       });
     }
@@ -1838,7 +1886,9 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
       modulo: form.modulo, prioridad: form.prioridad, fecha: form.fecha,
       codigo_transaccion: form.codigo_transaccion.trim() || null,
       nombre_transaccion: form.nombre_transaccion.trim() || null,
-      responsable: form.responsable.trim() || null, fecha_ocurrencia: form.fecha_ocurrencia,
+      responsable: form.responsable.trim() || null,
+      responsable_funcional: form.responsable_funcional.trim() || null,
+      fecha_ocurrencia: form.fecha_ocurrencia,
     }).eq("id", inc.id);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
@@ -1916,7 +1966,10 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
                 <div className="space-y-2"><Label>Código transacción</Label><Input value={form.codigo_transaccion} onChange={(e) => setForm({ ...form, codigo_transaccion: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Nombre transacción</Label><Input value={form.nombre_transaccion} onChange={(e) => setForm({ ...form, nombre_transaccion: e.target.value })} /></div>
               </div>
-              <div className="space-y-2"><Label>Responsable</Label><Input value={form.responsable} onChange={(e) => setForm({ ...form, responsable: e.target.value })} /></div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <ResponsableSelect label="Responsable Técnico" required value={form.responsable} onChange={(v) => setForm({ ...form, responsable: v })} directory={directory ?? []} />
+                <ResponsableSelect label="Responsable Funcional" value={form.responsable_funcional} onChange={(v) => setForm({ ...form, responsable_funcional: v })} directory={directory ?? []} />
+              </div>
             </Card>
           ) : (
             <Card className="p-6">
@@ -2060,7 +2113,8 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
             <Card className="space-y-3 p-6">
               <Detail label="Prioridad" icon={<Tag className="h-4 w-4" />}><span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${PRIORIDAD_STYLES[inc.prioridad]}`}>{PRIORIDAD_LABEL[inc.prioridad]}</span></Detail>
               <Detail label="Sección" icon={<Tag className="h-4 w-4" />}><span className="text-sm font-medium">{inc.modulo || '—'}</span></Detail>
-              <Detail label="Responsable" icon={<User className="h-4 w-4" />}><span className="text-sm font-medium">{inc.responsable ?? <span className="text-muted-foreground italic">Sin asignar</span>}</span></Detail>
+              <Detail label="Responsable Técnico" icon={<User className="h-4 w-4" />}><span className="text-sm font-medium">{inc.responsable ?? <span className="text-muted-foreground italic">Sin asignar</span>}</span></Detail>
+              <Detail label="Responsable Funcional" icon={<User className="h-4 w-4" />}><span className="text-sm font-medium">{inc.responsable_funcional ?? <span className="text-muted-foreground italic">Sin asignar</span>}</span></Detail>
               <Detail label="Fecha ocurrencia" icon={<Calendar className="h-4 w-4" />}><span className="text-sm">{inc.fecha_ocurrencia ? format(new Date(inc.fecha_ocurrencia), "d 'de' MMMM yyyy", { locale: es }) : "—"}</span></Detail>
               <Detail label="Fecha registro" icon={<Calendar className="h-4 w-4" />}><span className="text-sm">{format(new Date(inc.fecha), "d 'de' MMMM yyyy", { locale: es })}</span></Detail>
               {inc.fecha_completado && <Detail label="Solventado" icon={<CheckCircle2 className="h-4 w-4" />}><span className="text-sm font-medium text-green-600">{format(new Date(inc.fecha_completado), "d MMM yyyy, HH:mm", { locale: es })}</span></Detail>}
@@ -2131,6 +2185,7 @@ type ProyectoOption = { id: string; nombre: string; compania: { nombre: string }
 function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { data: directory } = useResponsablesDirectory();
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -2138,7 +2193,7 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
   const [form, setForm] = useState({
     proyecto_id: proyectoId ?? "", sistema_nombre: "", titulo: "", descripcion: "",
     modulo: "", prioridad: "media" as Prioridad,
-    codigo_transaccion: "", nombre_transaccion: "", responsable: "",
+    codigo_transaccion: "", nombre_transaccion: "", responsable: "", responsable_funcional: "",
     fecha_ocurrencia: today, fecha: today,
   });
 
@@ -2173,7 +2228,7 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
     if (form.sistema_nombre.trim().length < 2) { toast.error("Indica el sistema"); return; }
     if (form.titulo.trim().length < 3) { toast.error("Título mínimo 3 caracteres"); return; }
     if (form.descripcion.trim().length < 5) { toast.error("Descripción mínimo 5 caracteres"); return; }
-    if (form.responsable.trim().length < 2) { toast.error("Indica el responsable"); return; }
+    if (form.responsable.trim().length < 2) { toast.error("Indica el responsable técnico"); return; }
 
     setSubmitting(true);
     try {
@@ -2183,7 +2238,8 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
         modulo: form.modulo, prioridad: form.prioridad,
         codigo_transaccion: form.codigo_transaccion || null,
         nombre_transaccion: form.nombre_transaccion || null,
-        responsable: form.responsable, fecha_ocurrencia: form.fecha_ocurrencia,
+        responsable: form.responsable, responsable_funcional: form.responsable_funcional || null,
+        fecha_ocurrencia: form.fecha_ocurrencia,
         fecha: form.fecha, created_by: user.id,
       }).select("id, numero").single();
       if (insErr) throw insErr;
@@ -2252,8 +2308,11 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-2"><Label>Responsable *</Label><Input value={form.responsable} onChange={(e) => setForm({ ...form, responsable: e.target.value })} /></div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <ResponsableSelect label="Responsable Técnico" required value={form.responsable} onChange={(v) => setForm({ ...form, responsable: v })} directory={directory ?? []} />
+            <ResponsableSelect label="Responsable Funcional" value={form.responsable_funcional} onChange={(v) => setForm({ ...form, responsable_funcional: v })} directory={directory ?? []} />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2"><Label>Fecha ocurrencia *</Label><Input type="date" value={form.fecha_ocurrencia} onChange={(e) => setForm({ ...form, fecha_ocurrencia: e.target.value })} /></div>
             <div className="space-y-2"><Label>Fecha registro *</Label><Input type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} /></div>
           </div>
