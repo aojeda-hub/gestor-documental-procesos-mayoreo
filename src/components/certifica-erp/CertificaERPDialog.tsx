@@ -73,7 +73,7 @@ function ResponsableSelect({ label, required, value, onChange, directory }: {
       <Label>{label}{required ? " *" : ""}</Label>
       <Select value={value} onValueChange={(v) => onChange(v === SIN_ASIGNAR ? "" : v)}>
         <SelectTrigger><SelectValue placeholder="Selecciona un responsable" /></SelectTrigger>
-        <SelectContent>
+        <SelectContent side="bottom" avoidCollisions={false}>
           {!required && <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>}
           {directory.map((u) => <SelectItem key={u.user_id} value={u.full_name}>{u.full_name}</SelectItem>)}
         </SelectContent>
