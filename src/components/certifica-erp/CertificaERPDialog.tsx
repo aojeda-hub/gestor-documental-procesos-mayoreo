@@ -894,8 +894,9 @@ function IncidenciaFormDialog({
       };
       let incId: string | null = null;
       if (mode === "edit" && initial?.id) {
-        const { error } = await supabase.from("incidencias").update(payload).eq("id", initial.id);
+        const { data: updated, error } = await supabase.from("incidencias").update(payload).eq("id", initial.id).select("id");
         if (error) throw error;
+        if (!updated || updated.length === 0) throw new Error("No tienes permiso para editar esta incidencia.");
         incId = initial.id;
         toast.success("Incidencia actualizada");
       } else {
@@ -1881,7 +1882,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     if (!inc || !form) return;
     if (!form.titulo.trim() || !form.descripcion.trim()) { toast.error("Título y descripción son obligatorios"); return; }
     setSaving(true);
-    const { error } = await supabase.from("incidencias").update({
+    const { data: updated, error } = await supabase.from("incidencias").update({
       titulo: form.titulo.trim(), descripcion: form.descripcion.trim(),
       modulo: form.modulo, prioridad: form.prioridad, fecha: form.fecha,
       codigo_transaccion: form.codigo_transaccion.trim() || null,
@@ -1889,9 +1890,10 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
       responsable: form.responsable.trim() || null,
       responsable_funcional: form.responsable_funcional.trim() || null,
       fecha_ocurrencia: form.fecha_ocurrencia,
-    }).eq("id", inc.id);
+    }).eq("id", inc.id).select("id");
     setSaving(false);
     if (error) { toast.error(error.message); return; }
+    if (!updated || updated.length === 0) { toast.error("No tienes permiso para editar esta incidencia."); return; }
     toast.success("Incidencia actualizada"); setEditing(false);
     qc.invalidateQueries({ queryKey: ["cert-incidencia", id] });
   };
