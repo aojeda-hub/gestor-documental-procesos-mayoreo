@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2, Palette } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2, Palette, User } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -55,7 +55,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     titulo: '', descripcion: '', estado: 'pendiente' as any, prioridad: 'media' as any,
-    responsable: '', categoria: '', fecha_limite: '', column_id: ''
+    responsable: '', fecha_limite: '', column_id: ''
   });
 
   const loadData = async () => {
@@ -129,7 +129,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
     }
     setCreateForm({
       titulo: '', descripcion: '', estado: 'pendiente', prioridad: 'media',
-      responsable: '', categoria: '', fecha_limite: '', column_id: targetColumn.id,
+      responsable: '', fecha_limite: '', column_id: targetColumn.id,
     });
     setCreateOpen(true);
   };
@@ -150,7 +150,6 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
       estado: createForm.estado,
       prioridad: createForm.prioridad,
       responsable: createForm.responsable.trim() || null,
-      categoria: createForm.categoria.trim() || null,
       fecha_limite: createForm.fecha_limite || null,
       user_id: user.id,
       board_id: board.id,
@@ -613,6 +612,12 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
+                      {task.responsable && (
+                        <div className="flex items-center gap-1 text-[10px] text-slate-500 min-w-0">
+                          <User className="h-3 w-3 shrink-0" />
+                          <span className="truncate max-w-[110px]">{task.responsable}</span>
+                        </div>
+                      )}
                     </div>
                   </Card>
                   {dragOverCardId === task.id && dropPosition === 'after' && (
@@ -779,13 +784,9 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
                 <Input value={createForm.responsable} onChange={e => setCreateForm({ ...createForm, responsable: e.target.value })} />
               </div>
               <div>
-                <Label>Categoría</Label>
-                <Input value={createForm.categoria} onChange={e => setCreateForm({ ...createForm, categoria: e.target.value })} />
+                <Label>Fecha límite</Label>
+                <Input type="date" value={createForm.fecha_limite} onChange={e => setCreateForm({ ...createForm, fecha_limite: e.target.value })} />
               </div>
-            </div>
-            <div>
-              <Label>Fecha límite</Label>
-              <Input type="date" value={createForm.fecha_limite} onChange={e => setCreateForm({ ...createForm, fecha_limite: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
