@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, MoreVertical, Trash2, Users, X, Check, Share2 } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Users, X, Check, Share2, Pencil } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,10 @@ export function BoardList({ boards, onSelectBoard, onRefresh }: BoardListProps) 
   const [boardMembers, setBoardMembers] = useState<any[]>([]);
   const [memberQuery, setMemberQuery] = useState('');
 
+  const [editingBoard, setEditingBoard] = useState<SeguimientoBoard | null>(null);
+  const [editBoardName, setEditBoardName] = useState('');
+  const [renaming, setRenaming] = useState(false);
+
   const handleCreate = async () => {
     if (!newBoardName.trim() || !user) return;
     setLoading(true);
@@ -52,6 +56,25 @@ export function BoardList({ boards, onSelectBoard, onRefresh }: BoardListProps) 
     const { error } = await supabase.from('seguimiento_boards').delete().eq('id', id);
     if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
     else onRefresh();
+  };
+
+  const openEdit = (board: SeguimientoBoard, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingBoard(board);
+    setEditBoardName(board.nombre);
+  };
+
+  const handleRename = async () => {
+    if (!editingBoard || !editBoardName.trim()) return;
+    setRenaming(true);
+    const { error } = await supabase.from('seguimiento_boards')
+      .update({ nombre: editBoardName.trim() })
+      .eq('id', editingBoard.id);
+    setRenaming(false);
+    if (error) return toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    toast({ title: 'Tablero actualizado' });
+    setEditingBoard(null);
+    onRefresh();
   };
 
   const openMembers = async (board: SeguimientoBoard, e: React.MouseEvent) => {
@@ -141,6 +164,11 @@ export function BoardList({ boards, onSelectBoard, onRefresh }: BoardListProps) 
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {isOwner(board) && (
+                  <DropdownMenuItem onClick={(e) => openEdit(board, e as any)}>
+                    <Pencil className="h-4 w-4 mr-2" /> Editar
+                  </DropdownMenuItem>
+                )}
+                {isOwner(board) && (
                   <DropdownMenuItem onClick={(e) => openMembers(board, e as any)}>
                     <Share2 className="h-4 w-4 mr-2" /> Compartir tablero
                   </DropdownMenuItem>
@@ -192,6 +220,30 @@ export function BoardList({ boards, onSelectBoard, onRefresh }: BoardListProps) 
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
             <Button onClick={handleCreate} disabled={loading} className="bg-indigo-600 hover:bg-indigo-700">
               {loading ? 'Creando...' : 'Crear Tablero'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Editar nombre */}
+      <Dialog open={!!editingBoard} onOpenChange={(o) => !o && setEditingBoard(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Tablero</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <label className="text-sm font-medium mb-2 block">Nombre del Tablero</label>
+            <Input
+              autoFocus
+              value={editBoardName}
+              onChange={(e) => setEditBoardName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingBoard(null)}>Cancelar</Button>
+            <Button onClick={handleRename} disabled={renaming || !editBoardName.trim()} className="bg-indigo-600 hover:bg-indigo-700">
+              {renaming ? 'Guardando...' : 'Guardar'}
             </Button>
           </DialogFooter>
         </DialogContent>
