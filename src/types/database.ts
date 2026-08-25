@@ -88,6 +88,7 @@ export interface Seguimiento {
   prioridad: 'baja' | 'media' | 'alta' | 'critica';
   responsable: string | null;
   categoria: string | null;
+  proyecto: string | null;
   fecha_limite: string | null;
   fecha_completado: string | null;
   orden: number;

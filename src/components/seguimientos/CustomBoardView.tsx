@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2, Palette, User } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2, Palette, User, FolderKanban } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -34,7 +34,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
   const [newColumnName, setNewColumnName] = useState('');
   const [newColumnColor, setNewColumnColor] = useState(DEFAULT_COLUMN_COLOR);
   const [editing, setEditing] = useState<Seguimiento | null>(null);
-  const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'media' as any, responsable: '', fecha_limite: '' });
+  const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'media' as any, responsable: '', proyecto: '', fecha_limite: '' });
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [dragOverCardId, setDragOverCardId] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     titulo: '', descripcion: '', estado: 'pendiente' as any, prioridad: 'media' as any,
-    responsable: '', fecha_limite: '', column_id: ''
+    responsable: '', proyecto: '', fecha_limite: '', column_id: ''
   });
 
   const loadData = async () => {
@@ -129,7 +129,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
     }
     setCreateForm({
       titulo: '', descripcion: '', estado: 'pendiente', prioridad: 'media',
-      responsable: '', fecha_limite: '', column_id: targetColumn.id,
+      responsable: '', proyecto: '', fecha_limite: '', column_id: targetColumn.id,
     });
     setCreateOpen(true);
   };
@@ -150,6 +150,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
       estado: createForm.estado,
       prioridad: createForm.prioridad,
       responsable: createForm.responsable.trim() || null,
+      proyecto: createForm.proyecto.trim() || null,
       fecha_limite: createForm.fecha_limite || null,
       user_id: user.id,
       board_id: board.id,
@@ -419,6 +420,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
       descripcion: task.descripcion || '',
       prioridad: task.prioridad,
       responsable: task.responsable || '',
+      proyecto: task.proyecto || '',
       fecha_limite: task.fecha_limite || '',
     });
   };
@@ -430,6 +432,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
       descripcion: editForm.descripcion.trim() || null,
       prioridad: editForm.prioridad,
       responsable: editForm.responsable.trim() || null,
+      proyecto: editForm.proyecto.trim() || null,
       fecha_limite: editForm.fecha_limite || null,
     }).eq('id', editing.id);
     if (error) return toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -569,9 +572,17 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
                     onClick={() => handleTaskClick(task.id)}
                   >
                     <div className="flex justify-between items-start mb-2 gap-2">
-                      <h5 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition-colors flex-1">
-                        {task.titulo}
-                      </h5>
+                      <div className="flex-1 min-w-0">
+                        {task.proyecto && (
+                          <div className="flex items-center gap-1 text-[10px] font-medium text-indigo-500 mb-0.5">
+                            <FolderKanban className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{task.proyecto}</span>
+                          </div>
+                        )}
+                        <h5 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-indigo-600 transition-colors">
+                          {task.titulo}
+                        </h5>
+                      </div>
                       <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity" onClick={(e) => e.stopPropagation()}>
                         <Button size="icon" variant="ghost" className="h-6 w-6" title="Abrir" onClick={() => onOpenTask(task.id)}>
                           <Maximize2 className="h-3 w-3" />
@@ -698,6 +709,10 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
               <Input value={editForm.titulo} onChange={e => setEditForm({ ...editForm, titulo: e.target.value })} />
             </div>
             <div>
+              <Label>Nombre del proyecto</Label>
+              <Input value={editForm.proyecto} onChange={e => setEditForm({ ...editForm, proyecto: e.target.value })} />
+            </div>
+            <div>
               <Label>Descripción</Label>
               <Textarea value={editForm.descripcion} onChange={e => setEditForm({ ...editForm, descripcion: e.target.value })} rows={3} />
             </div>
@@ -745,6 +760,14 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
                 placeholder="Título del seguimiento"
                 value={createForm.titulo}
                 onChange={e => setCreateForm({ ...createForm, titulo: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Nombre del proyecto</Label>
+              <Input
+                placeholder="Nombre del proyecto"
+                value={createForm.proyecto}
+                onChange={e => setCreateForm({ ...createForm, proyecto: e.target.value })}
               />
             </div>
             <div>

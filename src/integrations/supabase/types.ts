@@ -2006,6 +2006,7 @@ export type Database = {
           id: string
           orden: number
           prioridad: Database["public"]["Enums"]["seguimiento_prioridad"]
+          proyecto: string | null
           responsable: string | null
           titulo: string
           ubicacion: string | null
@@ -2025,6 +2026,7 @@ export type Database = {
           id?: string
           orden?: number
           prioridad?: Database["public"]["Enums"]["seguimiento_prioridad"]
+          proyecto?: string | null
           responsable?: string | null
           titulo: string
           ubicacion?: string | null
@@ -2044,6 +2046,7 @@ export type Database = {
           id?: string
           orden?: number
           prioridad?: Database["public"]["Enums"]["seguimiento_prioridad"]
+          proyecto?: string | null
           responsable?: string | null
           titulo?: string
           ubicacion?: string | null
