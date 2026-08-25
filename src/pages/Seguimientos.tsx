@@ -11,9 +11,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import {
-  Plus, Calendar, User, Tag, Trash2, Pencil,
+  Plus, Calendar, User, Trash2, Pencil,
   AlertCircle, StickyNote, Send, Maximize2,
-  LayoutGrid, Trello, ChevronLeft, Layout, Search, Loader2,
+  LayoutGrid, Trello, ChevronLeft, Layout, Search, Loader2, FolderKanban,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -25,20 +25,26 @@ import { BoardList } from '@/components/seguimientos/BoardList';
 import { CustomBoardView } from '@/components/seguimientos/CustomBoardView';
 import type { Seguimiento, SeguimientoBoard, SeguimientoColumn } from '@/types/database';
 import { COLUMNS, PRIORIDAD_LABEL, PRIORIDAD_COLOR, type Estado, type Prioridad } from '@/lib/seguimientoConstants';
+import { useUserDirectory } from '@/hooks/useUserDirectory';
+import { ResponsableMultiSelect } from '@/components/seguimientos/ResponsableMultiSelect';
+import { syncSeguimientoResponsables, fetchMembersByTask } from '@/lib/seguimientoResponsables';
 
 const empty = {
   titulo: '', descripcion: '', estado: 'pendiente' as Estado, prioridad: 'media' as Prioridad,
-  responsable: '', categoria: '', fecha_limite: '',
+  proyecto: '', fecha_limite: '',
 };
 
 export default function Seguimientos() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const directory = useUserDirectory();
   const [items, setItems] = useState<Seguimiento[]>([]);
+  const [membersByTask, setMembersByTask] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Seguimiento | null>(null);
   const [form, setForm] = useState(empty);
+  const [formResponsables, setFormResponsables] = useState<string[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesFor, setNotesFor] = useState<Seguimiento | null>(null);
@@ -161,6 +167,7 @@ export default function Seguimientos() {
     else {
       const list = (data as any[] as Seguimiento[]) || [];
       setItems(list);
+      setMembersByTask(await fetchMembersByTask(list.map(i => i.id)));
       // load note counts
       if (list.length > 0) {
         const { data: notesData } = await supabase
@@ -278,9 +285,19 @@ export default function Seguimientos() {
     return g;
   }, [items]);
 
+  const responsableLabel = (s: Seguimiento): string | null => {
+    const ids = membersByTask[s.id];
+    if (ids && ids.length > 0) {
+      const names = ids.map(id => directory.find(u => u.user_id === id)?.full_name).filter(Boolean) as string[];
+      if (names.length > 0) return names.join(', ');
+    }
+    return s.responsable || null;
+  };
+
   const openNew = (estado?: Estado) => {
     setEditing(null);
     setForm({ ...empty, estado: estado || 'pendiente' });
+    setFormResponsables([]);
     setDialogOpen(true);
   };
 
@@ -291,10 +308,10 @@ export default function Seguimientos() {
       descripcion: s.descripcion || '',
       estado: s.estado,
       prioridad: s.prioridad,
-      responsable: s.responsable || '',
-      categoria: s.categoria || '',
+      proyecto: s.proyecto || '',
       fecha_limite: s.fecha_limite || '',
     });
+    setFormResponsables(membersByTask[s.id] || []);
     setDialogOpen(true);
   };
 
@@ -308,16 +325,21 @@ export default function Seguimientos() {
       descripcion: form.descripcion.trim() || null,
       estado: form.estado,
       prioridad: form.prioridad,
-      responsable: form.responsable.trim() || null,
-      categoria: form.categoria.trim() || null,
+      proyecto: form.proyecto.trim() || null,
       fecha_limite: form.fecha_limite || null,
     };
-    const { error } = editing
-      ? await supabase.from('seguimientos' as any).update(payload).eq('id', editing.id)
-      : await supabase.from('seguimientos' as any).insert({ ...payload, user_id: user.id });
+    const { data: savedRow, error } = editing
+      ? await supabase.from('seguimientos' as any).update(payload).eq('id', editing.id).select('id').single()
+      : await supabase.from('seguimientos' as any).insert({ ...payload, user_id: user.id }).select('id').single();
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
       return;
+    }
+    const savedId = editing ? editing.id : (savedRow as unknown as { id: string }).id;
+    try {
+      await syncSeguimientoResponsables(savedId, editing ? (membersByTask[editing.id] || []) : [], formResponsables);
+    } catch (e) {
+      toast({ title: 'Error al actualizar responsables', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
     }
     toast({ title: editing ? 'Seguimiento actualizado' : 'Seguimiento creado' });
     setDialogOpen(false);
@@ -466,7 +488,15 @@ export default function Seguimientos() {
                       className="p-3 cursor-pointer hover:border-primary/50 transition-colors group"
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <h4 className="font-medium text-sm leading-snug flex-1">{s.titulo}</h4>
+                        <div className="flex-1 min-w-0">
+                          {s.proyecto && (
+                            <div className="flex items-center gap-1 text-[10px] font-medium text-indigo-500 mb-0.5">
+                              <FolderKanban className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{s.proyecto}</span>
+                            </div>
+                          )}
+                          <h4 className="font-medium text-sm leading-snug">{s.titulo}</h4>
+                        </div>
                         <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
                           {noteCounts[s.id] ? (
                             <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 px-1">
@@ -495,9 +525,6 @@ export default function Seguimientos() {
                         <Badge className={cn("border", PRIORIDAD_COLOR[s.prioridad])} variant="outline">
                           {PRIORIDAD_LABEL[s.prioridad]}
                         </Badge>
-                        {s.categoria && (
-                          <Badge variant="outline" className="gap-1"><Tag className="h-2.5 w-2.5" />{s.categoria}</Badge>
-                        )}
                         {isForeign && ctx && (
                           <Badge variant="outline" className="gap-1 border-indigo-300 text-indigo-600" title={`Te agregaron como colaborador${ctx.boardName ? ` en el tablero "${ctx.boardName}"` : ''}`}>
                             <Layout className="h-2.5 w-2.5" />
@@ -506,8 +533,8 @@ export default function Seguimientos() {
                         )}
                       </div>
                       <div className="flex flex-wrap gap-3 mt-2 text-[11px] text-muted-foreground">
-                        {s.responsable && (
-                          <span className="flex items-center gap-1"><User className="h-3 w-3" />{s.responsable}</span>
+                        {responsableLabel(s) && (
+                          <span className="flex items-center gap-1 truncate max-w-[140px]"><User className="h-3 w-3 shrink-0" />{responsableLabel(s)}</span>
                         )}
                         {s.fecha_limite && (
                           <span className={cn("flex items-center gap-1", vencido && "text-rose-400")}>
@@ -570,6 +597,10 @@ export default function Seguimientos() {
               <Input value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} placeholder="Título del seguimiento" />
             </div>
             <div>
+              <Label>Nombre del proyecto</Label>
+              <Input value={form.proyecto} onChange={e => setForm({ ...form, proyecto: e.target.value })} placeholder="Nombre del proyecto" />
+            </div>
+            <div>
               <Label>Descripción</Label>
               <Textarea value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} rows={3} />
             </div>
@@ -595,19 +626,13 @@ export default function Seguimientos() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Responsable</Label>
-                <Input value={form.responsable} onChange={e => setForm({ ...form, responsable: e.target.value })} />
-              </div>
-              <div>
-                <Label>Categoría</Label>
-                <Input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} />
-              </div>
-            </div>
             <div>
               <Label>Fecha límite</Label>
               <Input type="date" value={form.fecha_limite} onChange={e => setForm({ ...form, fecha_limite: e.target.value })} />
+            </div>
+            <div>
+              <Label>Responsable(s)</Label>
+              <ResponsableMultiSelect directory={directory} value={formResponsables} onChange={setFormResponsables} />
             </div>
           </div>
           <DialogFooter>

@@ -14,6 +14,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Seguimiento, SeguimientoBoard, SeguimientoColumn } from '@/types/database';
+import { useUserDirectory } from '@/hooks/useUserDirectory';
+import { ResponsableMultiSelect } from '@/components/seguimientos/ResponsableMultiSelect';
+import { syncSeguimientoResponsables, fetchMembersByTask } from '@/lib/seguimientoResponsables';
 
 const COLUMN_COLORS = ['#64748b', '#4f46e5', '#2563eb', '#0891b2', '#059669', '#ca8a04', '#ea580c', '#dc2626', '#db2777', '#7c3aed'];
 const DEFAULT_COLUMN_COLOR = COLUMN_COLORS[0];
@@ -27,14 +30,17 @@ interface CustomBoardViewProps {
 
 export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: CustomBoardViewProps) {
   const { toast } = useToast();
+  const directory = useUserDirectory();
   const [columns, setColumns] = useState<SeguimientoColumn[]>([]);
   const [tasks, setTasks] = useState<Seguimiento[]>([]);
+  const [membersByTask, setMembersByTask] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   const [newColumnColor, setNewColumnColor] = useState(DEFAULT_COLUMN_COLOR);
   const [editing, setEditing] = useState<Seguimiento | null>(null);
-  const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'media' as any, responsable: '', proyecto: '', fecha_limite: '' });
+  const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'media' as any, proyecto: '', fecha_limite: '' });
+  const [editResponsables, setEditResponsables] = useState<string[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [dragOverCardId, setDragOverCardId] = useState<string | null>(null);
@@ -55,8 +61,9 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     titulo: '', descripcion: '', estado: 'pendiente' as any, prioridad: 'media' as any,
-    responsable: '', proyecto: '', fecha_limite: '', column_id: ''
+    proyecto: '', fecha_limite: '', column_id: ''
   });
+  const [createResponsables, setCreateResponsables] = useState<string[]>([]);
 
   const loadData = async () => {
     setLoading(true);
@@ -78,8 +85,10 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
     if (errCols || errTks) {
       toast({ title: 'Error', description: 'No se pudieron cargar los datos del tablero.', variant: 'destructive' });
     } else {
+      const taskList = (tks as any[]) || [];
       setColumns(cols || []);
-      setTasks((tks as any[]) || []);
+      setTasks(taskList);
+      setMembersByTask(await fetchMembersByTask(taskList.map((t) => t.id)));
     }
     setLoading(false);
   };
@@ -129,8 +138,9 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
     }
     setCreateForm({
       titulo: '', descripcion: '', estado: 'pendiente', prioridad: 'media',
-      responsable: '', proyecto: '', fecha_limite: '', column_id: targetColumn.id,
+      proyecto: '', fecha_limite: '', column_id: targetColumn.id,
     });
+    setCreateResponsables([]);
     setCreateOpen(true);
   };
 
@@ -149,7 +159,6 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
       descripcion: createForm.descripcion.trim() || null,
       estado: createForm.estado,
       prioridad: createForm.prioridad,
-      responsable: createForm.responsable.trim() || null,
       proyecto: createForm.proyecto.trim() || null,
       fecha_limite: createForm.fecha_limite || null,
       user_id: user.id,
@@ -162,9 +171,18 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
       return;
     }
+    const newTask = data as Seguimiento;
+    if (createResponsables.length > 0) {
+      try {
+        await syncSeguimientoResponsables(newTask.id, [], createResponsables);
+        setMembersByTask(curr => ({ ...curr, [newTask.id]: createResponsables }));
+      } catch (e) {
+        toast({ title: 'Seguimiento creado, pero no se pudieron asignar responsables', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
+      }
+    }
     toast({ title: 'Seguimiento creado' });
     setCreateOpen(false);
-    setTasks(curr => [...curr, data as Seguimiento]);
+    setTasks(curr => [...curr, newTask]);
   };
 
 
@@ -419,10 +437,10 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
       titulo: task.titulo,
       descripcion: task.descripcion || '',
       prioridad: task.prioridad,
-      responsable: task.responsable || '',
       proyecto: task.proyecto || '',
       fecha_limite: task.fecha_limite || '',
     });
+    setEditResponsables(membersByTask[task.id] || []);
   };
 
   const saveEdit = async () => {
@@ -431,11 +449,16 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
       titulo: editForm.titulo.trim(),
       descripcion: editForm.descripcion.trim() || null,
       prioridad: editForm.prioridad,
-      responsable: editForm.responsable.trim() || null,
       proyecto: editForm.proyecto.trim() || null,
       fecha_limite: editForm.fecha_limite || null,
     }).eq('id', editing.id);
     if (error) return toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    try {
+      await syncSeguimientoResponsables(editing.id, membersByTask[editing.id] || [], editResponsables);
+      setMembersByTask(curr => ({ ...curr, [editing.id]: editResponsables }));
+    } catch (e) {
+      toast({ title: 'Error al actualizar responsables', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
+    }
     toast({ title: 'Tarea actualizada' });
     setEditing(null);
     loadData();
@@ -449,6 +472,15 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
     });
     return g;
   }, [columns, tasks]);
+
+  const responsableLabel = (task: Seguimiento): string | null => {
+    const ids = membersByTask[task.id];
+    if (ids && ids.length > 0) {
+      const names = ids.map(id => directory.find(u => u.user_id === id)?.full_name).filter(Boolean) as string[];
+      if (names.length > 0) return names.join(', ');
+    }
+    return task.responsable || null;
+  };
 
   if (loading) return <div className="p-12 text-center text-slate-500">Cargando tablero...</div>;
 
@@ -623,10 +655,10 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                      {task.responsable && (
+                      {responsableLabel(task) && (
                         <div className="flex items-center gap-1 text-[10px] text-slate-500 min-w-0">
                           <User className="h-3 w-3 shrink-0" />
-                          <span className="truncate max-w-[110px]">{task.responsable}</span>
+                          <span className="truncate max-w-[110px]">{responsableLabel(task)}</span>
                         </div>
                       )}
                     </div>
@@ -730,13 +762,13 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
                 </Select>
               </div>
               <div>
-                <Label>Responsable</Label>
-                <Input value={editForm.responsable} onChange={e => setEditForm({ ...editForm, responsable: e.target.value })} />
+                <Label>Fecha límite</Label>
+                <Input type="date" value={editForm.fecha_limite} onChange={e => setEditForm({ ...editForm, fecha_limite: e.target.value })} />
               </div>
             </div>
             <div>
-              <Label>Fecha límite</Label>
-              <Input type="date" value={editForm.fecha_limite} onChange={e => setEditForm({ ...editForm, fecha_limite: e.target.value })} />
+              <Label>Responsable(s)</Label>
+              <ResponsableMultiSelect directory={directory} value={editResponsables} onChange={setEditResponsables} />
             </div>
           </div>
           <DialogFooter>
@@ -801,15 +833,13 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Responsable</Label>
-                <Input value={createForm.responsable} onChange={e => setCreateForm({ ...createForm, responsable: e.target.value })} />
-              </div>
-              <div>
-                <Label>Fecha límite</Label>
-                <Input type="date" value={createForm.fecha_limite} onChange={e => setCreateForm({ ...createForm, fecha_limite: e.target.value })} />
-              </div>
+            <div>
+              <Label>Fecha límite</Label>
+              <Input type="date" value={createForm.fecha_limite} onChange={e => setCreateForm({ ...createForm, fecha_limite: e.target.value })} />
+            </div>
+            <div>
+              <Label>Responsable(s)</Label>
+              <ResponsableMultiSelect directory={directory} value={createResponsables} onChange={setCreateResponsables} />
             </div>
           </div>
           <DialogFooter>
