@@ -777,6 +777,7 @@ function ManualPreview({ data }: { data: ManualData }) {
               <li key={j}>
                 <span className="font-semibold">{f.titulo}</span>
                 <p className="text-muted-foreground pl-4">{f.descripcion}</p>
+                <p className="italic text-muted-foreground/70 pl-4 text-xs">[Espacio para captura de pantalla]</p>
               </li>
             ))}
           </ol>

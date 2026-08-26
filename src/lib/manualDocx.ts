@@ -28,6 +28,14 @@ export interface ManualData {
   documentos_referencia: DocRefRow[];
 }
 
+function capturaPlaceholder() {
+  return new Paragraph({
+    spacing: { after: 160 },
+    indent: { left: 300 },
+    children: [new TextRun({ text: '[Espacio para captura de pantalla]', italics: true, size: 20, color: '888888' })],
+  });
+}
+
 function seccionesBlocks(secciones: SeccionUsuario[]) {
   const blocks: Paragraph[] = [];
   (secciones.length ? secciones : [{ titulo: '', funcionalidades: [] }]).forEach(seccion => {
@@ -37,7 +45,8 @@ function seccionesBlocks(secciones: SeccionUsuario[]) {
         spacing: { before: 100, after: 40 },
         children: [new TextRun({ text: `${i + 1}. ${f.titulo}`, bold: true })],
       }));
-      blocks.push(new Paragraph({ spacing: { after: 120 }, indent: { left: 300 }, text: f.descripcion }));
+      blocks.push(new Paragraph({ spacing: { after: 40 }, indent: { left: 300 }, text: f.descripcion }));
+      blocks.push(capturaPlaceholder());
     });
   });
   return blocks;
