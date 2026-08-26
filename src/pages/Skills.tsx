@@ -8,7 +8,8 @@ import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Bot, User, Send, Loader2, Wand2, FileText, Download, RotateCcw,
-  IdCard, Gavel, ListChecks, BookOpen, type LucideIcon,
+  IdCard, Gavel, ListChecks, BookOpen, Paperclip, X, FileImage, File as FileIcon,
+  type LucideIcon,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { saveAs } from 'file-saver';
@@ -17,13 +18,24 @@ import { buildCargoDocxBlob, getCompetencias, type CargoData, type NivelCompeten
 import { buildNormaDocxBlob, type NormaData } from '@/lib/normaDocx';
 import { buildProcedimientoDocxBlob, type ProcedimientoData } from '@/lib/procedimientoDocx';
 import { buildManualDocxBlob, type ManualData } from '@/lib/manualDocx';
+import { processAttachment, ACCEPTED_ATTACHMENT_EXTENSIONS, type PendingAttachment } from '@/lib/skillAttachments';
 
 type DocType = 'cargo' | 'norma' | 'procedimiento' | 'manual';
+
+interface MessageAttachment {
+  name: string;
+  mimeType: string;
+  /** Solo presente para PDF/imagen — se manda a Gemini como inlineData. */
+  data?: string;
+}
 
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  /** Texto a mostrar en la burbuja del chat; si falta, se usa `content`. */
+  displayText?: string;
+  attachments?: MessageAttachment[];
 }
 
 const DOC_TYPE_INFO: Record<DocType, { label: string; description: string; icon: LucideIcon }> = {
@@ -159,7 +171,10 @@ export default function Skills() {
   const [resultData, setResultData] = useState<CargoData | NormaData | ProcedimientoData | ManualData | null>(null);
   const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
+  const [attaching, setAttaching] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -171,12 +186,36 @@ export default function Skills() {
     setMessages([welcomeMessage(next)]);
     setResultData(null);
     setInput('');
+    setPendingFiles([]);
+  };
+
+  const handleFilesSelected = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setAttaching(true);
+    const accepted: PendingAttachment[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        accepted.push(await processAttachment(file));
+      } catch (err: any) {
+        toast({ title: 'No se pudo adjuntar el archivo', description: err.message, variant: 'destructive' });
+      }
+    }
+    if (accepted.length > 0) setPendingFiles(prev => [...prev, ...accepted]);
+    setAttaching(false);
+  };
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const callAssistant = async (allMessages: ChatMessage[], mode?: 'finalize') => {
     const { data, error } = await supabase.functions.invoke('generate-skill-document', {
       body: {
-        messages: allMessages.filter(m => m.id !== 'welcome').map(m => ({ role: m.role, content: m.content })),
+        messages: allMessages.filter(m => m.id !== 'welcome').map(m => ({
+          role: m.role,
+          content: m.content,
+          attachments: m.attachments?.filter(a => a.data).map(a => ({ mimeType: a.mimeType, data: a.data })),
+        })),
         mode,
         docType,
       },
@@ -197,11 +236,24 @@ export default function Skills() {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: input.trim() };
+    if ((!input.trim() && pendingFiles.length === 0) || loading) return;
+
+    const docxNotes = pendingFiles
+      .filter(f => f.extractedText)
+      .map(f => `[Documento adjunto: ${f.name}]\n\n${f.extractedText}`);
+    const content = [...docxNotes, input.trim()].filter(Boolean).join('\n\n---\n\n');
+
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content,
+      displayText: input.trim() || (pendingFiles.length > 0 ? '' : content),
+      attachments: pendingFiles.length > 0 ? pendingFiles.map(f => ({ name: f.name, mimeType: f.mimeType, data: f.data })) : undefined,
+    };
     const next = [...messages, userMsg];
     setMessages(next);
     setInput('');
+    setPendingFiles([]);
     setLoading(true);
     try {
       const answer = await callAssistant(next);
@@ -233,6 +285,7 @@ export default function Skills() {
   const handleReset = () => {
     setMessages([welcomeMessage(docType)]);
     setResultData(null);
+    setPendingFiles([]);
   };
 
   const handleDownload = async () => {
@@ -315,10 +368,23 @@ export default function Skills() {
                     {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                   </div>
                   <div className={cn(
-                    "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
+                    "max-w-[80%] rounded-2xl px-3 py-2 text-sm space-y-2",
                     msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-muted rounded-tl-none'
                   )}>
-                    {msg.content.split('\n').map((line, i) => <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>)}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {msg.attachments.map((a, i) => (
+                          <span key={i} className={cn(
+                            "flex items-center gap-1 rounded-md px-2 py-1 text-xs",
+                            msg.role === 'user' ? 'bg-white/15' : 'bg-background border',
+                          )}>
+                            {a.mimeType.startsWith('image/') ? <FileImage className="h-3 w-3 shrink-0" /> : <FileIcon className="h-3 w-3 shrink-0" />}
+                            <span className="truncate max-w-[140px]">{a.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {(msg.displayText ?? msg.content) && (msg.displayText ?? msg.content).split('\n').map((line, i) => <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>)}
                   </div>
                 </div>
               ))}
@@ -335,9 +401,40 @@ export default function Skills() {
             </div>
           </ScrollArea>
           <div className="border-t p-3 space-y-2">
+            {pendingFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {pendingFiles.map((f, i) => (
+                  <span key={i} className="flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs">
+                    {f.mimeType.startsWith('image/') ? <FileImage className="h-3 w-3 shrink-0" /> : <FileIcon className="h-3 w-3 shrink-0" />}
+                    <span className="truncate max-w-[140px]">{f.name}</span>
+                    <button type="button" onClick={() => removePendingFile(i)} className="ml-0.5 hover:opacity-70">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={ACCEPTED_ATTACHMENT_EXTENSIONS}
+                className="hidden"
+                onChange={e => { handleFilesSelected(e.target.files); e.target.value = ''; }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                title="Adjuntar documento de referencia o borrador (PDF, Word, JPG, PNG)"
+                disabled={loading || attaching}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {attaching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+              </Button>
               <Input value={input} onChange={e => setInput(e.target.value)} placeholder="Escribe tu respuesta..." disabled={loading} />
-              <Button type="submit" size="icon" disabled={loading || !input.trim()}><Send className="h-4 w-4" /></Button>
+              <Button type="submit" size="icon" disabled={loading || (!input.trim() && pendingFiles.length === 0)}><Send className="h-4 w-4" /></Button>
             </form>
             <Button
               variant="secondary"

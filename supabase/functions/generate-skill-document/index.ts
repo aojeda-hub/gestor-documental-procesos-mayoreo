@@ -306,16 +306,40 @@ const SKILLS: Record<DocType, { system: string; finalize: string }> = {
   manual: { system: MANUAL_SYSTEM_PROMPT, finalize: MANUAL_FINALIZE_INSTRUCTION },
 };
 
+// Instrucción común para las 4 skills: cómo aprovechar documentos de
+// referencia o borradores que el usuario adjunte (PDF, Word ya convertido a
+// texto, o imágenes) para construir el contenido en vez de partir de cero.
+const ATTACHMENTS_INSTRUCTION = `
+
+Si el usuario adjunta archivos (PDF, imágenes, o texto extraído de un Word) como
+documentos de referencia o borrador, analiza su contenido con atención y úsalo como
+fuente principal de información para construir el documento: extrae de ahí los datos
+relevantes en vez de volver a preguntarlos, y solo pregunta lo que falte o no quede
+claro en los adjuntos. Si el adjunto ya cubre prácticamente todo lo necesario, avanza
+más rápido hacia poder generar el documento en vez de hacer preguntas innecesarias.
+`;
+
+interface MessageAttachment {
+  mimeType: string;
+  data: string;
+}
+
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  attachments?: MessageAttachment[];
 }
 
 function buildGeminiContents(messages: ChatMessage[]) {
-  return messages.map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
+  return messages.map((m) => {
+    const parts: Record<string, unknown>[] = [];
+    if (m.content) parts.push({ text: m.content });
+    for (const a of m.attachments ?? []) {
+      if (a?.mimeType && a?.data) parts.push({ inlineData: { mimeType: a.mimeType, data: a.data } });
+    }
+    if (parts.length === 0) parts.push({ text: "" });
+    return { role: m.role === "assistant" ? "model" : "user", parts };
+  });
 }
 
 const RETRYABLE_STATUS = new Set([429, 503]);
@@ -405,8 +429,8 @@ Deno.serve(async (req) => {
 
     const isFinalize = mode === "finalize";
     const systemInstruction = isFinalize
-      ? skill.system + "\n\n" + skill.finalize
-      : skill.system;
+      ? skill.system + ATTACHMENTS_INSTRUCTION + "\n\n" + skill.finalize
+      : skill.system + ATTACHMENTS_INSTRUCTION;
 
     // Gemini rejects requests whose last turn is "model" — the conversation
     // history always ends with the assistant's last reply at this point, so
