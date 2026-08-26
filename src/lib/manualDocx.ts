@@ -5,11 +5,6 @@ import {
   type HistorialRow, type DocRefRow,
 } from './docCommon';
 
-export interface GlosarioItem {
-  termino: string;
-  definicion: string;
-}
-
 export interface FuncionalidadItem {
   titulo: string;
   descripcion: string;
@@ -25,23 +20,12 @@ export interface ManualData {
   informacion: string;
   distribucion: string;
   objetivo: string;
-  glosario: GlosarioItem[];
   descripcion_general: string;
   ruta_acceso: string;
   secciones: SeccionUsuario[];
   recomendaciones_uso: string[];
   historial: HistorialRow[];
   documentos_referencia: DocRefRow[];
-}
-
-function glosarioParagraphs(glosario: GlosarioItem[]) {
-  return (glosario.length ? glosario : [{ termino: '', definicion: '' }]).map(g => new Paragraph({
-    spacing: { after: 120 },
-    children: [
-      new TextRun({ text: `${g.termino}: `, bold: true }),
-      new TextRun({ text: g.definicion }),
-    ],
-  }));
 }
 
 function seccionesBlocks(secciones: SeccionUsuario[]) {
@@ -89,9 +73,6 @@ export async function buildManualDocxBlob(data: ManualData): Promise<Blob> {
 
         sectionHeading('Objetivo'),
         bodyParagraph(data.objetivo),
-
-        sectionHeading('Glosario de términos clave'),
-        ...glosarioParagraphs(data.glosario),
 
         sectionHeading(data.titulo || 'Descripción de la herramienta'),
         bodyParagraph(data.descripcion_general),

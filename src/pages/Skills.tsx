@@ -152,7 +152,6 @@ function parseManualData(raw: string): ManualData {
     informacion: parsed.informacion || 'Interna',
     distribucion: parsed.distribucion || '',
     objetivo: parsed.objetivo || '',
-    glosario: parsed.glosario || [],
     descripcion_general: parsed.descripcion_general || '',
     ruta_acceso: parsed.ruta_acceso || '',
     secciones: parsed.secciones || [],
@@ -753,14 +752,6 @@ function ManualPreview({ data }: { data: ManualData }) {
 
       <PreviewSection title="Objetivo">
         <p className="text-muted-foreground">{data.objetivo || '—'}</p>
-      </PreviewSection>
-
-      <PreviewSection title="Glosario de términos clave">
-        <ul className="space-y-1">
-          {(data.glosario.length ? data.glosario : [{ termino: '', definicion: '' }]).map((g, i) => (
-            <li key={i}><span className="font-semibold">{g.termino || '—'}:</span> <span className="text-muted-foreground">{g.definicion}</span></li>
-          ))}
-        </ul>
       </PreviewSection>
 
       <PreviewSection title={data.titulo || 'Descripción de la herramienta'}>

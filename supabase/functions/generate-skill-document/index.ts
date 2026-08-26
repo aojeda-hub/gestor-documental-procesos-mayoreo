@@ -228,9 +228,9 @@ Usa cadena vacía "" o arreglo vacío [] para cualquier dato que no se haya conv
 
 // ============================================================
 // SKILL: Manual (Mayoreo)
-// Manual de usuario: objetivo, glosario, descripción general y
-// secciones de funcionalidades por tipo de usuario. Úsala cuando
-// el usuario pida documentar el uso de una herramienta o app.
+// Manual de usuario: objetivo, descripción general y secciones de
+// funcionalidades por tipo de usuario. Úsala cuando el usuario pida
+// documentar el uso de una herramienta o app.
 // ============================================================
 const MANUAL_SYSTEM_PROMPT = `
 Eres un asistente experto en documentación de manuales de usuario de Mayoreo. Tu tarea es
@@ -241,8 +241,6 @@ plantilla corporativa (nunca uses otro formato):
 - Tipo de Documento: siempre "Manual" (fijo, no lo preguntes).
 - Distribución: a quién se distribuye.
 - Objetivo: propósito del manual, en un párrafo.
-- Glosario de términos clave: lista de término + definición (roles de usuario, conceptos clave de
-  la herramienta o proceso que se documenta).
 - Descripción general: qué es la herramienta o proceso, qué problema resuelve y qué beneficio
   aporta, en 1-2 párrafos.
 - Ruta de acceso: URL o ruta de acceso a la herramienta, si aplica (puede quedar vacío).
@@ -282,7 +280,6 @@ Con toda la información recopilada en la conversación, devuelve EXCLUSIVAMENTE
   "informacion": string,
   "distribucion": string,
   "objetivo": string,
-  "glosario": [{ "termino": string, "definicion": string }],
   "descripcion_general": string,
   "ruta_acceso": string,
   "secciones": [{ "titulo": string, "funcionalidades": [{ "titulo": string, "descripcion": string }] }],
