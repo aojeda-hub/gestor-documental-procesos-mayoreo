@@ -64,7 +64,7 @@ export async function buildManualDocxBlob(data: ManualData): Promise<Blob> {
     },
     sections: [{
       headers: { default: docHeader },
-      properties: { page: { margin: { header: '1.27cm', footer: '1.27cm' } } },
+      properties: { page: { margin: { top: '3.8cm', header: '1.27cm', footer: '1.27cm' } } },
       children: [
         metaBlock(data.informacion || 'Interna', 'Manual', data.distribucion),
 

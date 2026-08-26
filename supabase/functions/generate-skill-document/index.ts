@@ -95,6 +95,8 @@ Con toda la información recopilada en la conversación, devuelve EXCLUSIVAMENTE
 Usa cadena vacía "" o arreglo vacío [] para cualquier dato que no se haya conversado.
 No incluyas el contenido de la sección de Competencias ni de Documentos de Referencia (se agregan
 aparte según "nivel_competencias"), solo clasifica correctamente ese campo.
+El campo "nombre_cargo" debe contener SOLO el nombre del cargo (ej. "Analista de Compras"),
+nunca antecedido por "Descripción de Cargo", "Perfil de Puesto" u otro prefijo de tipo de documento.
 `;
 
 // ============================================================
@@ -161,6 +163,9 @@ iniciales que dio el usuario (o "" si no lo dio), y "aprobado": "".
 Para "documentos_referencia" incluye siempre al menos [{ "tipo": "Glosario", "descripcion": "Glosario en línea" }]
 más cualquier otro documento que el usuario haya mencionado.
 Usa cadena vacía "" o arreglo vacío [] para cualquier dato que no se haya conversado.
+El campo "titulo" debe contener SOLO el nombre del tema/proceso/herramienta (ej. "Sustitución
+Patronal en Softland"), nunca antecedido por la palabra "Norma", "Procedimiento", "Manual" u otro
+tipo de documento como prefijo.
 `;
 
 // ============================================================
@@ -224,6 +229,9 @@ iniciales que dio el usuario (o "" si no lo dio), y "aprobado": "".
 Para "documentos_referencia" incluye siempre al menos [{ "tipo": "Glosario", "descripcion": "Glosario en línea" }]
 más cualquier otro documento que el usuario haya mencionado.
 Usa cadena vacía "" o arreglo vacío [] para cualquier dato que no se haya conversado.
+El campo "titulo" debe contener SOLO el nombre del tema/proceso/herramienta (ej. "Sustitución
+Patronal en Softland"), nunca antecedido por la palabra "Norma", "Procedimiento", "Manual" u otro
+tipo de documento como prefijo.
 `;
 
 // ============================================================
@@ -294,6 +302,9 @@ iniciales que dio el usuario (o "" si no lo dio), y "aprobado": "".
 Para "documentos_referencia" incluye siempre al menos [{ "tipo": "Glosario", "descripcion": "Glosario en línea" }]
 más cualquier otro documento que el usuario haya mencionado.
 Usa cadena vacía "" o arreglo vacío [] para cualquier dato que no se haya conversado.
+El campo "titulo" debe contener SOLO el nombre del tema/proceso/herramienta (ej. "Sustitución
+Patronal en Softland"), nunca antecedido por la palabra "Norma", "Procedimiento", "Manual" u otro
+tipo de documento como prefijo.
 `;
 
 const SKILLS: Record<DocType, { system: string; finalize: string }> = {

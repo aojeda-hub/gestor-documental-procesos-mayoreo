@@ -67,13 +67,24 @@ function stripJsonFences(raw: string) {
   return raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
 }
 
+// Salvaguarda: el nombre/título del documento debe ser solo el nombre del
+// proceso/cargo/tema, nunca el tipo de documento como prefijo (ej. "Manual
+// de X" -> "X"), aunque el prompt ya se lo pida a la IA.
+function stripDocTypePrefix(name: string): string {
+  const trimmed = name.trim();
+  const stripped = trimmed
+    .replace(/^(manual|procedimiento|norma|descripci[oó]n de cargo)\s*(de|del|para|sobre)?\s*[:\-–]?\s*/i, '')
+    .trim();
+  return stripped || trimmed;
+}
+
 function inferNivelCompetencias(nombreCargo: string): NivelCompetencias {
   return /gerente|jefe|director/i.test(nombreCargo) ? 'gerencial' : 'comercial';
 }
 
 function parseCargoData(raw: string): CargoData {
   const parsed = JSON.parse(stripJsonFences(raw));
-  const nombreCargo = parsed.nombre_cargo || '';
+  const nombreCargo = stripDocTypePrefix(parsed.nombre_cargo || '');
   return {
     nombre_cargo: nombreCargo,
     departamento: parsed.departamento || '',
@@ -120,7 +131,7 @@ function defaultDocumentosReferencia(parsed: any) {
 function parseNormaData(raw: string): NormaData {
   const parsed = JSON.parse(stripJsonFences(raw));
   return {
-    titulo: parsed.titulo || '',
+    titulo: stripDocTypePrefix(parsed.titulo || ''),
     informacion: parsed.informacion || 'Interna',
     distribucion: parsed.distribucion || '',
     objetivo: parsed.objetivo || '',
@@ -135,7 +146,7 @@ function parseNormaData(raw: string): NormaData {
 function parseProcedimientoData(raw: string): ProcedimientoData {
   const parsed = JSON.parse(stripJsonFences(raw));
   return {
-    titulo: parsed.titulo || '',
+    titulo: stripDocTypePrefix(parsed.titulo || ''),
     informacion: parsed.informacion || 'Restringida',
     distribucion: parsed.distribucion || '',
     desarrollo: parsed.desarrollo || '',
@@ -148,7 +159,7 @@ function parseProcedimientoData(raw: string): ProcedimientoData {
 function parseManualData(raw: string): ManualData {
   const parsed = JSON.parse(stripJsonFences(raw));
   return {
-    titulo: parsed.titulo || '',
+    titulo: stripDocTypePrefix(parsed.titulo || ''),
     informacion: parsed.informacion || 'Interna',
     distribucion: parsed.distribucion || '',
     objetivo: parsed.objetivo || '',
@@ -297,7 +308,7 @@ export default function Skills() {
         : await buildManualDocxBlob(resultData as ManualData);
       const nombre = (resultData as any).nombre_cargo || (resultData as any).titulo || FILENAME_PREFIX[docType];
       const safeName = String(nombre).replace(/\s+/g, '_');
-      saveAs(blob, `${FILENAME_PREFIX[docType]}_${safeName}.docx`);
+      saveAs(blob, `${safeName}.docx`);
     } catch (err: any) {
       toast({ title: 'Error al generar el Word', description: err.message, variant: 'destructive' });
     } finally {

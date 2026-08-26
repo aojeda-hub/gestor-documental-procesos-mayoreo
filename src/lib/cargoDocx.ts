@@ -270,7 +270,7 @@ export async function buildCargoDocxBlob(data: CargoData): Promise<Blob> {
     },
     sections: [{
       headers: { default: docHeader },
-      properties: { page: { margin: { header: '1.27cm', footer: '1.27cm' } } },
+      properties: { page: { margin: { top: '3.8cm', header: '1.27cm', footer: '1.27cm' } } },
       children: [
         sectionHeading('1. Identificación del Cargo'),
         labelValueTable([

@@ -85,7 +85,7 @@ export async function buildProcedimientoDocxBlob(data: ProcedimientoData): Promi
     sections: [{
       headers: { default: docHeader },
       footers: { default: docFooter },
-      properties: { page: { margin: { header: '1.27cm', footer: '1.27cm' } } },
+      properties: { page: { margin: { top: '3.8cm', header: '1.27cm', footer: '1.27cm' } } },
       children: [
         metaBlock(data.informacion || 'Restringida', 'Procedimiento', data.distribucion),
 
