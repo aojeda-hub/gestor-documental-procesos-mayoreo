@@ -166,7 +166,6 @@ function parseManualData(raw: string): ManualData {
     descripcion_general: parsed.descripcion_general || '',
     ruta_acceso: parsed.ruta_acceso || '',
     secciones: parsed.secciones || [],
-    recomendaciones_uso: parsed.recomendaciones_uso || [],
     historial: defaultHistorial(parsed),
     documentos_referencia: defaultDocumentosReferencia(parsed),
   };
@@ -783,12 +782,6 @@ function ManualPreview({ data }: { data: ManualData }) {
           </ol>
         </PreviewSection>
       ))}
-
-      <PreviewSection title="Recomendaciones de uso">
-        <ol className="space-y-1 list-decimal list-inside text-muted-foreground">
-          {(data.recomendaciones_uso.length ? data.recomendaciones_uso : ['—']).map((r, i) => <li key={i}>{r}</li>)}
-        </ol>
-      </PreviewSection>
 
       <PreviewSection title="Documentos de Referencia">
         <DocumentosReferenciaPreview rows={data.documentos_referencia} />

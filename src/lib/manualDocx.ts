@@ -23,7 +23,6 @@ export interface ManualData {
   descripcion_general: string;
   ruta_acceso: string;
   secciones: SeccionUsuario[];
-  recomendaciones_uso: string[];
   historial: HistorialRow[];
   documentos_referencia: DocRefRow[];
 }
@@ -50,13 +49,6 @@ function seccionesBlocks(secciones: SeccionUsuario[]) {
     });
   });
   return blocks;
-}
-
-function recomendacionesParagraphs(recomendaciones: string[]) {
-  return (recomendaciones.length ? recomendaciones : ['']).map((r, i) => new Paragraph({
-    spacing: { after: 100 },
-    children: [new TextRun({ text: `${i + 1}. ${r}` })],
-  }));
 }
 
 export async function buildManualDocxBlob(data: ManualData): Promise<Blob> {
@@ -91,9 +83,6 @@ export async function buildManualDocxBlob(data: ManualData): Promise<Blob> {
         })] : []),
 
         ...seccionesBlocks(data.secciones),
-
-        sectionHeading('Recomendaciones de uso'),
-        ...recomendacionesParagraphs(data.recomendaciones_uso),
 
         sectionHeading('Documentos de Referencia'),
         documentosReferenciaTable(data.documentos_referencia),

@@ -256,8 +256,6 @@ plantilla corporativa (nunca uses otro formato):
   del usuario Participante", "Funcionalidades del usuario Líder", "Acceso en modo
   Administrador"), cada una con una lista de funcionalidades numeradas (título breve + descripción
   de cómo se usa, en 2-4 líneas).
-- Recomendaciones de uso: lista breve (4-6 puntos) de buenas prácticas para usar la herramienta
-  correctamente.
 - Autor de la versión inicial.
 - Documentos de Referencia adicionales, si el usuario menciona alguno (el Glosario corporativo se
   agrega siempre automáticamente, no lo preguntes).
@@ -291,7 +289,6 @@ Con toda la información recopilada en la conversación, devuelve EXCLUSIVAMENTE
   "descripcion_general": string,
   "ruta_acceso": string,
   "secciones": [{ "titulo": string, "funcionalidades": [{ "titulo": string, "descripcion": string }] }],
-  "recomendaciones_uso": string[],
   "historial": [{ "version": string, "fecha": string, "descripcion": string, "autor": string, "aprobado": string }],
   "documentos_referencia": [{ "tipo": string, "descripcion": string }]
 }
