@@ -91,11 +91,14 @@ export interface Seguimiento {
   proyecto: string | null;
   fecha_limite: string | null;
   fecha_completado: string | null;
+  fecha_inicio?: string | null;
+  ubicacion?: string | null;
   orden: number;
   created_at: string;
   updated_at: string;
   board_id?: string | null;
   column_id?: string | null;
+  column_entered_at?: string;
 }
 
 export interface SeguimientoBoard {

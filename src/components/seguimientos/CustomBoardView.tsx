@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2, Palette, User, FolderKanban } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Pencil, ChevronLeft, Layout, ArrowLeftRight, Maximize2, Palette, User, FolderKanban, CalendarRange, Trello } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ import type { Seguimiento, SeguimientoBoard, SeguimientoColumn } from '@/types/d
 import { useUserDirectory } from '@/hooks/useUserDirectory';
 import { ResponsableMultiSelect } from '@/components/seguimientos/ResponsableMultiSelect';
 import { syncSeguimientoResponsables, fetchMembersByTask } from '@/lib/seguimientoResponsables';
+import { SprintSemanalView } from '@/components/seguimientos/SprintSemanalView';
 
 const COLUMN_COLORS = ['#64748b', '#4f46e5', '#2563eb', '#0891b2', '#059669', '#ca8a04', '#ea580c', '#dc2626', '#db2777', '#7c3aed'];
 const DEFAULT_COLUMN_COLOR = COLUMN_COLORS[0];
@@ -35,6 +36,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
   const [tasks, setTasks] = useState<Seguimiento[]>([]);
   const [membersByTask, setMembersByTask] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'tablero' | 'sprint'>('tablero');
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   const [newColumnColor, setNewColumnColor] = useState(DEFAULT_COLUMN_COLOR);
@@ -517,23 +519,46 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button 
-            onClick={openCreate}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20"
-          >
-            <Plus className="h-4 w-4 mr-2" /> Nuevo seguimiento
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => setAddingColumn(true)}
-            className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-          >
-            <Plus className="h-4 w-4 mr-2" /> Añadir lista
-          </Button>
+          <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
+            <Button size="sm" variant={viewMode === 'tablero' ? 'default' : 'ghost'} className="h-8 px-3" onClick={() => setViewMode('tablero')}>
+              <Trello className="h-3.5 w-3.5 mr-1.5" /> Tablero
+            </Button>
+            <Button size="sm" variant={viewMode === 'sprint' ? 'default' : 'ghost'} className="h-8 px-3" onClick={() => setViewMode('sprint')}>
+              <CalendarRange className="h-3.5 w-3.5 mr-1.5" /> Sprint Semanal
+            </Button>
+          </div>
+          {viewMode === 'tablero' && (
+            <>
+              <Button
+                onClick={openCreate}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20"
+              >
+                <Plus className="h-4 w-4 mr-2" /> Nuevo seguimiento
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setAddingColumn(true)}
+                className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+              >
+                <Plus className="h-4 w-4 mr-2" /> Añadir lista
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      <div 
+      {viewMode === 'sprint' ? (
+        <SprintSemanalView
+          board={board}
+          columns={columns}
+          tasks={tasks}
+          membersByTask={membersByTask}
+          directory={directory}
+          onOpenTask={onOpenTask}
+          onCloned={loadData}
+        />
+      ) : (
+      <div
         ref={containerRef}
         onDragOver={handleContainerDragOver}
         onDragLeave={stopAutoScroll}
@@ -767,6 +792,7 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
           </div>
         ) : null}
       </div>
+      )}
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-lg">
