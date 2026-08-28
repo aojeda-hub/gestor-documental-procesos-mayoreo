@@ -38,6 +38,8 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   const [newColumnColor, setNewColumnColor] = useState(DEFAULT_COLUMN_COLOR);
+  const [renamingColId, setRenamingColId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [editing, setEditing] = useState<Seguimiento | null>(null);
   const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'media' as any, proyecto: '', fecha_limite: '' });
   const [editResponsables, setEditResponsables] = useState<string[]>([]);
@@ -117,6 +119,24 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
   const handleUpdateColumnColor = async (id: string, color: string) => {
     setColumns(curr => curr.map(col => col.id === id ? { ...col, color } : col));
     const { error } = await supabase.from('seguimiento_columns').update({ color }).eq('id', id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      loadData();
+    }
+  };
+
+  const startRenameColumn = (col: SeguimientoColumn) => {
+    setRenamingColId(col.id);
+    setRenameValue(col.nombre);
+  };
+
+  const handleRenameColumn = async () => {
+    if (!renamingColId || !renameValue.trim()) return;
+    const trimmed = renameValue.trim();
+    const id = renamingColId;
+    setColumns(curr => curr.map(c => c.id === id ? { ...c, nombre: trimmed } : c));
+    setRenamingColId(null);
+    const { error } = await supabase.from('seguimiento_columns').update({ nombre: trimmed }).eq('id', id);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
       loadData();
@@ -549,6 +569,24 @@ export function CustomBoardView({ board, onBack, onOpenTask, refreshKey = 0 }: C
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                    <Popover onOpenChange={(o) => { if (o) startRenameColumn(col); else setRenamingColId(null); }}>
+                      <PopoverTrigger className="flex w-full items-center px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground rounded-sm">
+                        <Pencil className="h-4 w-4 mr-2" /> Renombrar lista
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-56 p-3">
+                        <Label className="text-xs">Nombre de la lista</Label>
+                        <Input
+                          autoFocus
+                          value={renamingColId === col.id ? renameValue : col.nombre}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleRenameColumn()}
+                          className="mt-2 mb-2"
+                        />
+                        <Button size="sm" className="w-full" onClick={handleRenameColumn}>Guardar</Button>
+                      </PopoverContent>
+                    </Popover>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
                     <Popover>
                       <PopoverTrigger className="flex w-full items-center px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground rounded-sm">
