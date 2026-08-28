@@ -85,7 +85,14 @@ export function computeRankingPorResponsable(
   directory: UserDirectoryEntry[],
   monthRange: DateRange,
 ): ResponsableRanking[] {
-  const monthTasks = filterTasksInRange(tasks, monthRange);
+  // A diferencia del sprint semanal (que exige fecha_limite), el ranking
+  // mensual no debe descartar tareas asignadas sin fecha limite: si no la
+  // tiene, se ubica en el mes por su fecha de creacion.
+  const monthTasks = tasks.filter(t => {
+    const dateStr = t.fecha_limite || t.created_at;
+    if (!dateStr) return false;
+    return isWithinInterval(parseISO(dateStr), { start: monthRange.start, end: monthRange.end });
+  });
   const byUser = new Map<string, { total: number; completadas: number }>();
   monthTasks.forEach(task => {
     const memberIds = membersByTask[task.id] || [];
