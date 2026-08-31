@@ -10,10 +10,11 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Plus, Calendar, User, Trash2, Pencil,
   AlertCircle, StickyNote, Send, Maximize2,
-  LayoutGrid, Trello, ChevronLeft, Layout, Search, Loader2, FolderKanban,
+  LayoutGrid, Trello, ChevronLeft, Layout, Search, Loader2, FolderKanban, CalendarClock, MoreVertical,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -23,11 +24,14 @@ import { SeguimientoCardDialog } from '@/components/seguimientos/SeguimientoCard
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BoardList } from '@/components/seguimientos/BoardList';
 import { CustomBoardView } from '@/components/seguimientos/CustomBoardView';
-import type { Seguimiento, SeguimientoBoard, SeguimientoColumn } from '@/types/database';
+import { ReunionOperativaView } from '@/components/seguimientos/ReunionOperativaView';
+import type { Seguimiento, SeguimientoBoard, SeguimientoColumn, SiloType } from '@/types/database';
+import { SILO_LABELS } from '@/types/database';
 import { COLUMNS, PRIORIDAD_LABEL, PRIORIDAD_COLOR, type Estado, type Prioridad } from '@/lib/seguimientoConstants';
 import { useUserDirectory } from '@/hooks/useUserDirectory';
 import { ResponsableMultiSelect } from '@/components/seguimientos/ResponsableMultiSelect';
 import { syncSeguimientoResponsables, fetchMembersByTask } from '@/lib/seguimientoResponsables';
+import { crearTableroReunionOperativa } from '@/lib/reunionOperativa';
 
 const empty = {
   titulo: '', descripcion: '', estado: 'pendiente' as Estado, prioridad: 'media' as Prioridad,
@@ -61,6 +65,11 @@ export default function Seguimientos() {
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [customBoardRefresh, setCustomBoardRefresh] = useState(0);
+  const [selectedReunionBoardId, setSelectedReunionBoardId] = useState<string | null>(null);
+  const [reunionCreateOpen, setReunionCreateOpen] = useState(false);
+  const [reunionSilo, setReunionSilo] = useState<SiloType | ''>('');
+  const [reunionMemberIds, setReunionMemberIds] = useState<string[]>([]);
+  const [creatingReunionBoard, setCreatingReunionBoard] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,16 +95,23 @@ export default function Seguimientos() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Abrir tablero personalizado desde notificación (?board=<id>)
+  // Abrir tablero personalizado o de Reunión Operativa desde notificación
+  // (?board=<id>). Espera a que `boards` esté cargado para saber el tipo de
+  // tablero y así abrir la pestaña correcta.
   useEffect(() => {
     const boardParam = searchParams.get('board');
-    if (boardParam) {
+    if (!boardParam || loadingBoards) return;
+    const board = boards.find((b) => b.id === boardParam);
+    if (board?.tipo === 'reunion_operativa') {
+      setActiveTab('reunion_operativa');
+      setSelectedReunionBoardId(boardParam);
+    } else {
       setActiveTab('custom');
       setSelectedBoardId(boardParam);
-      searchParams.delete('board');
-      setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+    searchParams.delete('board');
+    setSearchParams(searchParams, { replace: true });
+  }, [searchParams, setSearchParams, boards, loadingBoards]);
 
   // Buscador predictivo: busca por título/descripción en cualquier seguimiento
   // al que tengas acceso (propio, de un tablero, o donde te agregaron), sin
@@ -440,6 +456,10 @@ export default function Seguimientos() {
             <Trello className="h-4 w-4" />
             Tableros Personalizados
           </TabsTrigger>
+          <TabsTrigger value="reunion_operativa" className="gap-2 px-4 py-2">
+            <CalendarClock className="h-4 w-4" />
+            Reunión Operativa
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-0 outline-none">
@@ -577,13 +597,132 @@ export default function Seguimientos() {
             })()
           ) : (
             <BoardList
-              boards={boards}
+              boards={boards.filter((b) => b.tipo !== 'reunion_operativa')}
               onSelectBoard={setSelectedBoardId}
               onRefresh={loadBoards}
             />
           )}
         </TabsContent>
+
+        <TabsContent value="reunion_operativa" className="mt-0 outline-none">
+          {(() => {
+            const reunionBoards = boards.filter((b) => b.tipo === 'reunion_operativa');
+            if (selectedReunionBoardId) {
+              const board = reunionBoards.find((b) => b.id === selectedReunionBoardId);
+              return board ? (
+                <ReunionOperativaView board={board} onBack={() => setSelectedReunionBoardId(null)} onOpenTask={openCard} />
+              ) : (
+                <div className="text-center text-slate-400 py-12">
+                  {loadingBoards ? 'Cargando tablero...' : 'No tienes acceso a este tablero o ya no existe.'}
+                </div>
+              );
+            }
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <Card
+                  className="border-dashed border-2 bg-slate-50/50 hover:bg-slate-100/50 cursor-pointer transition-all hover:border-indigo-300 group flex flex-col items-center justify-center py-10"
+                  onClick={() => setReunionCreateOpen(true)}
+                >
+                  <div className="h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Plus className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  <span className="mt-4 font-medium text-slate-600">Crear Reunión Operativa</span>
+                </Card>
+                {reunionBoards.map((board) => (
+                  <Card
+                    key={board.id}
+                    className="group hover:shadow-md transition-all cursor-pointer border-slate-200 p-4"
+                    onClick={() => setSelectedReunionBoardId(board.id)}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2">
+                        <CalendarClock className="h-4 w-4 text-indigo-500" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {board.silo ? (SILO_LABELS[board.silo as SiloType] ?? board.silo) : 'Sin silo'}
+                        </span>
+                      </div>
+                      {user?.id === board.created_by && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem
+                              className="text-rose-600"
+                              onClick={async () => {
+                                if (!confirm(`¿Eliminar el tablero "${board.nombre}" y todo su contenido?`)) return;
+                                const { error } = await supabase.from('seguimiento_boards').delete().eq('id', board.id);
+                                if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+                                loadBoards();
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                    <div className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{board.nombre}</div>
+                  </Card>
+                ))}
+              </div>
+            );
+          })()}
+        </TabsContent>
       </Tabs>
+
+      {/* Crear Reunión Operativa */}
+      <Dialog open={reunionCreateOpen} onOpenChange={setReunionCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Crear Reunión Operativa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Silo *</Label>
+              <Select value={reunionSilo} onValueChange={(v) => setReunionSilo(v as SiloType)}>
+                <SelectTrigger><SelectValue placeholder="Selecciona un silo" /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(SILO_LABELS) as SiloType[]).filter((s) => s !== 'sinsilo').map((s) => (
+                    <SelectItem key={s} value={s}>{SILO_LABELS[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Integrantes</Label>
+              <ResponsableMultiSelect directory={directory} value={reunionMemberIds} onChange={setReunionMemberIds} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReunionCreateOpen(false)} disabled={creatingReunionBoard}>Cancelar</Button>
+            <Button
+              disabled={!reunionSilo || creatingReunionBoard || !user}
+              onClick={async () => {
+                if (!user || !reunionSilo) return;
+                setCreatingReunionBoard(true);
+                try {
+                  const { board } = await crearTableroReunionOperativa(user.id, reunionSilo, reunionMemberIds);
+                  await loadBoards();
+                  setSelectedReunionBoardId(board.id);
+                  setReunionCreateOpen(false);
+                  setReunionSilo('');
+                  setReunionMemberIds([]);
+                } catch (e) {
+                  toast({ title: 'Error', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
+                } finally {
+                  setCreatingReunionBoard(false);
+                }
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {creatingReunionBoard ? 'Creando...' : 'Crear'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

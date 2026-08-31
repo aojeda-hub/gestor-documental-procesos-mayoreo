@@ -99,6 +99,7 @@ export interface Seguimiento {
   board_id?: string | null;
   column_id?: string | null;
   column_entered_at?: string;
+  reunion_id?: string | null;
 }
 
 export interface SeguimientoBoard {
@@ -109,6 +110,8 @@ export interface SeguimientoBoard {
   color: string;
   created_at: string;
   updated_at: string;
+  tipo?: string;
+  silo?: string | null;
 }
 
 export interface SeguimientoColumn {
@@ -117,6 +120,49 @@ export interface SeguimientoColumn {
   nombre: string;
   orden: number;
   color: string;
+  created_at: string;
+}
+
+export interface ReunionOperativaMeeting {
+  id: string;
+  board_id: string;
+  numero: number;
+  titulo: string;
+  fecha: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface CronogramaProceso {
+  id: string;
+  board_id: string;
+  nombre: string;
+  orden: number;
+  created_at: string;
+}
+
+export type CronogramaEstado = 'pendiente' | 'en_progreso' | 'completado';
+
+export interface CronogramaActividad {
+  id: string;
+  proceso_id: string;
+  nombre: string;
+  meses: number[];
+  estado: CronogramaEstado;
+  responsable_user_id: string | null;
+  seguimiento_id: string | null;
+  orden: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CronogramaHistorialItem {
+  id: string;
+  actividad_id: string;
+  user_id: string;
+  campo: string;
+  valor_anterior: string | null;
+  valor_nuevo: string | null;
   created_at: string;
 }
 

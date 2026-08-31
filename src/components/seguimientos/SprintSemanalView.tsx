@@ -13,8 +13,9 @@ import type { Seguimiento, SeguimientoBoard, SeguimientoColumn } from '@/types/d
 import type { UserDirectoryEntry } from '@/hooks/useUserDirectory';
 import { syncSeguimientoResponsables } from '@/lib/seguimientoResponsables';
 import {
-  getWeekRange, getMonthRange, getFinalColumn, filterTasksInRange,
+  getWeekRange, getMonthRange, getFinalColumn, filterTasksInRange, columnIsDoneCheck,
   computeCumplimiento, computeVelocidad, detectBloqueadas, computeRankingPorResponsable,
+  type IsDoneCheck,
 } from '@/lib/sprintMetrics';
 
 interface SprintSemanalViewProps {
@@ -25,9 +26,13 @@ interface SprintSemanalViewProps {
   directory: UserDirectoryEntry[];
   onOpenTask: (id: string) => void;
   onCloned: () => void;
+  // Por defecto "completado" = la tarjeta esta en la ultima columna (mayor
+  // `orden`). Pasa esto cuando las columnas no representan un flujo (ej.
+  // categorias tematicas) y "completado" debe salir de otro campo.
+  isDone?: IsDoneCheck;
 }
 
-export function SprintSemanalView({ board, columns, tasks, membersByTask, directory, onOpenTask, onCloned }: SprintSemanalViewProps) {
+export function SprintSemanalView({ board, columns, tasks, membersByTask, directory, onOpenTask, onCloned, isDone: isDoneProp }: SprintSemanalViewProps) {
   const { toast } = useToast();
   const [weekOffset, setWeekOffset] = useState(0);
   const [dashMode, setDashMode] = useState<'semana' | 'mes'>('semana');
@@ -36,11 +41,12 @@ export function SprintSemanalView({ board, columns, tasks, membersByTask, direct
   const today = new Date();
 
   const finalColumn = useMemo(() => getFinalColumn(columns), [columns]);
+  const isDone = useMemo(() => isDoneProp ?? columnIsDoneCheck(finalColumn?.id ?? null), [isDoneProp, finalColumn]);
   const weekRange = useMemo(() => getWeekRange(today, weekOffset), [weekOffset]);
   const weekTasks = useMemo(() => filterTasksInRange(tasks, weekRange), [tasks, weekRange]);
-  const cumplimiento = useMemo(() => computeCumplimiento(weekTasks, finalColumn?.id ?? null), [weekTasks, finalColumn]);
-  const velocidad = useMemo(() => computeVelocidad(tasks, columns, 4, today), [tasks, columns]);
-  const bloqueadas = useMemo(() => detectBloqueadas(weekTasks, finalColumn?.id ?? null, 2, today), [weekTasks, finalColumn]);
+  const cumplimiento = useMemo(() => computeCumplimiento(weekTasks, isDone), [weekTasks, isDone]);
+  const velocidad = useMemo(() => computeVelocidad(tasks, 4, today, isDone), [tasks, isDone]);
+  const bloqueadas = useMemo(() => detectBloqueadas(weekTasks, isDone, 2, today), [weekTasks, isDone]);
   const bloqueadasInfo = useMemo(() => new Map(bloqueadas.map(b => [b.id, b.diasEnColumna])), [bloqueadas]);
 
   const groupedWeek = useMemo(() => {
@@ -51,8 +57,8 @@ export function SprintSemanalView({ board, columns, tasks, membersByTask, direct
   }, [columns, weekTasks]);
 
   const pendientes = useMemo(
-    () => weekTasks.filter(t => t.column_id !== (finalColumn?.id ?? null)),
-    [weekTasks, finalColumn],
+    () => weekTasks.filter(t => !isDone(t)),
+    [weekTasks, isDone],
   );
 
   const monthlyTrend = useMemo(() => {
@@ -60,15 +66,15 @@ export function SprintSemanalView({ board, columns, tasks, membersByTask, direct
     for (let i = 5; i >= 0; i--) {
       const range = getWeekRange(today, -i);
       const wTasks = filterTasksInRange(tasks, range);
-      const { pct } = computeCumplimiento(wTasks, finalColumn?.id ?? null);
+      const { pct } = computeCumplimiento(wTasks, isDone);
       weeks.push({ label: format(range.start, 'd MMM', { locale: es }), pct: pct ?? 0, total: wTasks.length });
     }
     return weeks;
-  }, [tasks, finalColumn]);
+  }, [tasks, isDone]);
 
   const ranking = useMemo(
-    () => computeRankingPorResponsable(tasks, finalColumn?.id ?? null, membersByTask, directory, getMonthRange(today)),
-    [tasks, finalColumn, membersByTask, directory],
+    () => computeRankingPorResponsable(tasks, isDone, membersByTask, directory, getMonthRange(today)),
+    [tasks, isDone, membersByTask, directory],
   );
 
   const responsableLabel = (task: Seguimiento): string | null => {
@@ -184,7 +190,7 @@ export function SprintSemanalView({ board, columns, tasks, membersByTask, direct
         <Card className="p-4 border-slate-200 shadow-sm">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><Gauge className="h-3.5 w-3.5" /> % Cumplimiento</div>
           <div className={cn('text-2xl font-bold', pctColor(cumplimiento.pct))}>{cumplimiento.pct === null ? '—' : `${cumplimiento.pct}%`}</div>
-          {finalColumn && <div className="text-[11px] text-slate-400 mt-0.5">en "{finalColumn.nombre}"</div>}
+          {!isDoneProp && finalColumn && <div className="text-[11px] text-slate-400 mt-0.5">en "{finalColumn.nombre}"</div>}
         </Card>
         <Card className="p-4 border-slate-200 shadow-sm">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><Zap className="h-3.5 w-3.5" /> Velocidad (4 sem.)</div>
@@ -206,7 +212,7 @@ export function SprintSemanalView({ board, columns, tasks, membersByTask, direct
                 <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: col.color || '#64748b' }} />
                 <h4 className="font-bold text-slate-700 text-sm">{col.nombre}</h4>
                 <Badge variant="secondary" className="ml-auto bg-slate-200 text-slate-600 text-[10px]">{groupedWeek[col.id]?.length || 0}</Badge>
-                {finalColumn?.id === col.id && <Badge className="bg-emerald-100 text-emerald-700 text-[9px]">Final</Badge>}
+                {!isDoneProp && finalColumn?.id === col.id && <Badge className="bg-emerald-100 text-emerald-700 text-[9px]">Final</Badge>}
               </div>
               <div className="space-y-2 flex-1 overflow-y-auto max-h-[480px] pr-1">
                 {groupedWeek[col.id]?.map(task => {

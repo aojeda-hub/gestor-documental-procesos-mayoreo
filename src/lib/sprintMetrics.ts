@@ -31,41 +31,50 @@ export function filterTasksInRange(tasks: Seguimiento[], range: DateRange): Segu
   });
 }
 
-export function computeCumplimiento(tasks: Seguimiento[], finalColumnId: string | null) {
+export type IsDoneCheck = (task: Seguimiento) => boolean;
+
+// Por defecto "completado" = la tarjeta esta en la columna de mayor `orden`
+// (el flujo tipico de un kanban: Backlog -> ... -> Hecho). Algunos tableros
+// (ej. Reunion Operativa, donde las columnas son categorias tematicas y no
+// etapas de un proceso) necesitan definir "completado" de otra forma -> por
+// eso las funciones reciben el criterio en vez de asumir siempre la columna.
+export function columnIsDoneCheck(finalColumnId: string | null): IsDoneCheck {
+  return (task) => !!finalColumnId && task.column_id === finalColumnId;
+}
+
+export function computeCumplimiento(tasks: Seguimiento[], isDone: IsDoneCheck) {
   const total = tasks.length;
-  const enFinal = finalColumnId ? tasks.filter(t => t.column_id === finalColumnId).length : 0;
+  const enFinal = tasks.filter(isDone).length;
   const pct = total === 0 ? null : Math.round((enFinal / total) * 100);
   return { total, enFinal, pct };
 }
 
-// Aproximacion: no se guarda un historial de cambios de columna, solo el
-// estado actual. La velocidad de semanas pasadas se calcula con la columna
-// en la que cada tarea esta AHORA, no con la que tenia esa semana.
+// Aproximacion: no se guarda un historial de cambios de columna/estado, solo
+// el valor actual. La velocidad de semanas pasadas se calcula con el estado
+// de "completado" que cada tarea tiene AHORA, no con el que tenia esa semana.
 export function computeVelocidad(
   tasks: Seguimiento[],
-  columns: SeguimientoColumn[],
   weeksBack: number,
   reference: Date,
+  isDone: IsDoneCheck,
 ): number {
-  const finalColumn = getFinalColumn(columns);
-  if (!finalColumn) return 0;
   let totalCompletadas = 0;
   for (let i = 1; i <= weeksBack; i++) {
     const range = getWeekRange(reference, -i);
     const weekTasks = filterTasksInRange(tasks, range);
-    totalCompletadas += weekTasks.filter(t => t.column_id === finalColumn.id).length;
+    totalCompletadas += weekTasks.filter(isDone).length;
   }
   return weeksBack === 0 ? 0 : Math.round((totalCompletadas / weeksBack) * 10) / 10;
 }
 
 export function detectBloqueadas(
   tasks: Seguimiento[],
-  finalColumnId: string | null,
+  isDone: IsDoneCheck,
   thresholdDays: number,
   reference: Date,
 ): Array<Seguimiento & { diasEnColumna: number }> {
   return tasks
-    .filter(t => t.column_id && t.column_id !== finalColumnId && t.column_entered_at)
+    .filter(t => t.column_id && !isDone(t) && t.column_entered_at)
     .map(t => ({ ...t, diasEnColumna: differenceInCalendarDays(reference, parseISO(t.column_entered_at!)) }))
     .filter(t => t.diasEnColumna > thresholdDays);
 }
@@ -80,7 +89,7 @@ export interface ResponsableRanking {
 
 export function computeRankingPorResponsable(
   tasks: Seguimiento[],
-  finalColumnId: string | null,
+  isDone: IsDoneCheck,
   membersByTask: Record<string, string[]>,
   directory: UserDirectoryEntry[],
   monthRange: DateRange,
@@ -99,7 +108,7 @@ export function computeRankingPorResponsable(
     memberIds.forEach(userId => {
       const entry = byUser.get(userId) || { total: 0, completadas: 0 };
       entry.total += 1;
-      if (finalColumnId && task.column_id === finalColumnId) entry.completadas += 1;
+      if (isDone(task)) entry.completadas += 1;
       byUser.set(userId, entry);
     });
   });
