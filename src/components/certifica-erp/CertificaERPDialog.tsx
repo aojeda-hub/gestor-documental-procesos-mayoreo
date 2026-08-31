@@ -424,6 +424,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
   const { user } = useAuth();
   const [editingInc, setEditingInc] = useState<IncRow | null>(null);
   const [creatingFromCert, setCreatingFromCert] = useState<(CasoRow & { script_nombre: string }) | null>(null);
+  const [estadoFilter, setEstadoFilter] = useState<Estado | "todos">("todos");
 
   const { data: incidencias } = useQuery({
     queryKey: ["cert-proyecto-incidencias", proyectoId],
@@ -487,6 +488,19 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
     },
   });
 
+  const estadoCounts = useMemo(() => {
+    const base: Record<Estado, number> = { pendiente: 0, en_curso: 0, resuelto: 0 };
+    (incidencias ?? []).forEach((r) => { base[r.estado] = (base[r.estado] ?? 0) + 1; });
+    return base;
+  }, [incidencias]);
+
+  const incidenciasFiltradas = useMemo(() => (
+    estadoFilter === "todos" ? (incidencias ?? []) : (incidencias ?? []).filter((r) => r.estado === estadoFilter)
+  ), [incidencias, estadoFilter]);
+
+  // Las incidencias detectadas en certificación aún no tienen un estado pendiente/en curso/resuelto
+  // propio, así que solo se muestran en "Todos".
+  const certIncidenciasFiltradas = estadoFilter === "todos" ? (certIncidencias ?? []) : [];
 
   const exportar = async () => {
     const totalReal = incidencias?.length ?? 0;
@@ -662,12 +676,37 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setEstadoFilter("todos")}
+          className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${estadoFilter === "todos" ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground border-border hover:bg-muted"}`}
+        >
+          Todos ({incidencias?.length ?? 0})
+        </button>
+        {ESTADOS.map((e) => (
+          <button
+            key={e}
+            type="button"
+            onClick={() => setEstadoFilter(e)}
+            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${estadoFilter === e ? `${ESTADO_STYLES[e]} ring-2 ring-offset-1 ring-foreground/30` : "bg-background text-muted-foreground border-border hover:bg-muted"}`}
+          >
+            {ESTADO_LABEL[e]} ({estadoCounts[e]})
+          </button>
+        ))}
+      </div>
 
-      {incidencias && incidencias.length === 0 && (!certIncidencias || certIncidencias.length === 0) ? (
+      {incidenciasFiltradas.length === 0 && certIncidenciasFiltradas.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <ListChecks className="h-8 w-8 text-muted-foreground" />
-          <div className="font-medium">Sin incidencias en este proyecto</div>
-          <Button size="sm" onClick={() => navigate({ name: "nueva", proyectoId })}><Plus className="h-4 w-4" /> Registrar la primera</Button>
+          {estadoFilter === "todos" ? (
+            <>
+              <div className="font-medium">Sin incidencias en este proyecto</div>
+              <Button size="sm" onClick={() => navigate({ name: "nueva", proyectoId })}><Plus className="h-4 w-4" /> Registrar la primera</Button>
+            </>
+          ) : (
+            <div className="font-medium">No hay incidencias en estado "{ESTADO_LABEL[estadoFilter]}"</div>
+          )}
         </Card>
       ) : (
         <Card className="overflow-hidden">
@@ -686,7 +725,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(incidencias ?? []).map((r) => (
+              {incidenciasFiltradas.map((r) => (
                 <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate({ name: "incidencia", id: r.id })}>
                   <TableCell className="font-mono text-xs text-muted-foreground">#{r.numero}</TableCell>
                   <TableCell className="font-medium">{r.titulo}</TableCell>
@@ -703,7 +742,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                   </TableCell>
                 </TableRow>
               ))}
-              {(certIncidencias ?? []).filter((c) => !linkedCasoIds.has(c.id)).map((c) => (
+              {certIncidenciasFiltradas.filter((c) => !linkedCasoIds.has(c.id)).map((c) => (
                 <TableRow
                   key={`cert-${c.id}`}
                   className="bg-orange-50/40 dark:bg-orange-950/10 cursor-pointer"
