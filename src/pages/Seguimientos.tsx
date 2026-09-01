@@ -14,7 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import {
   Plus, Calendar, User, Trash2, Pencil,
   AlertCircle, StickyNote, Send, Maximize2,
-  LayoutGrid, Trello, ChevronLeft, Layout, Search, Loader2, FolderKanban, CalendarClock, MoreVertical,
+  LayoutGrid, Trello, ChevronLeft, Layout, Search, Loader2, FolderKanban, CalendarClock, MoreVertical, Users,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -31,7 +31,7 @@ import { COLUMNS, PRIORIDAD_LABEL, PRIORIDAD_COLOR, type Estado, type Prioridad 
 import { useUserDirectory } from '@/hooks/useUserDirectory';
 import { ResponsableMultiSelect } from '@/components/seguimientos/ResponsableMultiSelect';
 import { syncSeguimientoResponsables, fetchMembersByTask } from '@/lib/seguimientoResponsables';
-import { crearTableroReunionOperativa } from '@/lib/reunionOperativa';
+import { crearTableroReunionOperativa, agregarMiembrosTablero } from '@/lib/reunionOperativa';
 
 const empty = {
   titulo: '', descripcion: '', estado: 'pendiente' as Estado, prioridad: 'media' as Prioridad,
@@ -70,6 +70,10 @@ export default function Seguimientos() {
   const [reunionSilo, setReunionSilo] = useState<SiloType | ''>('');
   const [reunionMemberIds, setReunionMemberIds] = useState<string[]>([]);
   const [creatingReunionBoard, setCreatingReunionBoard] = useState(false);
+  const [membersDialogBoard, setMembersDialogBoard] = useState<SeguimientoBoard | null>(null);
+  const [membersDialogExisting, setMembersDialogExisting] = useState<string[]>([]);
+  const [membersDialogNewIds, setMembersDialogNewIds] = useState<string[]>([]);
+  const [addingMembers, setAddingMembers] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -650,6 +654,16 @@ export default function Seguimientos() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                             <DropdownMenuItem
+                              onClick={async () => {
+                                setMembersDialogBoard(board);
+                                setMembersDialogNewIds([]);
+                                const { data } = await supabase.from('seguimiento_board_miembros' as any).select('member_user_id').eq('board_id', board.id);
+                                setMembersDialogExisting(((data as any[]) ?? []).map((m) => m.member_user_id));
+                              }}
+                            >
+                              <Users className="h-4 w-4 mr-2" /> Agregar miembros
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               className="text-rose-600"
                               onClick={async () => {
                                 if (!confirm(`¿Eliminar el tablero "${board.nombre}" y todo su contenido?`)) return;
@@ -719,6 +733,62 @@ export default function Seguimientos() {
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {creatingReunionBoard ? 'Creando...' : 'Crear'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Agregar miembros a Reunión Operativa */}
+      <Dialog open={!!membersDialogBoard} onOpenChange={(o) => !o && setMembersDialogBoard(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-4 w-4" /> Miembros — {membersDialogBoard?.nombre}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {membersDialogExisting.length > 0 && (
+              <div>
+                <Label className="text-xs text-slate-500">Ya son miembros</Label>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {membersDialogExisting.map((id) => (
+                    <Badge key={id} variant="secondary">
+                      {directory.find((u) => u.user_id === id)?.full_name || 'Usuario'}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <Label>Agregar integrantes</Label>
+              <ResponsableMultiSelect
+                directory={directory.filter((u) => !membersDialogExisting.includes(u.user_id) && u.user_id !== user?.id)}
+                value={membersDialogNewIds}
+                onChange={setMembersDialogNewIds}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMembersDialogBoard(null)} disabled={addingMembers}>Cerrar</Button>
+            <Button
+              disabled={membersDialogNewIds.length === 0 || addingMembers || !user || !membersDialogBoard}
+              onClick={async () => {
+                if (!user || !membersDialogBoard) return;
+                setAddingMembers(true);
+                try {
+                  await agregarMiembrosTablero(membersDialogBoard.id, membersDialogBoard.nombre, user.id, membersDialogNewIds);
+                  toast({ title: 'Miembros agregados', description: 'Ya pueden ver el tablero en su sesión.' });
+                  setMembersDialogExisting((curr) => [...curr, ...membersDialogNewIds]);
+                  setMembersDialogNewIds([]);
+                } catch (e) {
+                  toast({ title: 'Error', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
+                } finally {
+                  setAddingMembers(false);
+                }
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {addingMembers ? 'Agregando...' : 'Agregar'}
             </Button>
           </DialogFooter>
         </DialogContent>

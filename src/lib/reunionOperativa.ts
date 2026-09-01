@@ -13,7 +13,7 @@ function tituloReunion(numero: number, fecha: Date) {
 // Agrega miembros a un tablero (fuera del creador, que ya tiene acceso por
 // ser el dueño) y notifica a cada uno, igual que "Compartir tablero" en
 // BoardList.tsx. No bloquea la creación del tablero si algún miembro falla.
-async function agregarMiembrosTablero(boardId: string, boardNombre: string, actorUserId: string, memberIds: string[]) {
+export async function agregarMiembrosTablero(boardId: string, boardNombre: string, actorUserId: string, memberIds: string[]) {
   const toAdd = memberIds.filter((id) => id && id !== actorUserId);
   for (const memberId of toAdd) {
     const { error } = await supabase.from('seguimiento_board_miembros' as any).insert({ board_id: boardId, member_user_id: memberId });
