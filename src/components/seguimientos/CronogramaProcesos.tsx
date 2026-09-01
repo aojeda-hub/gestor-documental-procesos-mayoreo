@@ -10,16 +10,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, History } from 'lucide-react';
+import { Plus, Pencil, Trash2, History, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import type { SeguimientoBoard, CronogramaProceso, CronogramaActividad, CronogramaEstado, CronogramaHistorialItem } from '@/types/database';
+import type { SeguimientoBoard, CronogramaProceso, CronogramaActividad, CronogramaEstado, CronogramaFrecuenciaRecordatorio, CronogramaHistorialItem } from '@/types/database';
 import type { UserDirectoryEntry } from '@/hooks/useUserDirectory';
-import { computeAvancePorProceso, registrarCambioHistorial, MES_LABELS } from '@/lib/reunionOperativa';
+import {
+  computeAvancePorProceso, registrarCambioHistorial, computeFrecuencia, revisarYEnviarRecordatorios,
+  FRECUENCIA_RECORDATORIO_LABEL, MES_LABELS,
+} from '@/lib/reunionOperativa';
 
 const CRONO_ESTADO_LABEL: Record<CronogramaEstado, string> = {
   pendiente: '⚪ Pendiente', en_progreso: '🟡 En progreso', completado: '✅ Completado',
@@ -51,8 +55,12 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
   const [soloProximos, setSoloProximos] = useState(false);
 
   const [actividadDialog, setActividadDialog] = useState<{ procesoId: string; actividad: CronogramaActividad | null } | null>(null);
-  const [actForm, setActForm] = useState<{ nombre: string; meses: number[]; responsable_user_id: string; estado: CronogramaEstado }>({
+  const [actForm, setActForm] = useState<{
+    nombre: string; meses: number[]; responsable_user_id: string; estado: CronogramaEstado;
+    dias_recordatorio: number; frecuencia_recordatorio: CronogramaFrecuenciaRecordatorio;
+  }>({
     nombre: '', meses: [], responsable_user_id: '', estado: 'pendiente',
+    dias_recordatorio: 7, frecuencia_recordatorio: 'una_vez',
   });
 
   const [pendingCompletar, setPendingCompletar] = useState<CronogramaActividad | null>(null);
@@ -68,9 +76,19 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
       const { data } = await supabase.from('cronograma_actividades' as any).select('*').in('proceso_id', procesoIds).order('orden');
       acts = data ?? [];
     }
-    setProcesos((procs ?? []) as unknown as CronogramaProceso[]);
-    setActividades(acts as unknown as CronogramaActividad[]);
+    const procesosList = (procs ?? []) as unknown as CronogramaProceso[];
+    let actividadesList = acts as unknown as CronogramaActividad[];
+    setProcesos(procesosList);
+    setActividades(actividadesList);
     setLoading(false);
+
+    // Revisa recordatorios pendientes cada vez que alguien abre el
+    // cronograma (no requiere infraestructura de servidor: el chequeo ocurre
+    // al cargar la vista).
+    if (user) {
+      actividadesList = await revisarYEnviarRecordatorios(actividadesList, procesosList, board.id, user.id);
+      setActividades(actividadesList);
+    }
   };
 
   useEffect(() => { loadData(); }, [board.id]);
@@ -104,13 +122,14 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
   };
 
   const openAddActividad = (procesoId: string) => {
-    setActForm({ nombre: '', meses: [], responsable_user_id: '', estado: 'pendiente' });
+    setActForm({ nombre: '', meses: [], responsable_user_id: '', estado: 'pendiente', dias_recordatorio: 7, frecuencia_recordatorio: 'una_vez' });
     setActividadDialog({ procesoId, actividad: null });
   };
   const openEditActividad = (actividad: CronogramaActividad) => {
     setActForm({
       nombre: actividad.nombre, meses: actividad.meses,
       responsable_user_id: actividad.responsable_user_id ?? '', estado: actividad.estado,
+      dias_recordatorio: actividad.dias_recordatorio, frecuencia_recordatorio: actividad.frecuencia_recordatorio,
     });
     setActividadDialog({ procesoId: actividad.proceso_id, actividad });
   };
@@ -121,27 +140,40 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
   const saveActividad = async () => {
     if (!actividadDialog || !actForm.nombre.trim() || !user) return;
     const responsableId = actForm.responsable_user_id || null;
+    const diasRecordatorio = Number.isFinite(actForm.dias_recordatorio) && actForm.dias_recordatorio >= 0 ? Math.round(actForm.dias_recordatorio) : 7;
     if (actividadDialog.actividad) {
       const prev = actividadDialog.actividad;
       const { error } = await supabase.from('cronograma_actividades' as any).update({
         nombre: actForm.nombre.trim(), meses: actForm.meses, responsable_user_id: responsableId, estado: actForm.estado,
+        dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
       }).eq('id', prev.id);
       if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
       if (prev.nombre !== actForm.nombre.trim()) await registrarCambioHistorial(prev.id, user.id, 'nombre', prev.nombre, actForm.nombre.trim());
       if (prev.responsable_user_id !== responsableId) await registrarCambioHistorial(prev.id, user.id, 'responsable', responsableNombre(prev.responsable_user_id), responsableNombre(responsableId));
       if (prev.estado !== actForm.estado) await registrarCambioHistorial(prev.id, user.id, 'estado', prev.estado, actForm.estado);
+      if (prev.dias_recordatorio !== diasRecordatorio || prev.frecuencia_recordatorio !== actForm.frecuencia_recordatorio) {
+        await registrarCambioHistorial(
+          prev.id, user.id, 'recordatorio',
+          `${prev.dias_recordatorio}d · ${FRECUENCIA_RECORDATORIO_LABEL[prev.frecuencia_recordatorio]}`,
+          `${diasRecordatorio}d · ${FRECUENCIA_RECORDATORIO_LABEL[actForm.frecuencia_recordatorio]}`,
+        );
+      }
       if (prev.estado !== 'completado' && actForm.estado === 'completado' && prev.seguimiento_id) {
         await supabase.from('seguimientos').update({ estado: 'completado' }).eq('id', prev.seguimiento_id);
         onLinkedTaskCreated();
       }
       setActividades((curr) => curr.map((a) => a.id === prev.id
-        ? { ...a, nombre: actForm.nombre.trim(), meses: actForm.meses, responsable_user_id: responsableId, estado: actForm.estado }
+        ? {
+          ...a, nombre: actForm.nombre.trim(), meses: actForm.meses, responsable_user_id: responsableId, estado: actForm.estado,
+          dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
+        }
         : a));
     } else {
       const orden = actividades.filter((a) => a.proceso_id === actividadDialog.procesoId).length;
       const { data, error } = await supabase.from('cronograma_actividades' as any).insert({
         proceso_id: actividadDialog.procesoId, nombre: actForm.nombre.trim(), meses: actForm.meses,
         responsable_user_id: responsableId, estado: actForm.estado, orden,
+        dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
       }).select('*').single();
       if (error || !data) { toast({ title: 'Error', description: error?.message, variant: 'destructive' }); return; }
       setActividades((curr) => [...curr, data as unknown as CronogramaActividad]);
@@ -254,8 +286,10 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
     return true;
   }), [actividades, filtroProceso, filtroEstado, filtroResponsable, filtroMes, soloProximos, mesActual]);
 
-  const filtrosActivos = filtroProceso !== 'todos' || filtroEstado !== 'todos' || filtroResponsable !== 'todos' || filtroMes !== 'todos' || soloProximos;
-  const procesosAMostrar = procesos.filter((p) => !filtrosActivos || actividadesFiltradas.some((a) => a.proceso_id === p.id));
+  // Por defecto solo se muestran los procesos que ya tienen actividades
+  // cargadas. Un proceso vacio solo aparece si se elige explicitamente en el
+  // filtro "Proceso" (asi se puede seguir agregando su primera actividad).
+  const procesosAMostrar = procesos.filter((p) => filtroProceso === p.id || actividadesFiltradas.some((a) => a.proceso_id === p.id));
   const avancePorProceso = useMemo(() => computeAvancePorProceso(actividades, procesos), [actividades, procesos]);
 
   if (loading) return <div className="p-8 text-center text-slate-400 text-sm">Cargando cronograma...</div>;
@@ -360,9 +394,15 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
                         </Select>
                       </TableCell>
                       <TableCell className="whitespace-nowrap border-r border-slate-200">
-                        <button type="button" className="text-left text-sm font-medium text-slate-800 hover:text-indigo-600 hover:underline" onClick={() => handleClickActividadNombre(act)}>
+                        <button type="button" className="block text-left text-sm font-medium text-slate-800 hover:text-indigo-600 hover:underline" onClick={() => handleClickActividadNombre(act)}>
                           {act.nombre}
                         </button>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                          <span>{computeFrecuencia(act.meses)}</span>
+                          <span className="flex items-center gap-0.5" title="Recordatorio">
+                            <Bell className="h-2.5 w-2.5" /> {act.dias_recordatorio}d · {FRECUENCIA_RECORDATORIO_LABEL[act.frecuencia_recordatorio]}
+                          </span>
+                        </div>
                       </TableCell>
                       {MES_LABELS.map((label, idx) => {
                         const mes = idx + 1;
@@ -482,6 +522,29 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
                     {directory.map((u) => <SelectItem key={u.user_id} value={u.user_id}>{u.full_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Recordatorio al responsable</Label>
+              <div className="grid grid-cols-2 gap-3 mt-1">
+                <div>
+                  <Label className="text-xs text-slate-500">Días de anticipación</Label>
+                  <Input
+                    type="number" min={0} value={actForm.dias_recordatorio}
+                    onChange={(e) => setActForm((f) => ({ ...f, dias_recordatorio: Number(e.target.value) }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-500">Frecuencia del aviso</Label>
+                  <Select value={actForm.frecuencia_recordatorio} onValueChange={(v: CronogramaFrecuenciaRecordatorio) => setActForm((f) => ({ ...f, frecuencia_recordatorio: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="una_vez">Una vez</SelectItem>
+                      <SelectItem value="diario">Diario</SelectItem>
+                      <SelectItem value="semanal">Semanal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>

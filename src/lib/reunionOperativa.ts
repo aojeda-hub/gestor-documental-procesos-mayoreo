@@ -1,6 +1,6 @@
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
-import type { Seguimiento, SeguimientoBoard, SeguimientoColumn, ReunionOperativaMeeting, CronogramaProceso, CronogramaActividad } from '@/types/database';
+import type { Seguimiento, SeguimientoBoard, SeguimientoColumn, ReunionOperativaMeeting, CronogramaProceso, CronogramaActividad, CronogramaFrecuenciaRecordatorio } from '@/types/database';
 import { syncSeguimientoResponsables } from '@/lib/seguimientoResponsables';
 
 export const GRUPOS_REUNION_OPERATIVA = ['Estructura', 'Procesos', 'Sistemas'] as const;
@@ -217,4 +217,105 @@ export async function registrarCambioHistorial(
     valor_anterior: valorAnterior,
     valor_nuevo: valorNuevo,
   });
+}
+
+// La frecuencia se calcula sola a partir de los meses marcados: no es un
+// campo que se elija aparte, para no duplicar la misma información dos veces.
+export function computeFrecuencia(meses: number[]): string {
+  const n = meses.length;
+  if (n === 0) return 'Sin programar';
+  if (n === 1) return 'Puntual (1x/año)';
+  if (n === 12) return 'Mensual';
+  const sorted = [...meses].sort((a, b) => a - b);
+  const gaps = sorted.slice(1).map((m, i) => m - sorted[i]);
+  const parejo = gaps.every((g) => g === gaps[0]);
+  if (parejo) {
+    const label: Record<number, string> = { 2: 'Bimestral', 3: 'Trimestral', 4: 'Cuatrimestral', 6: 'Semestral' };
+    if (label[gaps[0]]) return label[gaps[0]];
+  }
+  return `Personalizada (${n}x/año)`;
+}
+
+// Encuentra la próxima ocurrencia (año, mes) de una actividad recurrente a
+// partir de hoy: el primer mes marcado que sea >= al mes actual, o el primer
+// mes marcado del año siguiente si ya pasaron todos este año.
+function proximaOcurrencia(meses: number[], hoy: Date): { anio: number; mes: number } {
+  const mesActual = hoy.getMonth() + 1;
+  const anioActual = hoy.getFullYear();
+  const ordenados = [...meses].sort((a, b) => a - b);
+  const siguiente = ordenados.find((m) => m >= mesActual);
+  if (siguiente !== undefined) return { anio: anioActual, mes: siguiente };
+  return { anio: anioActual + 1, mes: ordenados[0] };
+}
+
+export const FRECUENCIA_RECORDATORIO_LABEL: Record<CronogramaFrecuenciaRecordatorio, string> = {
+  una_vez: 'Una vez',
+  diario: 'Diario',
+  semanal: 'Semanal',
+};
+
+// Cuantos dias deben pasar desde el ultimo aviso para volver a notificar,
+// segun la frecuencia elegida para esa actividad. "una_vez" nunca repite
+// dentro del mismo ciclo (Infinity = jamas vuelve a cumplirse la condicion).
+const INTERVALO_DIAS: Record<CronogramaFrecuenciaRecordatorio, number> = {
+  una_vez: Infinity,
+  diario: 1,
+  semanal: 7,
+};
+
+// Recorre las actividades con responsable asignado y, si la fecha de hoy cae
+// dentro de su ventana de recordatorio (dias de anticipacion configurados en
+// la propia actividad, antes del mes en que esta programada), le genera una
+// notificacion al responsable — reutilizando la misma tabla "notificaciones"
+// del resto de la app. Dentro de esa ventana, el aviso se repite segun la
+// frecuencia elegida (una vez / diario / semanal) en vez de mandarse una sola
+// vez siempre, y se resetea automaticamente en cuanto cambia el ciclo
+// (ej. el año siguiente).
+export async function revisarYEnviarRecordatorios(
+  actividades: CronogramaActividad[],
+  procesos: CronogramaProceso[],
+  boardId: string,
+  actorUserId: string,
+): Promise<CronogramaActividad[]> {
+  const hoy = new Date();
+  const actualizadas = [...actividades];
+
+  for (let i = 0; i < actualizadas.length; i++) {
+    const act = actualizadas[i];
+    if (!act.responsable_user_id || act.meses.length === 0) continue;
+    const { anio, mes } = proximaOcurrencia(act.meses, hoy);
+    const inicioMes = startOfMonth(new Date(anio, mes - 1, 1));
+    const finMes = endOfMonth(inicioMes);
+    const ventanaInicio = subDays(inicioMes, act.dias_recordatorio);
+    const ciclo = `${anio}-${String(mes).padStart(2, '0')}`;
+
+    if (hoy < ventanaInicio || hoy > finMes) continue;
+
+    const esCicloNuevo = act.recordatorio_para !== ciclo;
+    const diasDesdeUltimo = act.recordatorio_ultimo_envio
+      ? (hoy.getTime() - new Date(act.recordatorio_ultimo_envio).getTime()) / 86_400_000
+      : Infinity;
+    const corresponde = esCicloNuevo || diasDesdeUltimo >= INTERVALO_DIAS[act.frecuencia_recordatorio];
+    if (!corresponde) continue;
+
+    const proceso = procesos.find((p) => p.id === act.proceso_id);
+    const { error } = await supabase.from('notificaciones' as any).insert({
+      user_id: act.responsable_user_id,
+      created_by: actorUserId,
+      tipo: 'cronograma_recordatorio',
+      titulo: 'Actividad próxima en el cronograma',
+      mensaje: `"${act.nombre}"${proceso ? ` (${proceso.nombre})` : ''} está programada para ${MES_LABELS[mes - 1]}.`,
+      link: `/seguimientos?board=${boardId}`,
+      metadata: { actividad_id: act.id, board_id: boardId },
+    });
+    if (error) continue;
+
+    const ahoraIso = hoy.toISOString();
+    await supabase.from('cronograma_actividades' as any)
+      .update({ recordatorio_para: ciclo, recordatorio_ultimo_envio: ahoraIso })
+      .eq('id', act.id);
+    actualizadas[i] = { ...act, recordatorio_para: ciclo, recordatorio_ultimo_envio: ahoraIso };
+  }
+
+  return actualizadas;
 }

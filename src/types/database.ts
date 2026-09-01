@@ -142,6 +142,7 @@ export interface CronogramaProceso {
 }
 
 export type CronogramaEstado = 'pendiente' | 'en_progreso' | 'completado';
+export type CronogramaFrecuenciaRecordatorio = 'una_vez' | 'diario' | 'semanal';
 
 export interface CronogramaActividad {
   id: string;
@@ -154,6 +155,10 @@ export interface CronogramaActividad {
   orden: number;
   created_at: string;
   updated_at: string;
+  dias_recordatorio: number;
+  frecuencia_recordatorio: CronogramaFrecuenciaRecordatorio;
+  recordatorio_ultimo_envio: string | null;
+  recordatorio_para: string | null;
 }
 
 export interface CronogramaHistorialItem {
