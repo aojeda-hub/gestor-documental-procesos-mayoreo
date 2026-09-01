@@ -59,13 +59,22 @@ export default function Seguimientos() {
   const [assignedContext, setAssignedContext] = useState<Record<string, { boardName: string | null; ownerName: string }>>({});
   const [cardOpen, setCardOpen] = useState(false);
   const [cardId, setCardId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('general');
+  // Si la URL ya trae `tab` (refresco de página, o notificación que ya
+  // incluye tab), se restaura directo sin esperar a que carguen los
+  // tableros — así un F5 te deja donde estabas en vez de mandarte a General.
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab') || 'general');
   const [boards, setBoards] = useState<SeguimientoBoard[]>([]);
   const [columns, setColumns] = useState<SeguimientoColumn[]>([]);
-  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get('tab') === 'custom' ? p.get('board') : null;
+  });
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [customBoardRefresh, setCustomBoardRefresh] = useState(0);
-  const [selectedReunionBoardId, setSelectedReunionBoardId] = useState<string | null>(null);
+  const [selectedReunionBoardId, setSelectedReunionBoardId] = useState<string | null>(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get('tab') === 'reunion_operativa' ? p.get('board') : null;
+  });
   const [reunionCreateOpen, setReunionCreateOpen] = useState(false);
   const [reunionSilo, setReunionSilo] = useState<SiloType | ''>('');
   const [reunionMemberIds, setReunionMemberIds] = useState<string[]>([]);
@@ -99,10 +108,12 @@ export default function Seguimientos() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Abrir tablero personalizado o de Reunión Operativa desde notificación
-  // (?board=<id>). Espera a que `boards` esté cargado para saber el tipo de
-  // tablero y así abrir la pestaña correcta.
+  // Fallback para notificaciones de tablero que solo traen ?board= sin ?tab=
+  // (enlaces antiguos, de antes de que se guardara el tab en la URL). Espera
+  // a que `boards` esté cargado para saber el tipo de tablero. Las
+  // notificaciones nuevas ya incluyen `tab`, así que esto no aplica para ellas.
   useEffect(() => {
+    if (searchParams.get('tab')) return;
     const boardParam = searchParams.get('board');
     if (!boardParam || loadingBoards) return;
     const board = boards.find((b) => b.id === boardParam);
@@ -113,9 +124,17 @@ export default function Seguimientos() {
       setActiveTab('custom');
       setSelectedBoardId(boardParam);
     }
-    searchParams.delete('board');
-    setSearchParams(searchParams, { replace: true });
-  }, [searchParams, setSearchParams, boards, loadingBoards]);
+  }, [searchParams, boards, loadingBoards]);
+
+  // Mantiene la URL sincronizada con la vista actual (pestaña + tablero
+  // abierto), para que refrescar la página (F5) te deje donde estabas.
+  useEffect(() => {
+    const openBoardId = activeTab === 'custom' ? selectedBoardId : activeTab === 'reunion_operativa' ? selectedReunionBoardId : null;
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', activeTab);
+    if (openBoardId) next.set('board', openBoardId); else next.delete('board');
+    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+  }, [activeTab, selectedBoardId, selectedReunionBoardId, searchParams, setSearchParams]);
 
   // Buscador predictivo: busca por título/descripción en cualquier seguimiento
   // al que tengas acceso (propio, de un tablero, o donde te agregaron), sin
@@ -614,7 +633,7 @@ export default function Seguimientos() {
             if (selectedReunionBoardId) {
               const board = reunionBoards.find((b) => b.id === selectedReunionBoardId);
               return board ? (
-                <ReunionOperativaView board={board} onBack={() => setSelectedReunionBoardId(null)} onOpenTask={openCard} />
+                <ReunionOperativaView board={board} onBack={() => setSelectedReunionBoardId(null)} onOpenTask={openCard} refreshKey={customBoardRefresh} />
               ) : (
                 <div className="text-center text-slate-400 py-12">
                   {loadingBoards ? 'Cargando tablero...' : 'No tienes acceso a este tablero o ya no existe.'}

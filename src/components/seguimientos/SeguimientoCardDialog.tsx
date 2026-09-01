@@ -232,11 +232,13 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
       });
     }
     loadAll(true);
+    refreshOuter();
   };
   const removeMember = async (id: string) => {
     const { error } = await supabase.from('seguimiento_miembros' as any).delete().eq('id', id);
     if (error) return notify(error);
     setMiembros(prev => prev.filter(m => m.id !== id));
+    refreshOuter();
   };
 
   // ============ ADJUNTOS ============

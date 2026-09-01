@@ -24,7 +24,7 @@ export async function agregarMiembrosTablero(boardId: string, boardNombre: strin
       tipo: 'seguimiento_miembro',
       titulo: 'Tablero compartido contigo',
       mensaje: `Fuiste agregado al tablero "${boardNombre}" para colaborar.`,
-      link: `/seguimientos?board=${boardId}`,
+      link: `/seguimientos?tab=reunion_operativa&board=${boardId}`,
       metadata: { board_id: boardId },
     });
   }
@@ -305,7 +305,7 @@ export async function revisarYEnviarRecordatorios(
       tipo: 'cronograma_recordatorio',
       titulo: 'Actividad próxima en el cronograma',
       mensaje: `"${act.nombre}"${proceso ? ` (${proceso.nombre})` : ''} está programada para ${MES_LABELS[mes - 1]}.`,
-      link: `/seguimientos?board=${boardId}`,
+      link: `/seguimientos?tab=reunion_operativa&board=${boardId}`,
       metadata: { actividad_id: act.id, board_id: boardId },
     });
     if (error) continue;

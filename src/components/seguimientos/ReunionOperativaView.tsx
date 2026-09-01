@@ -6,16 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserDirectory } from '@/hooks/useUserDirectory';
-import { fetchMembersByTask } from '@/lib/seguimientoResponsables';
+import { fetchMembersByTask, syncSeguimientoResponsables } from '@/lib/seguimientoResponsables';
 import type { Seguimiento, SeguimientoBoard, SeguimientoColumn, ReunionOperativaMeeting, SiloType } from '@/types/database';
 import { SILO_LABELS } from '@/types/database';
 import { nuevaReunion, computeAvancePorGrupo } from '@/lib/reunionOperativa';
 import { SprintSemanalView } from '@/components/seguimientos/SprintSemanalView';
 import { CronogramaProcesos } from '@/components/seguimientos/CronogramaProcesos';
+import { ResponsableMultiSelect } from '@/components/seguimientos/ResponsableMultiSelect';
 
 const PUNTO_ESTADO_LABEL: Record<string, string> = {
   pendiente: '⚪ Pendiente', en_progreso: '🟡 En progreso', completado: '✅ Completado',
@@ -36,9 +37,13 @@ interface ReunionOperativaViewProps {
   board: SeguimientoBoard;
   onBack: () => void;
   onOpenTask: (id: string) => void;
+  // Se incrementa desde Seguimientos.tsx cada vez que se edita algo dentro
+  // del diálogo de detalle de un punto (ej. agregar/quitar responsables),
+  // para recargar y reflejar el cambio sin necesitar refrescar la página.
+  refreshKey?: number;
 }
 
-export function ReunionOperativaView({ board, onBack, onOpenTask }: ReunionOperativaViewProps) {
+export function ReunionOperativaView({ board, onBack, onOpenTask, refreshKey = 0 }: ReunionOperativaViewProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const directory = useUserDirectory();
@@ -51,8 +56,9 @@ export function ReunionOperativaView({ board, onBack, onOpenTask }: ReunionOpera
   const [loading, setLoading] = useState(true);
   const [subView, setSubView] = useState<'reunion' | 'sprint' | 'cronograma'>('reunion');
 
-  const [addingTo, setAddingTo] = useState<string | null>(null);
+  const [newPuntoDialogCol, setNewPuntoDialogCol] = useState<string | null>(null);
   const [newPuntoTitulo, setNewPuntoTitulo] = useState('');
+  const [newPuntoResponsables, setNewPuntoResponsables] = useState<string[]>([]);
 
   const [newMeetingDialogOpen, setNewMeetingDialogOpen] = useState(false);
   const [newMeetingTitulo, setNewMeetingTitulo] = useState('');
@@ -74,7 +80,7 @@ export function ReunionOperativaView({ board, onBack, onOpenTask }: ReunionOpera
     setLoading(false);
   };
 
-  useEffect(() => { loadAll(); }, [board.id]);
+  useEffect(() => { loadAll(); }, [board.id, refreshKey]);
 
   // Al cargar por primera vez o crear una reunión nueva, ubicarse en la más reciente.
   useEffect(() => {
@@ -115,17 +121,37 @@ export function ReunionOperativaView({ board, onBack, onOpenTask }: ReunionOpera
     setPuntos((curr) => curr.filter((p) => p.id !== id));
   };
 
-  const handleAddPunto = async (columnId: string) => {
-    if (!newPuntoTitulo.trim() || !user || !currentMeeting) return;
+  const handleAddPunto = async () => {
+    if (!newPuntoDialogCol || !newPuntoTitulo.trim() || !user || !currentMeeting) return;
+    const columnId = newPuntoDialogCol;
     const orden = puntosDeReunion.filter((p) => p.column_id === columnId).length;
     const { data, error } = await supabase.from('seguimientos').insert({
       titulo: newPuntoTitulo.trim(), estado: 'pendiente', prioridad: 'media',
       user_id: user.id, board_id: board.id, column_id: columnId, reunion_id: currentMeeting.id, orden,
     } as any).select('*').single();
     if (error || !data) { toast({ title: 'Error', description: error?.message, variant: 'destructive' }); return; }
-    setPuntos((curr) => [...curr, data as Seguimiento]);
+    const nuevoPunto = data as Seguimiento;
+    if (newPuntoResponsables.length > 0) {
+      try {
+        await syncSeguimientoResponsables(nuevoPunto.id, [], newPuntoResponsables);
+        setMembersByTask((curr) => ({ ...curr, [nuevoPunto.id]: newPuntoResponsables }));
+      } catch (e) {
+        toast({ title: 'Punto creado, pero no se pudieron asignar responsables', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
+      }
+    }
+    setPuntos((curr) => [...curr, nuevoPunto]);
     setNewPuntoTitulo('');
-    setAddingTo(null);
+    setNewPuntoResponsables([]);
+    setNewPuntoDialogCol(null);
+  };
+
+  const responsableLabel = (punto: Seguimiento): string | null => {
+    const ids = membersByTask[punto.id];
+    if (ids && ids.length > 0) {
+      const names = ids.map((id) => directory.find((u) => u.user_id === id)?.full_name).filter(Boolean) as string[];
+      if (names.length > 0) return names.join(', ');
+    }
+    return null;
   };
 
   const openNewMeetingDialog = () => {
@@ -222,34 +248,33 @@ export function ReunionOperativaView({ board, onBack, onOpenTask }: ReunionOpera
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleEstadoPunto(punto)}
-                        className={`mt-2 rounded-md border px-2 py-0.5 text-[11px] font-medium ${PUNTO_ESTADO_STYLES[punto.estado] ?? PUNTO_ESTADO_STYLES.pendiente}`}
-                      >
-                        {PUNTO_ESTADO_LABEL[punto.estado] ?? punto.estado}
-                      </button>
+                      <div className="flex items-center justify-between mt-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleEstadoPunto(punto)}
+                          className={`rounded-md border px-2 py-0.5 text-[11px] font-medium shrink-0 ${PUNTO_ESTADO_STYLES[punto.estado] ?? PUNTO_ESTADO_STYLES.pendiente}`}
+                        >
+                          {PUNTO_ESTADO_LABEL[punto.estado] ?? punto.estado}
+                        </button>
+                        {responsableLabel(punto) && (
+                          <div className="flex items-center gap-1 text-[10px] text-slate-500 min-w-0">
+                            <User className="h-3 w-3 shrink-0" />
+                            <span className="truncate max-w-[110px]">{responsableLabel(punto)}</span>
+                          </div>
+                        )}
+                      </div>
                     </Card>
                   ))}
                   {(groupedPuntos[col.id]?.length ?? 0) === 0 && (
                     <div className="text-center text-xs py-6 border border-dashed rounded-xl border-slate-200 text-slate-400">Sin puntos</div>
                   )}
                 </div>
-                {addingTo === col.id ? (
-                  <div className="mt-2 flex items-center gap-1">
-                    <Input
-                      autoFocus className="h-8 text-sm" placeholder="Nuevo punto..." value={newPuntoTitulo}
-                      onChange={(e) => setNewPuntoTitulo(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddPunto(col.id)}
-                    />
-                    <Button size="sm" className="h-8" onClick={() => handleAddPunto(col.id)}>+</Button>
-                    <Button size="sm" variant="ghost" className="h-8" onClick={() => { setAddingTo(null); setNewPuntoTitulo(''); }}>×</Button>
-                  </div>
-                ) : (
-                  <Button size="sm" variant="ghost" className="mt-2 text-slate-500 justify-start" onClick={() => { setAddingTo(col.id); setNewPuntoTitulo(''); }}>
-                    <Plus className="h-3.5 w-3.5 mr-1" /> Agregar punto
-                  </Button>
-                )}
+                <Button
+                  size="sm" variant="ghost" className="mt-2 text-slate-500 justify-start"
+                  onClick={() => { setNewPuntoDialogCol(col.id); setNewPuntoTitulo(''); setNewPuntoResponsables([]); }}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Agregar punto
+                </Button>
               </div>
             ))}
           </div>
@@ -301,6 +326,29 @@ export function ReunionOperativaView({ board, onBack, onOpenTask }: ReunionOpera
             <Button onClick={confirmNewMeeting} disabled={creatingMeeting} className="bg-indigo-600 hover:bg-indigo-700">
               {creatingMeeting ? 'Creando...' : 'Crear'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!newPuntoDialogCol} onOpenChange={(o) => !o && setNewPuntoDialogCol(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Nuevo punto</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Título *</Label>
+              <Input
+                autoFocus value={newPuntoTitulo} onChange={(e) => setNewPuntoTitulo(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddPunto()}
+              />
+            </div>
+            <div>
+              <Label>Responsable(s)</Label>
+              <ResponsableMultiSelect directory={directory} value={newPuntoResponsables} onChange={setNewPuntoResponsables} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewPuntoDialogCol(null)}>Cancelar</Button>
+            <Button onClick={handleAddPunto} className="bg-indigo-600 hover:bg-indigo-700">Agregar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
