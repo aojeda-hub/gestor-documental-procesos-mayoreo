@@ -245,7 +245,12 @@ async function safeExec(tool: string, client: SupabaseClient, params: any) {
 // ========== Llamada a Gemini (mismo patrón que generate-skill-document) ==========
 const RETRYABLE_STATUS = new Set([429, 503]);
 const MAX_ATTEMPTS = 3;
-const MAX_TOOL_ROUNDS = 5;
+// Cada ronda con tool_call consume una llamada a Gemini adicional — el plan
+// gratuito de la API tiene una cuota diaria muy chica (ver QuotaExceededError
+// más abajo), así que se limita el encadenado de herramientas por pregunta.
+const MAX_TOOL_ROUNDS = 3;
+
+class QuotaExceededError extends Error {}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -277,6 +282,13 @@ async function callGemini(systemInstruction: string, contents: any[], apiKey: st
 
     lastStatus = res.status;
     lastErrText = await res.text();
+
+    // Un 429 por cuota DIARIA agotada no se arregla reintentando en
+    // segundos — falla rápido con un error identificable en vez de gastar
+    // los reintentos (que además son parte de esa misma cuota).
+    if (res.status === 429 && /PerDay|RESOURCE_EXHAUSTED/i.test(lastErrText)) {
+      throw new QuotaExceededError(`Gemini quota diaria agotada: ${lastErrText}`);
+    }
 
     if (!RETRYABLE_STATUS.has(res.status) || attempt === MAX_ATTEMPTS) {
       throw new Error(`Gemini API error (${res.status}): ${lastErrText}`);
@@ -371,6 +383,15 @@ Deno.serve(async (req) => {
     return json({ answer: finalAnswer });
   } catch (error) {
     console.error("ai-assistant error:", error);
+    if (error instanceof QuotaExceededError) {
+      // Se devuelve 200 con una respuesta de chat normal (no un error de
+      // función) porque esto no es una falla del asistente: es la cuota
+      // diaria gratuita de la API de Gemini, agotada por el uso combinado
+      // del chat y del generador de manuales de Skills.
+      return json({
+        answer: "Por hoy se agotó la cuota gratuita de consultas a la IA (Gemini) del sistema, compartida con el generador de manuales de Skills. Vuelve a intentarlo más tarde, o pide a Sistemas que active facturación en el proyecto de Gemini para levantar ese límite.",
+      });
+    }
     return json({ error: error instanceof Error ? error.message : "Error interno. Por favor, intenta nuevamente." }, 500);
   }
 });
