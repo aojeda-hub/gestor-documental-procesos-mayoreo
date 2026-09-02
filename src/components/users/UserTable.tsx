@@ -43,7 +43,9 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
               <TableCell>
                 <span className="font-medium text-foreground">{user.full_name}</span>
               </TableCell>
-              <TableCell className="text-muted-foreground">{user.email}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {user.email || <span className="italic opacity-60">Sin correo</span>}
+              </TableCell>
               <TableCell>
                 {user.silos && user.silos.length > 0 ? (
                   <div className="flex flex-wrap gap-1">

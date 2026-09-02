@@ -28,7 +28,7 @@ import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import {
   Building2, FolderKanban, Plus, ChevronRight, Loader2, ListChecks, FileCheck2,
   Trash2, Check, Download, ChevronLeft, X, Save, Pencil, Hash, Tag, FileText,
-  Image as ImageIcon, User, Calendar, CheckCircle2, ArrowLeft, Upload, Home, MessageSquare,
+  Image as ImageIcon, User, Calendar, CheckCircle2, ArrowLeft, Upload, Home, MessageSquare, Archive,
 } from "lucide-react";
 import {
   CertView, CompaniaRow, ProyectoRow, Modulo, Estado, Prioridad,
@@ -98,6 +98,14 @@ export function CertificaERPDialog({ open, onOpenChange }: Props) {
 
 function CertificaERPApp({ onClose }: { onClose: () => void }) {
   const [view, setView] = useState<CertView>({ name: "companias" });
+  // Vive aquí (no dentro de ProyectoView/IncidenciasTab) para que sobreviva
+  // al entrar a una incidencia y volver — de lo contrario ProyectoView se
+  // desmonta al navegar y los filtros se perdían.
+  const [incidenciasFiltros, setIncidenciasFiltrosState] = useState<IncidenciasFiltros>({
+    estado: "todos", verArchivadas: false, fechaDesde: "", fechaHasta: "",
+  });
+  const setIncidenciasFiltros = (patch: Partial<IncidenciasFiltros>) =>
+    setIncidenciasFiltrosState((prev) => ({ ...prev, ...patch }));
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
@@ -120,7 +128,14 @@ function CertificaERPApp({ onClose }: { onClose: () => void }) {
       <main className="flex-1 min-h-0 overflow-y-auto px-4 py-5 sm:px-6">
         {view.name === "companias" && <CompaniasList navigate={setView} />}
         {view.name === "compania" && <CompaniaView slug={view.slug} navigate={setView} />}
-        {view.name === "proyecto" && <ProyectoView id={view.id} navigate={setView} />}
+        {view.name === "proyecto" && (
+          <ProyectoView
+            id={view.id}
+            navigate={setView}
+            incidenciasFiltros={incidenciasFiltros}
+            onIncidenciasFiltrosChange={setIncidenciasFiltros}
+          />
+        )}
         {view.name === "incidencia" && <IncidenciaDetail id={view.id} navigate={setView} />}
         {view.name === "nueva" && <NuevaIncidencia proyectoId={view.proyectoId} navigate={setView} />}
       </main>
@@ -361,7 +376,20 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
 
 /* ============================ PROYECTO VIEW ============================ */
 type ProyectoFull = { id: string; nombre: string; descripcion: string | null; compania_id: string; compania: { nombre: string; slug: string } | null; };
-type IncRow = { id: string; numero: number; titulo: string; modulo: string | null; prioridad: Prioridad; estado: Estado; sistema_nombre: string | null; fecha: string; };
+type IncRow = { id: string; numero: number; titulo: string; modulo: string | null; prioridad: Prioridad; estado: Estado; sistema_nombre: string | null; fecha: string; fecha_completado: string | null; };
+
+type IncidenciasFiltros = { estado: Estado | "todos"; verArchivadas: boolean; fechaDesde: string; fechaHasta: string };
+
+// Las incidencias "resuelto" se ocultan del listado por defecto pasados estos
+// días desde que se solventaron (fecha_completado, que ya llena solo un
+// trigger de la base de datos) — solo se recuperan con el filtro de rango de
+// fechas o el botón "Ver archivadas".
+const DIAS_ARCHIVO_SOLVENTADAS = 30;
+function esIncidenciaArchivada(r: { estado: Estado; fecha_completado: string | null }): boolean {
+  if (r.estado !== "resuelto" || !r.fecha_completado) return false;
+  const dias = (Date.now() - new Date(r.fecha_completado).getTime()) / 86_400_000;
+  return dias > DIAS_ARCHIVO_SOLVENTADAS;
+}
 type ScriptRow = { id: string; nombre: string; descripcion: string | null; created_at: string; created_by: string | null; };
 type CasoRow = {
   id: string; script_id: string; numero: number; modulo: string | null; titulo: string;
@@ -369,7 +397,10 @@ type CasoRow = {
   estado: TestEstado; entorno: TestEntorno; responsable: string | null; orden: number;
 };
 
-function ProyectoView({ id, navigate }: { id: string; navigate: (v: CertView) => void }) {
+function ProyectoView({ id, navigate, incidenciasFiltros, onIncidenciasFiltrosChange }: {
+  id: string; navigate: (v: CertView) => void;
+  incidenciasFiltros: IncidenciasFiltros; onIncidenciasFiltrosChange: (patch: Partial<IncidenciasFiltros>) => void;
+}) {
   const { data: proyecto, isLoading } = useQuery({
     queryKey: ["cert-proyecto", id],
     queryFn: async () => {
@@ -412,25 +443,33 @@ function ProyectoView({ id, navigate }: { id: string; navigate: (v: CertView) =>
           <TabsTrigger value="incidencias"><ListChecks className="mr-1 h-4 w-4" /> Incidencias</TabsTrigger>
           <TabsTrigger value="certificacion"><FileCheck2 className="mr-1 h-4 w-4" /> Certificación</TabsTrigger>
         </TabsList>
-        <TabsContent value="incidencias" className="mt-4"><IncidenciasTab proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} navigate={navigate} /></TabsContent>
+        <TabsContent value="incidencias" className="mt-4">
+          <IncidenciasTab
+            proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} navigate={navigate}
+            filtros={incidenciasFiltros} setFiltros={onIncidenciasFiltrosChange}
+          />
+        </TabsContent>
         <TabsContent value="certificacion" className="mt-4"><CertificacionTab proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} /></TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: string; proyectoNombre: string; navigate: (v: CertView) => void }) {
+function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFiltros }: {
+  proyectoId: string; proyectoNombre: string; navigate: (v: CertView) => void;
+  filtros: IncidenciasFiltros; setFiltros: (patch: Partial<IncidenciasFiltros>) => void;
+}) {
+  const { estado: estadoFilter, verArchivadas, fechaDesde, fechaHasta } = filtros;
   const qc = useQueryClient();
   const { user } = useAuth();
   const [editingInc, setEditingInc] = useState<IncRow | null>(null);
   const [creatingFromCert, setCreatingFromCert] = useState<(CasoRow & { script_nombre: string }) | null>(null);
-  const [estadoFilter, setEstadoFilter] = useState<Estado | "todos">("todos");
 
   const { data: incidencias } = useQuery({
     queryKey: ["cert-proyecto-incidencias", proyectoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("incidencias")
-        .select("id, numero, titulo, modulo, prioridad, estado, sistema_nombre, fecha, test_caso_id")
+        .select("id, numero, titulo, modulo, prioridad, estado, sistema_nombre, fecha, fecha_completado, test_caso_id")
         .eq("proyecto_id", proyectoId).order("numero", { ascending: false });
       if (error) throw error;
       return (data ?? []) as (IncRow & { test_caso_id: string | null })[];
@@ -488,27 +527,52 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
     },
   });
 
+  // null = el filtro de rango no aplica (no se tocó); true/false = la fecha
+  // de "solventado" (o de creación si aún no está resuelta) cae o no dentro
+  // del rango elegido.
+  const enRangoFecha = (r: { fecha: string; fecha_completado: string | null }): boolean | null => {
+    if (!fechaDesde && !fechaHasta) return null;
+    const base = new Date(r.fecha_completado || r.fecha);
+    if (fechaDesde && base < new Date(fechaDesde)) return false;
+    if (fechaHasta && base > new Date(`${fechaHasta}T23:59:59`)) return false;
+    return true;
+  };
+
+  // Las solventadas de hace más de 30 días quedan archivadas: no se muestran
+  // por defecto, salvo que el rango de fechas las incluya explícitamente o
+  // se active "Ver archivadas".
+  const incidenciasVisibles = useMemo(() => (incidencias ?? []).filter((r) => {
+    const rango = enRangoFecha(r);
+    if (rango === false) return false;
+    if (esIncidenciaArchivada(r) && rango !== true && !verArchivadas) return false;
+    return true;
+  }), [incidencias, verArchivadas, fechaDesde, fechaHasta]);
+
+  const archivadasCount = useMemo(() => (incidencias ?? []).filter(esIncidenciaArchivada).length, [incidencias]);
+
   const estadoCounts = useMemo(() => {
     const base: Record<Estado, number> = { pendiente: 0, en_curso: 0, resuelto: 0 };
-    (incidencias ?? []).forEach((r) => { base[r.estado] = (base[r.estado] ?? 0) + 1; });
+    incidenciasVisibles.forEach((r) => { base[r.estado] = (base[r.estado] ?? 0) + 1; });
     return base;
-  }, [incidencias]);
+  }, [incidenciasVisibles]);
 
   const incidenciasFiltradas = useMemo(() => (
-    estadoFilter === "todos" ? (incidencias ?? []) : (incidencias ?? []).filter((r) => r.estado === estadoFilter)
-  ), [incidencias, estadoFilter]);
+    estadoFilter === "todos" ? incidenciasVisibles : incidenciasVisibles.filter((r) => r.estado === estadoFilter)
+  ), [incidenciasVisibles, estadoFilter]);
 
   // Las incidencias detectadas en certificación aún no tienen un estado pendiente/en curso/resuelto
-  // propio, así que solo se muestran en "Todos".
-  const certIncidenciasFiltradas = estadoFilter === "todos" ? (certIncidencias ?? []) : [];
+  // propio (ni fecha_completado), así que solo se muestran en "Todos" y sin filtro de rango activo.
+  const certIncidenciasFiltradas = estadoFilter === "todos" && !fechaDesde && !fechaHasta ? (certIncidencias ?? []) : [];
 
   const exportar = async () => {
-    const totalReal = incidencias?.length ?? 0;
-    const totalCert = certIncidencias?.length ?? 0;
-    if (totalReal === 0 && totalCert === 0) { toast.info("No hay incidencias"); return; }
+    // Exporta exactamente lo que se ve en pantalla — si hay un filtro de
+    // estado activo (Pendiente/En curso/Solventado), solo esas se incluyen.
+    const totalReal = incidenciasFiltradas.length;
+    const totalCert = certIncidenciasFiltradas.length;
+    if (totalReal === 0 && totalCert === 0) { toast.info(estadoFilter === "todos" ? "No hay incidencias" : `No hay incidencias en estado "${ESTADO_LABEL[estadoFilter]}"`); return; }
     const { exportIncidenciasPDF } = await import("@/lib/pdfExport");
     const rows = [
-      ...(incidencias ?? []).map((r) => ({
+      ...incidenciasFiltradas.map((r) => ({
         numero: r.numero,
         titulo: r.titulo,
         sistema: r.sistema_nombre,
@@ -519,7 +583,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
         origen: "Incidencia",
         fecha: format(new Date(r.fecha), "yyyy-MM-dd"),
       })),
-      ...(certIncidencias ?? []).map((c) => ({
+      ...certIncidenciasFiltradas.map((c) => ({
         numero: `C#${c.numero}`,
         titulo: c.titulo,
         sistema: c.entorno,
@@ -532,7 +596,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
       })),
     ];
     await exportIncidenciasPDF(proyectoNombre || "Proyecto", rows);
-    toast.success(`Exportadas ${rows.length} incidencias`);
+    toast.success(`Exportadas ${rows.length} incidencias${estadoFilter === "todos" ? "" : ` (estado "${ESTADO_LABEL[estadoFilter]}")`}`);
   };
 
 
@@ -676,25 +740,51 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={() => setEstadoFilter("todos")}
+          onClick={() => setFiltros({ estado: "todos" })}
           className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${estadoFilter === "todos" ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground border-border hover:bg-muted"}`}
         >
-          Todos ({incidencias?.length ?? 0})
+          Todos ({incidenciasVisibles.length})
         </button>
         {ESTADOS.map((e) => (
           <button
             key={e}
             type="button"
-            onClick={() => setEstadoFilter(e)}
+            onClick={() => setFiltros({ estado: e })}
             className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${estadoFilter === e ? `${ESTADO_STYLES[e]} ring-2 ring-offset-1 ring-foreground/30` : "bg-background text-muted-foreground border-border hover:bg-muted"}`}
           >
             {ESTADO_LABEL[e]} ({estadoCounts[e]})
           </button>
         ))}
+        {archivadasCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setFiltros({ verArchivadas: !verArchivadas })}
+            title={`Solventadas de hace más de ${DIAS_ARCHIVO_SOLVENTADAS} días`}
+            className={`flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${verArchivadas ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-background text-muted-foreground border-border hover:bg-muted"}`}
+          >
+            <Archive className="h-3 w-3" /> {verArchivadas ? "Ocultar" : "Ver"} archivadas ({archivadasCount})
+          </button>
+        )}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
+          <span>Rango:</span>
+          <Input type="date" value={fechaDesde} onChange={(e) => setFiltros({ fechaDesde: e.target.value })} className="h-7 w-[136px] text-xs" />
+          <span>–</span>
+          <Input type="date" value={fechaHasta} onChange={(e) => setFiltros({ fechaHasta: e.target.value })} className="h-7 w-[136px] text-xs" />
+          {(fechaDesde || fechaHasta) && (
+            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setFiltros({ fechaDesde: "", fechaHasta: "" })}>
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
+      {(fechaDesde || fechaHasta) && (
+        <p className="text-[11px] text-muted-foreground">
+          Mostrando por fecha de solventado (o de creación si aún no se resuelve) entre {fechaDesde || "el inicio"} y {fechaHasta || "hoy"} — incluye archivadas dentro de ese rango.
+        </p>
+      )}
 
       {incidenciasFiltradas.length === 0 && certIncidenciasFiltradas.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
@@ -725,13 +815,18 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {incidenciasFiltradas.map((r) => (
-                <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate({ name: "incidencia", id: r.id })}>
+              {incidenciasFiltradas.map((r) => {
+                const archivada = esIncidenciaArchivada(r);
+                return (
+                <TableRow key={r.id} className={`cursor-pointer ${archivada ? "opacity-60" : ""}`} onClick={() => navigate({ name: "incidencia", id: r.id })}>
                   <TableCell className="font-mono text-xs text-muted-foreground">#{r.numero}</TableCell>
                   <TableCell className="font-medium">{r.titulo}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.sistema_nombre ?? <span className="opacity-50">—</span>}</TableCell>
                   <TableCell><Badge variant="outline" className="text-[10px]">{r.modulo || '—'}</Badge></TableCell>
-                  <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${ESTADO_STYLES[r.estado]}`}>{ESTADO_LABEL[r.estado]}</span></TableCell>
+                  <TableCell>
+                    <span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${ESTADO_STYLES[r.estado]}`}>{ESTADO_LABEL[r.estado]}</span>
+                    {archivada && <span className="ml-1 inline-flex items-center gap-0.5 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"><Archive className="h-2.5 w-2.5" />Archivada</span>}
+                  </TableCell>
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${PRIORIDAD_STYLES[r.prioridad]}`}>{PRIORIDAD_LABEL[r.prioridad]}</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Incidencia</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(r.fecha), "d MMM yyyy", { locale: es })}</TableCell>
@@ -741,7 +836,8 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate }: { proyectoId: 
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
               {certIncidenciasFiltradas.filter((c) => !linkedCasoIds.has(c.id)).map((c) => (
                 <TableRow
                   key={`cert-${c.id}`}

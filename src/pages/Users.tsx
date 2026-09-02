@@ -79,7 +79,10 @@ function UserList() {
         ...profile,
         roles: (rolesRes.data || []).filter(r => r.user_id === profile.user_id) as UserRole[],
         silos: (silosRes.data || []).filter(s => s.user_id === profile.user_id).map(s => s.silo as SiloType),
-        email: profile.email || (profile.full_name ? `${profile.full_name.toLowerCase().replace(/\s+/g, '.')}@mayoreo.biz` : 'sin-email@mayoreo.biz')
+        // No se inventa un correo (el patrón "nombre.apellido@mayoreo.biz" no
+        // coincide con la convención real de la empresa) — si no hay email
+        // guardado, se muestra vacío para que se note y se pueda corregir.
+        email: profile.email || ''
       }));
 
       setUsers(usersWithRoles);
