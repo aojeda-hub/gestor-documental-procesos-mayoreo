@@ -45,13 +45,14 @@ export const Chatbot: React.FC = () => {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const history = [...messages, userMessage];
+    setMessages(history);
     setInput('');
     setIsLoading(true);
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: { question: userMessage.content },
+        body: { messages: history.slice(-12).map((m) => ({ role: m.role, content: m.content })) },
       });
 
       if (error) throw error;
@@ -111,7 +112,7 @@ export const Chatbot: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold leading-none">Asistente Inteligente de Procesos</h3>
-                  {!isMinimized && <p className="mt-1 text-[10px] opacity-80">En línea • Gemini 2.0 Flash</p>}
+                  {!isMinimized && <p className="mt-1 text-[10px] opacity-80">En línea • Gemini 3.6 Flash</p>}
                 </div>
               </div>
               <div className="flex items-center gap-1">

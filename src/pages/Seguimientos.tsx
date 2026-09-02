@@ -15,6 +15,7 @@ import {
   Plus, Calendar, User, Trash2, Pencil,
   AlertCircle, StickyNote, Send, Maximize2,
   LayoutGrid, Trello, ChevronLeft, Layout, Search, Loader2, FolderKanban, CalendarClock, MoreVertical, Users,
+  Archive, X,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -37,6 +38,18 @@ const empty = {
   titulo: '', descripcion: '', estado: 'pendiente' as Estado, prioridad: 'media' as Prioridad,
   proyecto: '', fecha_limite: '',
 };
+
+// Los seguimientos "completado" se ocultan del listado general por defecto
+// pasados estos días desde que se completaron (fecha_completado, que llena
+// solo un trigger de la base de datos) — igual que las incidencias
+// "solventadas" en CertificaERP. Solo se recuperan con "Ver archivados" o el
+// filtro de rango de fechas.
+const DIAS_ARCHIVO_COMPLETADOS = 30;
+function esSeguimientoArchivado(s: { estado: Estado; fecha_completado: string | null }): boolean {
+  if (s.estado !== 'completado' || !s.fecha_completado) return false;
+  const dias = (Date.now() - new Date(s.fecha_completado).getTime()) / 86_400_000;
+  return dias > DIAS_ARCHIVO_COMPLETADOS;
+}
 
 export default function Seguimientos() {
   const { user } = useAuth();
@@ -84,6 +97,10 @@ export default function Seguimientos() {
   const [membersDialogNewIds, setMembersDialogNewIds] = useState<string[]>([]);
   const [addingMembers, setAddingMembers] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const [verArchivados, setVerArchivados] = useState(false);
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Seguimiento[]>([]);
@@ -303,11 +320,30 @@ export default function Seguimientos() {
     setLoadingBoards(false);
   };
 
+  // Base de fecha para el filtro por rango: fecha de completado si ya se
+  // completó, o de creación si no — mismo criterio que CertificaERP.
+  const enRangoFecha = (s: Seguimiento): boolean | null => {
+    if (!fechaDesde && !fechaHasta) return null;
+    const base = new Date(s.fecha_completado || s.created_at);
+    if (fechaDesde && base < new Date(fechaDesde)) return false;
+    if (fechaHasta && base > new Date(`${fechaHasta}T23:59:59`)) return false;
+    return true;
+  };
+
+  const itemsVisibles = useMemo(() => items.filter(s => {
+    const rango = enRangoFecha(s);
+    if (rango === false) return false;
+    if (esSeguimientoArchivado(s) && rango !== true && !verArchivados) return false;
+    return true;
+  }), [items, verArchivados, fechaDesde, fechaHasta]);
+
+  const archivadosCount = useMemo(() => items.filter(esSeguimientoArchivado).length, [items]);
+
   const grouped = useMemo(() => {
     const g: Record<Estado, Seguimiento[]> = {
       pendiente: [], en_revision: [], en_progreso: [], completado: [], cancelado: [],
     };
-    
+
     const priorityWeight: Record<Prioridad, number> = {
       critica: 4,
       alta: 3,
@@ -315,14 +351,14 @@ export default function Seguimientos() {
       baja: 1,
     };
 
-    items.forEach(i => g[i.estado].push(i));
+    itemsVisibles.forEach(i => g[i.estado].push(i));
 
     (Object.keys(g) as Estado[]).forEach(estado => {
       g[estado].sort((a, b) => priorityWeight[b.prioridad] - priorityWeight[a.prioridad]);
     });
 
     return g;
-  }, [items]);
+  }, [itemsVisibles]);
 
   const responsableLabel = (s: Seguimiento): string | null => {
     const ids = membersByTask[s.id];
@@ -404,10 +440,10 @@ export default function Seguimientos() {
   };
 
   const totals = {
-    total: items.length,
-    activos: items.filter(i => i.estado !== 'completado' && i.estado !== 'cancelado').length,
+    total: itemsVisibles.length,
+    activos: itemsVisibles.filter(i => i.estado !== 'completado' && i.estado !== 'cancelado').length,
     completados: grouped.completado.length,
-    vencidos: items.filter(i => i.fecha_limite && new Date(i.fecha_limite) < new Date() && i.estado !== 'completado' && i.estado !== 'cancelado').length,
+    vencidos: itemsVisibles.filter(i => i.fecha_limite && new Date(i.fecha_limite) < new Date() && i.estado !== 'completado' && i.estado !== 'cancelado').length,
   };
 
   return (
@@ -486,6 +522,39 @@ export default function Seguimientos() {
         </TabsList>
 
         <TabsContent value="general" className="mt-0 outline-none">
+          {/* Filtro de archivados y rango de fechas */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {archivadosCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setVerArchivados(v => !v)}
+                title={`Completados de hace más de ${DIAS_ARCHIVO_COMPLETADOS} días`}
+                className={cn(
+                  "flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                  verArchivados ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-background text-muted-foreground border-border hover:bg-muted",
+                )}
+              >
+                <Archive className="h-3 w-3" /> {verArchivados ? 'Ocultar' : 'Ver'} archivados ({archivadosCount})
+              </button>
+            )}
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
+              <span>Rango:</span>
+              <Input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} className="h-7 w-[136px] text-xs" />
+              <span>–</span>
+              <Input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} className="h-7 w-[136px] text-xs" />
+              {(fechaDesde || fechaHasta) && (
+                <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setFechaDesde(''); setFechaHasta(''); }}>
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </div>
+          {(fechaDesde || fechaHasta) && (
+            <p className="text-[11px] text-muted-foreground mb-4 -mt-2">
+              Mostrando por fecha de completado (o de creación si aún no se completa) entre {fechaDesde || 'el inicio'} y {fechaHasta || 'hoy'} — incluye archivados dentro de ese rango.
+            </p>
+          )}
+
           {/* Métricas */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <Card className="p-4 border-slate-200 shadow-sm"><div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total</div><div className="text-2xl font-bold text-slate-900">{totals.total}</div></Card>
@@ -521,6 +590,7 @@ export default function Seguimientos() {
                   const vencido = s.fecha_limite && new Date(s.fecha_limite) < new Date() && s.estado !== 'completado' && s.estado !== 'cancelado';
                   const isForeign = s.user_id !== user?.id;
                   const ctx = assignedContext[s.id];
+                  const archivado = esSeguimientoArchivado(s);
                   return (
                     <Card
                       key={s.id}
@@ -528,7 +598,7 @@ export default function Seguimientos() {
                       onDragStart={() => setDraggedId(s.id)}
                       onDragEnd={() => setDraggedId(null)}
                       onClick={() => openCard(s.id)}
-                      className="p-3 cursor-pointer hover:border-primary/50 transition-colors group"
+                      className={cn("p-3 cursor-pointer hover:border-primary/50 transition-colors group", archivado && "opacity-60")}
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex-1 min-w-0">
@@ -568,6 +638,11 @@ export default function Seguimientos() {
                         <Badge className={cn("border", PRIORIDAD_COLOR[s.prioridad])} variant="outline">
                           {PRIORIDAD_LABEL[s.prioridad]}
                         </Badge>
+                        {archivado && (
+                          <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-700">
+                            <Archive className="h-2.5 w-2.5" /> Archivado
+                          </Badge>
+                        )}
                         {isForeign && ctx && (
                           <Badge variant="outline" className="gap-1 border-indigo-300 text-indigo-600" title={`Te agregaron como colaborador${ctx.boardName ? ` en el tablero "${ctx.boardName}"` : ''}`}>
                             <Layout className="h-2.5 w-2.5" />
