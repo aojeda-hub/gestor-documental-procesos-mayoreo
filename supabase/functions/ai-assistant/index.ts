@@ -389,7 +389,7 @@ Deno.serve(async (req) => {
       // diaria gratuita de la API de Gemini, agotada por el uso combinado
       // del chat y del generador de manuales de Skills.
       return json({
-        answer: "Por hoy se agotó la cuota gratuita de consultas a la IA (Gemini) del sistema, compartida con el generador de manuales de Skills. Vuelve a intentarlo más tarde, o pide a Sistemas que active facturación en el proyecto de Gemini para levantar ese límite.",
+        answer: "Por el momento, no podemos procesar más consultas porque se alcanzó el límite en Gemini. Te sugiero esperar un rato y volver a intentarlo.",
       });
     }
     return json({ error: error instanceof Error ? error.message : "Error interno. Por favor, intenta nuevamente." }, 500);
