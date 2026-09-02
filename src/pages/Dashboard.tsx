@@ -179,11 +179,11 @@ export default function Dashboard() {
       {/* Middle Row */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Imagen destacada */}
-        <Card className="lg:col-span-2 rounded-2xl border-0 shadow-sm p-0 overflow-hidden">
+        <Card className="lg:col-span-2 rounded-2xl border-0 shadow-sm p-0 overflow-hidden self-start">
           <img
             src={dashboardHero}
             alt="Ecosistema de procesos y sistemas de Mayoreo"
-            className="w-full h-full min-h-[260px] object-cover"
+            className="w-full h-40 object-cover"
           />
         </Card>
 
