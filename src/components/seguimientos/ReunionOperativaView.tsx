@@ -53,6 +53,7 @@ export function ReunionOperativaView({ board, onBack, onOpenTask, refreshKey = 0
   const [meetingIndex, setMeetingIndex] = useState(0);
   const [puntos, setPuntos] = useState<Seguimiento[]>([]);
   const [membersByTask, setMembersByTask] = useState<Record<string, string[]>>({});
+  const [cronogramaLinkedIds, setCronogramaLinkedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [subView, setSubView] = useState<'reunion' | 'sprint' | 'cronograma'>('reunion');
 
@@ -64,6 +65,18 @@ export function ReunionOperativaView({ board, onBack, onOpenTask, refreshKey = 0
   const [newMeetingTitulo, setNewMeetingTitulo] = useState('');
   const [newMeetingFecha, setNewMeetingFecha] = useState('');
   const [creatingMeeting, setCreatingMeeting] = useState(false);
+
+  // IDs de seguimientos creados automáticamente desde el Cronograma (clic en
+  // una actividad). Esos puntos se gestionan desde la pestaña Cronograma y no
+  // deben mezclarse con la agenda de "Reunión" (que es solo para puntos
+  // agregados manualmente, con responsables, para trazabilidad de reuniones).
+  const loadCronogramaLinkedIds = async () => {
+    const { data: procs } = await supabase.from('cronograma_procesos' as any).select('id').eq('board_id', board.id);
+    const procesoIds = ((procs ?? []) as any[]).map((p) => p.id);
+    if (procesoIds.length === 0) { setCronogramaLinkedIds(new Set()); return; }
+    const { data: acts } = await supabase.from('cronograma_actividades' as any).select('seguimiento_id').in('proceso_id', procesoIds).not('seguimiento_id', 'is', null);
+    setCronogramaLinkedIds(new Set(((acts ?? []) as any[]).map((a) => a.seguimiento_id).filter(Boolean)));
+  };
 
   const loadAll = async () => {
     setLoading(true);
@@ -77,6 +90,7 @@ export function ReunionOperativaView({ board, onBack, onOpenTask, refreshKey = 0
     setMeetings((mts ?? []) as unknown as ReunionOperativaMeeting[]);
     setPuntos(puntosList);
     setMembersByTask(await fetchMembersByTask(puntosList.map((p) => p.id)));
+    await loadCronogramaLinkedIds();
     setLoading(false);
   };
 
@@ -92,6 +106,7 @@ export function ReunionOperativaView({ board, onBack, onOpenTask, refreshKey = 0
     const puntosList = (pts ?? []) as Seguimiento[];
     setPuntos(puntosList);
     setMembersByTask(await fetchMembersByTask(puntosList.map((p) => p.id)));
+    await loadCronogramaLinkedIds();
   };
 
   const currentMeeting = meetings[meetingIndex] ?? null;
@@ -99,13 +114,19 @@ export function ReunionOperativaView({ board, onBack, onOpenTask, refreshKey = 0
     () => currentMeeting ? puntos.filter((p) => p.reunion_id === currentMeeting.id) : [],
     [puntos, currentMeeting],
   );
-  const avancePorGrupo = useMemo(() => computeAvancePorGrupo(puntosDeReunion, columns), [puntosDeReunion, columns]);
+  // Puntos de agenda "reales": excluye los que fueron auto-creados desde el
+  // Cronograma (esos se ven y gestionan en la pestaña Cronograma).
+  const puntosAgenda = useMemo(
+    () => puntosDeReunion.filter((p) => !cronogramaLinkedIds.has(p.id)),
+    [puntosDeReunion, cronogramaLinkedIds],
+  );
+  const avancePorGrupo = useMemo(() => computeAvancePorGrupo(puntosAgenda, columns), [puntosAgenda, columns]);
   const groupedPuntos = useMemo(() => {
     const g: Record<string, Seguimiento[]> = {};
     columns.forEach((c) => { g[c.id] = []; });
-    puntosDeReunion.forEach((p) => { if (p.column_id && g[p.column_id]) g[p.column_id].push(p); });
+    puntosAgenda.forEach((p) => { if (p.column_id && g[p.column_id]) g[p.column_id].push(p); });
     return g;
-  }, [columns, puntosDeReunion]);
+  }, [columns, puntosAgenda]);
   const grupoProcesosColumn = columns.find((c) => c.nombre === 'Procesos') ?? null;
 
   const handleToggleEstadoPunto = async (punto: Seguimiento) => {

@@ -221,6 +221,9 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
       return null;
     }
     const proceso = procesos.find((p) => p.id === actividad.proceso_id);
+    // Sin reunion_id: esta tarea vive en el Cronograma (persistente, no por
+    // ronda) y no debe aparecer en la agenda de "Reunión" ni clonarse cada
+    // vez que se crea una reunión nueva.
     const { data, error } = await supabase.from('seguimientos').insert({
       titulo: actividad.nombre,
       descripcion: proceso ? `Actividad del cronograma — proceso: ${proceso.nombre}` : 'Actividad del cronograma',
@@ -229,7 +232,6 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
       user_id: user.id,
       board_id: board.id,
       column_id: grupoProcesosColumnId,
-      reunion_id: currentMeetingId,
       orden: 0,
     } as any).select('id').single();
     if (error || !data) { toast({ title: 'No se pudo crear el seguimiento', description: error?.message, variant: 'destructive' }); return null; }
