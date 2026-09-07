@@ -80,6 +80,8 @@ Indicadores clave por área (referencia general; para cifras/metas/fórmulas con
 const SEGUIMIENTO_ESTADOS = ["pendiente", "en_revision", "en_progreso", "completado", "cancelado"];
 const INCIDENCIA_ESTADOS = ["pendiente", "en_curso", "resuelto"];
 const SILO_VALUES = ["compras", "logistica", "ventas", "personal", "control", "mercadeo", "sistemas", "procesos", "datos_maestros"];
+const DOC_TYPES = ["norma", "manual", "procedimiento", "anexo", "formato", "diagrama", "instructivo", "politica", "descripcion_cargo", "libro", "presentacion_clave", "presentacion", "gestion_beneficios"];
+const DOC_ESTATUS = ["aprobado", "revision", "desactualizado", "desincorporado", "en_construccion", "por_iniciar"];
 
 function buildSystemInstruction(fullName: string | null, misSilos: string[]): string {
   return `
@@ -97,11 +99,12 @@ ${silosTexto}
 
 ${indicadoresGenerales}
 
-Estatus posibles de un documento: Aprobado, Revisión, Construcción, Por iniciar, Desactualizado, Por aprobar.
+Tipos de documento (doc_type): ${DOC_TYPES.join(", ")}. Una "norma" es un doc_type específico, no una palabra que normalmente aparezca en el título — para "cuántas normas hay" SIEMPRE filtra por doc_type="norma", nunca busques la palabra "norma" en el título.
+Estatus posibles de un documento (estatus): ${DOC_ESTATUS.join(", ")}.
 Grupos BPA: PL (Planificación) PL01-PL03, CV (Cadena de Valor) CVP01-CVP15, SOP (Soporte) SOP01-SOP11.
 
 === HERRAMIENTAS DISPONIBLES ===
-Úsalas SIEMPRE que la pregunta requiera datos concretos, actuales o numéricos del sistema (seguimientos, documentos, incidencias, indicadores específicos, "cuántos", "cuáles", "estado de", avance, cumplimiento). Nunca inventes cifras, nombres de tareas, documentos o incidencias — si no tienes el dato, búscalo o dilo con claridad. Todas las búsquedas respetan automáticamente los permisos del usuario actual (solo ve lo que ya podría ver navegando la app).
+Úsalas SIEMPRE que la pregunta requiera datos concretos, actuales o numéricos del sistema (seguimientos, documentos, incidencias, indicadores específicos, "cuántos", "cuáles", "estado de", avance, cumplimiento). Nunca inventes cifras, nombres de tareas, documentos o incidencias — si no tienes el dato, búscalo o dilo con claridad. Cada resultado trae un campo "total" con la cuenta REAL (aunque la lista de ejemplos venga recortada) — para preguntas de "cuántos" responde siempre con ese "total", nunca con la cantidad de elementos listados. Todas las búsquedas respetan automáticamente los permisos del usuario actual (solo ve lo que ya podría ver navegando la app).
 
 1. seguimientos_buscar { query?: string, estado?: ${SEGUIMIENTO_ESTADOS.join("|")}, solo_vencidos?: boolean }
    Busca seguimientos (tareas/proyectos internos) a los que el usuario tiene acceso: propios, de sus tableros, o donde lo agregaron como responsable.
@@ -109,8 +112,8 @@ Grupos BPA: PL (Planificación) PL01-PL03, CV (Cadena de Valor) CVP01-CVP15, SOP
 2. seguimientos_analizar {}
    Devuelve un análisis agregado ya calculado (conteos por estado y prioridad, vencidos, próximos a vencer en 7 días, completados en los últimos 30 días, % de cumplimiento) sobre todos los seguimientos del usuario. Úsala para cualquier pregunta de avance/análisis/cumplimiento — nunca calcules tú los porcentajes a mano.
 
-3. documentos_buscar { query?: string, silo?: ${SILO_VALUES.join("|")} }
-   Busca documentos/normas del repositorio documental (título, tipo, silo, estatus, link de Drive).
+3. documentos_buscar { query?: string, silo?: ${SILO_VALUES.join("|")}, doc_type?: ${DOC_TYPES.join("|")}, estatus?: ${DOC_ESTATUS.join("|")} }
+   Busca documentos del repositorio documental (título, tipo, silo, estatus, link de Drive). Para preguntas por tipo de documento (normas, manuales, procedimientos, políticas, etc.) usa el filtro doc_type, no query.
 
 4. incidencias_buscar { query?: string, estado?: ${INCIDENCIA_ESTADOS.join("|")} }
    Busca incidencias registradas en CertificaERP.
@@ -139,18 +142,19 @@ function safeIlikeTerm(q: unknown): string | null {
 }
 
 async function toolSeguimientosBuscar(client: SupabaseClient, params: any) {
-  let q = client.from("seguimientos").select("id,titulo,descripcion,estado,prioridad,fecha_limite,fecha_completado,proyecto,board_id,created_at").order("created_at", { ascending: false }).limit(40);
+  let q = client.from("seguimientos").select("id,titulo,descripcion,estado,prioridad,fecha_limite,fecha_completado,proyecto,board_id,created_at", { count: "exact" }).order("created_at", { ascending: false }).limit(40);
   const term = safeIlikeTerm(params?.query);
   if (term) q = q.or(`titulo.ilike.%${term}%,descripcion.ilike.%${term}%`);
   if (SEGUIMIENTO_ESTADOS.includes(params?.estado)) q = q.eq("estado", params.estado);
-  const { data, error } = await q;
-  if (error) return { error: error.message };
-  let rows = data ?? [];
   if (params?.solo_vencidos) {
-    const hoy = new Date();
-    rows = rows.filter((r: any) => r.fecha_limite && new Date(r.fecha_limite) < hoy && r.estado !== "completado" && r.estado !== "cancelado");
+    const hoy = new Date().toISOString().slice(0, 10);
+    q = q.lt("fecha_limite", hoy).not("estado", "in", "(completado,cancelado)");
   }
-  return { total: rows.length, seguimientos: rows };
+  const { data, error, count } = await q;
+  if (error) return { error: error.message };
+  // "total" es la cuenta real que cumple el filtro (aunque la lista de
+  // ejemplos venga recortada a 40) — así "cuántos" nunca queda truncado.
+  return { total: count ?? (data ?? []).length, mostrados: (data ?? []).length, seguimientos: data ?? [] };
 }
 
 async function toolSeguimientosAnalizar(client: SupabaseClient) {
@@ -195,33 +199,35 @@ async function toolSeguimientosAnalizar(client: SupabaseClient) {
 }
 
 async function toolDocumentosBuscar(client: SupabaseClient, params: any) {
-  let q = client.from("documents").select("id,title,doc_type,silo,estatus,departamento,cargo,drive_link").order("updated_at", { ascending: false }).limit(30);
+  let q = client.from("documents").select("id,title,doc_type,silo,estatus,departamento,cargo,drive_link", { count: "exact" }).order("updated_at", { ascending: false }).limit(30);
   const term = safeIlikeTerm(params?.query);
   if (term) q = q.ilike("title", `%${term}%`);
   if (SILO_VALUES.includes(params?.silo)) q = q.eq("silo", params.silo);
-  const { data, error } = await q;
+  if (DOC_TYPES.includes(params?.doc_type)) q = q.eq("doc_type", params.doc_type);
+  if (DOC_ESTATUS.includes(params?.estatus)) q = q.eq("estatus", params.estatus);
+  const { data, error, count } = await q;
   if (error) return { error: error.message };
-  return { total: (data ?? []).length, documentos: data ?? [] };
+  return { total: count ?? (data ?? []).length, mostrados: (data ?? []).length, documentos: data ?? [] };
 }
 
 async function toolIncidenciasBuscar(client: SupabaseClient, params: any) {
-  let q = client.from("incidencias").select("id,numero,titulo,estado,prioridad,fecha,fecha_completado,modulo,responsable,sistema_nombre").order("fecha", { ascending: false }).limit(30);
+  let q = client.from("incidencias").select("id,numero,titulo,estado,prioridad,fecha,fecha_completado,modulo,responsable,sistema_nombre", { count: "exact" }).order("fecha", { ascending: false }).limit(30);
   const term = safeIlikeTerm(params?.query);
   if (term) q = q.ilike("titulo", `%${term}%`);
   if (INCIDENCIA_ESTADOS.includes(params?.estado)) q = q.eq("estado", params.estado);
-  const { data, error } = await q;
+  const { data, error, count } = await q;
   if (error) return { error: error.message };
-  return { total: (data ?? []).length, incidencias: data ?? [] };
+  return { total: count ?? (data ?? []).length, mostrados: (data ?? []).length, incidencias: data ?? [] };
 }
 
 async function toolIndicadoresBuscar(client: SupabaseClient, params: any) {
-  let q = client.from("indicators").select("id,name,silo,related_process,indicator_type,definition,formula,unit,frequency,responsible,goals,estado").order("name").limit(30);
+  let q = client.from("indicators").select("id,name,silo,related_process,indicator_type,definition,formula,unit,frequency,responsible,goals,estado", { count: "exact" }).order("name").limit(30);
   const term = safeIlikeTerm(params?.query);
   if (term) q = q.ilike("name", `%${term}%`);
   if (SILO_VALUES.includes(params?.silo)) q = q.eq("silo", params.silo);
-  const { data, error } = await q;
+  const { data, error, count } = await q;
   if (error) return { error: error.message };
-  return { total: (data ?? []).length, indicadores: data ?? [] };
+  return { total: count ?? (data ?? []).length, mostrados: (data ?? []).length, indicadores: data ?? [] };
 }
 
 const TOOLS: Record<string, (client: SupabaseClient, params: any) => Promise<any>> = {

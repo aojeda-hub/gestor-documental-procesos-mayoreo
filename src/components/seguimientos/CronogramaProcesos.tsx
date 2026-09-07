@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, History, Bell } from 'lucide-react';
+import { Plus, Pencil, Trash2, History, Bell, CopyPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import type { SeguimientoBoard, CronogramaProceso, CronogramaActividad, CronogramaEstado, CronogramaFrecuenciaRecordatorio, CronogramaHistorialItem } from '@/types/database';
@@ -28,6 +28,11 @@ import {
 const CRONO_ESTADO_LABEL: Record<CronogramaEstado, string> = {
   pendiente: '⚪ Pendiente', en_progreso: '🟡 En progreso', completado: '✅ Completado',
 };
+
+// Años disponibles en el filtro: desde 2024 y siempre unos años por delante
+// del actual ("en adelante"), sin quedar nunca corto.
+const ANIO_ACTUAL = new Date().getFullYear();
+const ANIOS_DISPONIBLES = Array.from({ length: ANIO_ACTUAL + 4 - 2024 + 1 }, (_, i) => 2024 + i);
 
 interface CronogramaProcesosProps {
   board: SeguimientoBoard;
@@ -48,18 +53,23 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
   const [addingProceso, setAddingProceso] = useState(false);
   const [newProcesoNombre, setNewProcesoNombre] = useState('');
 
+  const [filtroAnio, setFiltroAnio] = useState(ANIO_ACTUAL);
   const [filtroProceso, setFiltroProceso] = useState('todos');
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [filtroResponsable, setFiltroResponsable] = useState('todos');
   const [filtroMes, setFiltroMes] = useState('todos');
   const [soloProximos, setSoloProximos] = useState(false);
 
+  const [copiarAnioOpen, setCopiarAnioOpen] = useState(false);
+  const [copiarAnioDestino, setCopiarAnioDestino] = useState<number>(ANIO_ACTUAL + 1);
+  const [copiandoAnio, setCopiandoAnio] = useState(false);
+
   const [actividadDialog, setActividadDialog] = useState<{ procesoId: string; actividad: CronogramaActividad | null } | null>(null);
   const [actForm, setActForm] = useState<{
-    nombre: string; meses: number[]; responsable_user_id: string; estado: CronogramaEstado;
+    nombre: string; meses: number[]; anio: number; responsable_user_id: string; estado: CronogramaEstado;
     dias_recordatorio: number; frecuencia_recordatorio: CronogramaFrecuenciaRecordatorio;
   }>({
-    nombre: '', meses: [], responsable_user_id: '', estado: 'pendiente',
+    nombre: '', meses: [], anio: ANIO_ACTUAL, responsable_user_id: '', estado: 'pendiente',
     dias_recordatorio: 7, frecuencia_recordatorio: 'una_vez',
   });
 
@@ -84,9 +94,12 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
 
     // Revisa recordatorios pendientes cada vez que alguien abre el
     // cronograma (no requiere infraestructura de servidor: el chequeo ocurre
-    // al cargar la vista).
+    // al cargar la vista). Solo aplica al año en curso: los meses marcados
+    // de un año pasado o futuro no representan el ciclo activo ahora mismo.
     if (user) {
-      actividadesList = await revisarYEnviarRecordatorios(actividadesList, procesosList, board.id, user.id);
+      const delAnioActual = actividadesList.filter((a) => a.anio === ANIO_ACTUAL);
+      const actualizadas = await revisarYEnviarRecordatorios(delAnioActual, procesosList, board.id, user.id);
+      actividadesList = actividadesList.map((a) => actualizadas.find((u) => u.id === a.id) ?? a);
       setActividades(actividadesList);
     }
   };
@@ -122,12 +135,12 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
   };
 
   const openAddActividad = (procesoId: string) => {
-    setActForm({ nombre: '', meses: [], responsable_user_id: '', estado: 'pendiente', dias_recordatorio: 7, frecuencia_recordatorio: 'una_vez' });
+    setActForm({ nombre: '', meses: [], anio: filtroAnio, responsable_user_id: '', estado: 'pendiente', dias_recordatorio: 7, frecuencia_recordatorio: 'una_vez' });
     setActividadDialog({ procesoId, actividad: null });
   };
   const openEditActividad = (actividad: CronogramaActividad) => {
     setActForm({
-      nombre: actividad.nombre, meses: actividad.meses,
+      nombre: actividad.nombre, meses: actividad.meses, anio: actividad.anio,
       responsable_user_id: actividad.responsable_user_id ?? '', estado: actividad.estado,
       dias_recordatorio: actividad.dias_recordatorio, frecuencia_recordatorio: actividad.frecuencia_recordatorio,
     });
@@ -144,11 +157,12 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
     if (actividadDialog.actividad) {
       const prev = actividadDialog.actividad;
       const { error } = await supabase.from('cronograma_actividades' as any).update({
-        nombre: actForm.nombre.trim(), meses: actForm.meses, responsable_user_id: responsableId, estado: actForm.estado,
+        nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, responsable_user_id: responsableId, estado: actForm.estado,
         dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
       }).eq('id', prev.id);
       if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
       if (prev.nombre !== actForm.nombre.trim()) await registrarCambioHistorial(prev.id, user.id, 'nombre', prev.nombre, actForm.nombre.trim());
+      if (prev.anio !== actForm.anio) await registrarCambioHistorial(prev.id, user.id, 'año', String(prev.anio), String(actForm.anio));
       if (prev.responsable_user_id !== responsableId) await registrarCambioHistorial(prev.id, user.id, 'responsable', responsableNombre(prev.responsable_user_id), responsableNombre(responsableId));
       if (prev.estado !== actForm.estado) await registrarCambioHistorial(prev.id, user.id, 'estado', prev.estado, actForm.estado);
       if (prev.dias_recordatorio !== diasRecordatorio || prev.frecuencia_recordatorio !== actForm.frecuencia_recordatorio) {
@@ -164,14 +178,14 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
       }
       setActividades((curr) => curr.map((a) => a.id === prev.id
         ? {
-          ...a, nombre: actForm.nombre.trim(), meses: actForm.meses, responsable_user_id: responsableId, estado: actForm.estado,
+          ...a, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, responsable_user_id: responsableId, estado: actForm.estado,
           dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
         }
         : a));
     } else {
       const orden = actividades.filter((a) => a.proceso_id === actividadDialog.procesoId).length;
       const { data, error } = await supabase.from('cronograma_actividades' as any).insert({
-        proceso_id: actividadDialog.procesoId, nombre: actForm.nombre.trim(), meses: actForm.meses,
+        proceso_id: actividadDialog.procesoId, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio,
         responsable_user_id: responsableId, estado: actForm.estado, orden,
         dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
       }).select('*').single();
@@ -279,20 +293,48 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
 
   const mesActual = new Date().getMonth() + 1;
 
-  const actividadesFiltradas = useMemo(() => actividades.filter((a) => {
+  // El cronograma de cada año es independiente: todo lo demás (filtros,
+  // resumen por proceso) parte de las actividades del año seleccionado.
+  const actividadesDelAnio = useMemo(() => actividades.filter((a) => a.anio === filtroAnio), [actividades, filtroAnio]);
+
+  const actividadesFiltradas = useMemo(() => actividadesDelAnio.filter((a) => {
     if (filtroProceso !== 'todos' && a.proceso_id !== filtroProceso) return false;
     if (filtroEstado !== 'todos' && a.estado !== filtroEstado) return false;
     if (filtroResponsable !== 'todos' && a.responsable_user_id !== filtroResponsable) return false;
     if (filtroMes !== 'todos' && !a.meses.includes(Number(filtroMes))) return false;
     if (soloProximos && !a.meses.includes(mesActual)) return false;
     return true;
-  }), [actividades, filtroProceso, filtroEstado, filtroResponsable, filtroMes, soloProximos, mesActual]);
+  }), [actividadesDelAnio, filtroProceso, filtroEstado, filtroResponsable, filtroMes, soloProximos, mesActual]);
 
   // Por defecto solo se muestran los procesos que ya tienen actividades
   // cargadas. Un proceso vacio solo aparece si se elige explicitamente en el
   // filtro "Proceso" (asi se puede seguir agregando su primera actividad).
   const procesosAMostrar = procesos.filter((p) => filtroProceso === p.id || actividadesFiltradas.some((a) => a.proceso_id === p.id));
-  const avancePorProceso = useMemo(() => computeAvancePorProceso(actividades, procesos), [actividades, procesos]);
+  const avancePorProceso = useMemo(() => computeAvancePorProceso(actividadesDelAnio, procesos), [actividadesDelAnio, procesos]);
+
+  const handleCopiarAnio = async () => {
+    if (!user) return;
+    if (actividadesDelAnio.length === 0) {
+      toast({ title: 'No hay nada que copiar', description: `El año ${filtroAnio} no tiene actividades.`, variant: 'destructive' });
+      return;
+    }
+    setCopiandoAnio(true);
+    try {
+      const nuevas = actividadesDelAnio.map((a) => ({
+        proceso_id: a.proceso_id, nombre: a.nombre, meses: a.meses, anio: copiarAnioDestino,
+        responsable_user_id: a.responsable_user_id, estado: 'pendiente' as CronogramaEstado, orden: a.orden,
+        dias_recordatorio: a.dias_recordatorio, frecuencia_recordatorio: a.frecuencia_recordatorio,
+      }));
+      const { data, error } = await supabase.from('cronograma_actividades' as any).insert(nuevas).select('*');
+      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+      setActividades((curr) => [...curr, ...(data as unknown as CronogramaActividad[])]);
+      setFiltroAnio(copiarAnioDestino);
+      setCopiarAnioOpen(false);
+      toast({ title: `Cronograma ${filtroAnio} copiado a ${copiarAnioDestino}`, description: `${(data ?? []).length} actividad(es) creada(s), sin marcar como completadas.` });
+    } finally {
+      setCopiandoAnio(false);
+    }
+  };
 
   if (loading) return <div className="p-8 text-center text-slate-400 text-sm">Cargando cronograma...</div>;
 
@@ -313,6 +355,12 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
       )}
 
       <div className="flex flex-wrap items-center gap-2">
+        <Select value={String(filtroAnio)} onValueChange={(v) => setFiltroAnio(Number(v))}>
+          <SelectTrigger className="h-8 w-28 text-xs font-semibold"><SelectValue placeholder="Año" /></SelectTrigger>
+          <SelectContent>
+            {ANIOS_DISPONIBLES.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Select value={filtroProceso} onValueChange={setFiltroProceso}>
           <SelectTrigger className="h-8 w-48 text-xs"><SelectValue placeholder="Proceso" /></SelectTrigger>
           <SelectContent>
@@ -346,7 +394,13 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
         <Button size="sm" variant={soloProximos ? 'default' : 'outline'} className="h-8 text-xs" onClick={() => setSoloProximos((v) => !v)}>
           Próximos vencimientos
         </Button>
-        <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" onClick={() => { setHistorialOpen(true); loadHistorial(); }}>
+        <Button
+          size="sm" variant="outline" className="h-8 text-xs ml-auto"
+          onClick={() => { setCopiarAnioDestino(filtroAnio + 1); setCopiarAnioOpen(true); }}
+        >
+          <CopyPlus className="h-3.5 w-3.5 mr-1" /> Copiar a otro año
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { setHistorialOpen(true); loadHistorial(); }}>
           <History className="h-3.5 w-3.5 mr-1" /> Ver historial
         </Button>
       </div>
@@ -415,10 +469,8 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
                               type="button"
                               title={label}
                               onClick={() => handleToggleMes(act, mes)}
-                              className={`w-full h-10 text-xs font-bold transition-colors ${activo ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-transparent text-transparent hover:bg-slate-100'}`}
-                            >
-                              X
-                            </button>
+                              className={`w-full h-10 transition-colors ${activo ? 'bg-emerald-100 hover:bg-emerald-200' : 'bg-transparent hover:bg-slate-100'}`}
+                            />
                           </TableCell>
                         );
                       })}
@@ -485,9 +537,20 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
             <DialogTitle>{actividadDialog?.actividad ? 'Editar actividad' : 'Nueva actividad'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div>
-              <Label>Nombre *</Label>
-              <Input autoFocus value={actForm.nombre} onChange={(e) => setActForm((f) => ({ ...f, nombre: e.target.value }))} />
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <Label>Nombre *</Label>
+                <Input autoFocus value={actForm.nombre} onChange={(e) => setActForm((f) => ({ ...f, nombre: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Año</Label>
+                <Select value={String(actForm.anio)} onValueChange={(v) => setActForm((f) => ({ ...f, anio: Number(v) }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ANIOS_DISPONIBLES.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
               <Label>Meses</Label>
@@ -553,6 +616,30 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
           <DialogFooter>
             <Button variant="outline" onClick={() => setActividadDialog(null)}>Cancelar</Button>
             <Button onClick={saveActividad} className="bg-indigo-600 hover:bg-indigo-700">Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={copiarAnioOpen} onOpenChange={(o) => !copiandoAnio && setCopiarAnioOpen(o)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Copiar cronograma {filtroAnio} a otro año</DialogTitle></DialogHeader>
+          <p className="text-sm text-slate-500">
+            Se crean copias de las {actividadesDelAnio.length} actividad(es) de {filtroAnio} (mismos procesos, meses y responsables) en el año destino, todas en estado Pendiente y sin seguimiento vinculado. Las actividades de {filtroAnio} no se modifican.
+          </p>
+          <div>
+            <Label>Año destino</Label>
+            <Select value={String(copiarAnioDestino)} onValueChange={(v) => setCopiarAnioDestino(Number(v))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ANIOS_DISPONIBLES.filter((y) => y !== filtroAnio).map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopiarAnioOpen(false)} disabled={copiandoAnio}>Cancelar</Button>
+            <Button onClick={handleCopiarAnio} disabled={copiandoAnio} className="bg-indigo-600 hover:bg-indigo-700">
+              {copiandoAnio ? 'Copiando...' : 'Copiar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

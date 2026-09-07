@@ -149,6 +149,7 @@ export interface CronogramaActividad {
   proceso_id: string;
   nombre: string;
   meses: number[];
+  anio: number;
   estado: CronogramaEstado;
   responsable_user_id: string | null;
   seguimiento_id: string | null;
