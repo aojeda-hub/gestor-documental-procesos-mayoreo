@@ -143,6 +143,7 @@ export interface CronogramaProceso {
 
 export type CronogramaEstado = 'pendiente' | 'en_progreso' | 'completado';
 export type CronogramaFrecuenciaRecordatorio = 'una_vez' | 'diario' | 'semanal';
+export type CronogramaCompania = 'Febeca' | 'Sillaca' | 'Beval' | 'Mundial de Partes' | 'Cofersa';
 
 export interface CronogramaActividad {
   id: string;
@@ -150,6 +151,7 @@ export interface CronogramaActividad {
   nombre: string;
   meses: number[];
   anio: number;
+  compania: CronogramaCompania | null;
   estado: CronogramaEstado;
   responsable_user_id: string | null;
   seguimiento_id: string | null;

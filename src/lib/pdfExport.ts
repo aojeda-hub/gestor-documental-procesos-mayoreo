@@ -1,13 +1,21 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import logoAsset from '@/assets/mayoreo-logo.png.asset.json';
+import logoUrl from '@/assets/logo.png';
 import { SILO_LABELS, type SiloType } from '@/types/database';
+
+// Margen horizontal compartido por todas las exportaciones: estrecho a
+// propósito para dejarle más ancho a las tablas (ej. los 12 meses del
+// cronograma no caben cómodos con márgenes más amplios).
+export const PDF_MARGIN = 10;
 
 let cachedLogo: string | null = null;
 async function getLogoDataUrl(): Promise<string | null> {
   if (cachedLogo) return cachedLogo;
   try {
-    const res = await fetch(logoAsset.url);
+    // Asset local empaquetado por Vite (el mismo que usan los .docx vía
+    // docCommon.ts) — a diferencia del asset_id externo usado antes, este
+    // siempre resuelve, sin depender de un servicio de hosting externo.
+    const res = await fetch(logoUrl);
     const blob = await res.blob();
     return await new Promise((resolve) => {
       const reader = new FileReader();
@@ -26,18 +34,20 @@ async function getLogoDataUrl(): Promise<string | null> {
 function header(doc: jsPDF, title: string, subtitle: string, logo: string | null) {
   const pageW = doc.internal.pageSize.getWidth();
   if (logo) {
-    try { doc.addImage(logo, 'PNG', 14, 10, 22, 12, undefined, 'FAST'); } catch {}
+    // El logo es un lienzo ancho (~16:9) con el ícono centrado: se respeta
+    // esa proporción para que no se vea deformado.
+    try { doc.addImage(logo, 'PNG', PDF_MARGIN, 7, 32, 18, undefined, 'FAST'); } catch {}
   }
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(20, 20, 20);
-  doc.text(title, pageW - 14, 18, { align: 'right' });
+  doc.text(title, pageW - PDF_MARGIN, 18, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(110, 110, 110);
-  doc.text(subtitle, pageW - 14, 24, { align: 'right' });
+  doc.text(subtitle, pageW - PDF_MARGIN, 24, { align: 'right' });
   doc.setDrawColor(220);
-  doc.line(14, 28, pageW - 14, 28);
+  doc.line(PDF_MARGIN, 30, pageW - PDF_MARGIN, 30);
 }
 
 function footer(doc: jsPDF) {
@@ -48,8 +58,8 @@ function footer(doc: jsPDF) {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(140);
-    doc.text(`Página ${i} de ${pageCount}`, pageW - 14, pageH - 8, { align: 'right' });
-    doc.text('Sistema Integral de Gestión - Procesos Mayoreo', 14, pageH - 8);
+    doc.text(`Página ${i} de ${pageCount}`, pageW - PDF_MARGIN, pageH - 8, { align: 'right' });
+    doc.text('Sistema Integral de Gestión - Procesos Mayoreo', PDF_MARGIN, pageH - 8);
   }
 }
 
@@ -97,13 +107,13 @@ export async function exportProjectsPDF(projects: ProjectRow[], silo: string) {
       0: { cellWidth: 65, fontStyle: 'bold' },
       5: { halign: 'center' }, 6: { halign: 'center' }, 7: { halign: 'center' },
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
   });
 
   const finalY = (doc as any).lastAutoTable.finalY || 40;
   doc.setFontSize(9);
   doc.setTextColor(80);
-  doc.text(`Total de proyectos: ${projects.length}`, 14, finalY + 8);
+  doc.text(`Total de proyectos: ${projects.length}`, PDF_MARGIN, finalY + 8);
 
   footer(doc);
   doc.save(`proyectos_${silo === 'all' ? 'todos' : silo}_${new Date().toISOString().slice(0,10)}.pdf`);
@@ -153,13 +163,13 @@ export async function exportIndicatorsPDF(indicators: IndicatorRow[], silo: stri
       3: { cellWidth: 40, font: 'courier', fontSize: 8 },
       7: { cellWidth: 40 },
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
   });
 
   const finalY = (doc as any).lastAutoTable.finalY || 40;
   doc.setFontSize(9);
   doc.setTextColor(80);
-  doc.text(`Total de indicadores: ${indicators.length}`, 14, finalY + 8);
+  doc.text(`Total de indicadores: ${indicators.length}`, PDF_MARGIN, finalY + 8);
 
   footer(doc);
   doc.save(`indicadores_${silo === 'all' ? 'todos' : silo}_${new Date().toISOString().slice(0,10)}.pdf`);
@@ -219,13 +229,13 @@ export async function exportCertificacionPDF(
       7: { cellWidth: 16, halign: 'center' },
       8: { cellWidth: 25 },
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
   });
 
   const finalY = (doc as any).lastAutoTable.finalY || 40;
   doc.setFontSize(9);
   doc.setTextColor(80);
-  doc.text(`Total de casos: ${casos.length}`, 14, finalY + 8);
+  doc.text(`Total de casos: ${casos.length}`, PDF_MARGIN, finalY + 8);
 
   footer(doc);
   const safe = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
@@ -284,16 +294,85 @@ export async function exportIncidenciasPDF(
       7: { cellWidth: 34 },
       8: { cellWidth: 24 },
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
   });
 
   const finalY = (doc as any).lastAutoTable.finalY || 40;
   doc.setFontSize(9);
   doc.setTextColor(80);
-  doc.text(`Total de incidencias: ${incidencias.length}`, 14, finalY + 8);
+  doc.text(`Total de incidencias: ${incidencias.length}`, PDF_MARGIN, finalY + 8);
 
   footer(doc);
   const safe = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
   doc.save(`incidencias_${safe(projectName)}_${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+export interface CronogramaExportRow {
+  proceso: string;
+  actividad: string;
+  meses: number[];
+  estado: string;
+  responsable?: string | null;
+  compania?: string | null;
+}
+
+const CRONOGRAMA_MES_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+export async function exportCronogramaPDF(
+  rows: CronogramaExportRow[],
+  context: { silo: string; anio: number; compania: string },
+) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const logo = await getLogoDataUrl();
+  const today = new Date().toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  header(doc, 'Cronograma de Procesos', `${context.silo} · ${context.anio} · ${context.compania} · ${today}`, logo);
+
+  const body = rows.map((r) => [
+    r.proceso,
+    r.compania ? `${r.actividad}\n(${r.compania})` : r.actividad,
+    ...CRONOGRAMA_MES_LABELS.map(() => ''),
+    r.estado,
+    r.responsable || 'Sin asignar',
+  ]);
+
+  autoTable(doc, {
+    startY: 34,
+    head: [['Proceso', 'Actividad', ...CRONOGRAMA_MES_LABELS, 'Estado', 'Responsable']],
+    body,
+    // theme "grid" + una línea muy fina y clara: separa visualmente los
+    // meses marcados consecutivos (si no, se ven como un solo bloque
+    // sólido) sin que la cuadrícula se note "gritona".
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', valign: 'middle', lineWidth: 0.1, lineColor: [222, 226, 230] },
+    headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold', halign: 'center', lineColor: [222, 226, 230] },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 28, fontStyle: 'bold' },
+      1: { cellWidth: 46 },
+      // Ancho fijo suficiente para que "Ago"/"May" no partan en dos líneas.
+      ...Object.fromEntries(CRONOGRAMA_MES_LABELS.map((_, i) => [2 + i, { cellWidth: 12, halign: 'center' as const }])),
+      14: { cellWidth: 20, halign: 'center' as const },
+      15: { cellWidth: 24 },
+    },
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index >= 2 && data.column.index <= 13) {
+        const mes = data.column.index - 2 + 1;
+        if (rows[data.row.index]?.meses.includes(mes)) {
+          data.cell.styles.fillColor = [209, 250, 229];
+        }
+      }
+    },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY || 40;
+  doc.setFontSize(9);
+  doc.setTextColor(80);
+  doc.text(`Total de actividades: ${rows.length}`, PDF_MARGIN, finalY + 8);
+
+  footer(doc);
+  const safe = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+  doc.save(`cronograma_${safe(context.silo)}_${context.anio}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
