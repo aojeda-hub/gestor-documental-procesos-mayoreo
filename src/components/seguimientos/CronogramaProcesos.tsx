@@ -73,16 +73,34 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
 
   const [actividadDialog, setActividadDialog] = useState<{ procesoId: string; actividad: CronogramaActividad | null } | null>(null);
   const [actForm, setActForm] = useState<{
-    nombre: string; meses: number[]; anio: number; compania: CronogramaCompania | ''; responsable_user_id: string; estado: CronogramaEstado;
+    nombre: string; meses: number[]; anio: number; companias: CronogramaCompania[]; responsable_user_id: string; estado: CronogramaEstado;
     dias_recordatorio: number; frecuencia_recordatorio: CronogramaFrecuenciaRecordatorio;
   }>({
-    nombre: '', meses: [], anio: ANIO_ACTUAL, compania: '', responsable_user_id: '', estado: 'pendiente',
+    nombre: '', meses: [], anio: ANIO_ACTUAL, companias: [], responsable_user_id: '', estado: 'pendiente',
     dias_recordatorio: 7, frecuencia_recordatorio: 'una_vez',
   });
 
   const [pendingCompletar, setPendingCompletar] = useState<CronogramaActividad | null>(null);
   const [historialOpen, setHistorialOpen] = useState(false);
   const [historial, setHistorial] = useState<CronogramaHistorialItem[]>([]);
+
+  const [boardMemberIds, setBoardMemberIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadMembers = async () => {
+      const { data } = await supabase.from('seguimiento_board_miembros' as any).select('member_user_id').eq('board_id', board.id);
+      const ids = new Set<string>([board.created_by, ...(((data ?? []) as any[]).map((m) => m.member_user_id))]);
+      setBoardMemberIds(Array.from(ids));
+    };
+    loadMembers();
+  }, [board.id, board.created_by]);
+
+  // Solo se ofrecen como responsables los miembros de esta reunión operativa
+  // (no todo el directorio de la organización).
+  const directoryMiembros = useMemo(
+    () => directory.filter((u) => boardMemberIds.includes(u.user_id)),
+    [directory, boardMemberIds],
+  );
 
   const loadData = async () => {
     setLoading(true);
@@ -143,14 +161,14 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
 
   const openAddActividad = (procesoId: string) => {
     setActForm({
-      nombre: '', meses: [], anio: filtroAnio, compania: filtroCompania !== 'todos' ? (filtroCompania as CronogramaCompania) : '',
+      nombre: '', meses: [], anio: filtroAnio, companias: filtroCompania !== 'todos' ? [filtroCompania as CronogramaCompania] : [],
       responsable_user_id: '', estado: 'pendiente', dias_recordatorio: 7, frecuencia_recordatorio: 'una_vez',
     });
     setActividadDialog({ procesoId, actividad: null });
   };
   const openEditActividad = (actividad: CronogramaActividad) => {
     setActForm({
-      nombre: actividad.nombre, meses: actividad.meses, anio: actividad.anio, compania: actividad.compania ?? '',
+      nombre: actividad.nombre, meses: actividad.meses, anio: actividad.anio, companias: actividad.compania ? [actividad.compania] : [],
       responsable_user_id: actividad.responsable_user_id ?? '', estado: actividad.estado,
       dias_recordatorio: actividad.dias_recordatorio, frecuencia_recordatorio: actividad.frecuencia_recordatorio,
     });
@@ -159,22 +177,30 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
   const toggleMesForm = (mes: number) => {
     setActForm((f) => ({ ...f, meses: f.meses.includes(mes) ? f.meses.filter((m) => m !== mes) : [...f.meses, mes].sort((a, b) => a - b) }));
   };
+  const toggleCompaniaForm = (compania: CronogramaCompania) => {
+    setActForm((f) => ({ ...f, companias: f.companias.includes(compania) ? f.companias.filter((c) => c !== compania) : [...f.companias, compania] }));
+  };
 
   const saveActividad = async () => {
     if (!actividadDialog || !actForm.nombre.trim() || !user) return;
     const responsableId = actForm.responsable_user_id || null;
-    const compania = actForm.compania || null;
     const diasRecordatorio = Number.isFinite(actForm.dias_recordatorio) && actForm.dias_recordatorio >= 0 ? Math.round(actForm.dias_recordatorio) : 7;
+    // Sin compañía seleccionada = una actividad sin clasificar. Con una o
+    // más, se guarda/crea una fila por cada compañía elegida — así no hay
+    // que repetir la misma actividad cuando aplica a varias compañías.
+    const companiasDestino: (CronogramaCompania | null)[] = actForm.companias.length > 0 ? actForm.companias : [null];
+    const [primeraCompania, ...companiasExtra] = companiasDestino;
+
     if (actividadDialog.actividad) {
       const prev = actividadDialog.actividad;
       const { error } = await supabase.from('cronograma_actividades' as any).update({
-        nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania, responsable_user_id: responsableId, estado: actForm.estado,
+        nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania: primeraCompania, responsable_user_id: responsableId, estado: actForm.estado,
         dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
       }).eq('id', prev.id);
       if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
       if (prev.nombre !== actForm.nombre.trim()) await registrarCambioHistorial(prev.id, user.id, 'nombre', prev.nombre, actForm.nombre.trim());
       if (prev.anio !== actForm.anio) await registrarCambioHistorial(prev.id, user.id, 'año', String(prev.anio), String(actForm.anio));
-      if (prev.compania !== compania) await registrarCambioHistorial(prev.id, user.id, 'compañía', prev.compania ?? 'Sin asignar', compania ?? 'Sin asignar');
+      if (prev.compania !== primeraCompania) await registrarCambioHistorial(prev.id, user.id, 'compañía', prev.compania ?? 'Sin asignar', primeraCompania ?? 'Sin asignar');
       if (prev.responsable_user_id !== responsableId) await registrarCambioHistorial(prev.id, user.id, 'responsable', responsableNombre(prev.responsable_user_id), responsableNombre(responsableId));
       if (prev.estado !== actForm.estado) await registrarCambioHistorial(prev.id, user.id, 'estado', prev.estado, actForm.estado);
       if (prev.dias_recordatorio !== diasRecordatorio || prev.frecuencia_recordatorio !== actForm.frecuencia_recordatorio) {
@@ -190,19 +216,37 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
       }
       setActividades((curr) => curr.map((a) => a.id === prev.id
         ? {
-          ...a, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania, responsable_user_id: responsableId, estado: actForm.estado,
+          ...a, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania: primeraCompania, responsable_user_id: responsableId, estado: actForm.estado,
           dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
         }
         : a));
+
+      // Si se agregaron más compañías al editar, se clonan como filas
+      // nuevas (la fila editada ya cubre la primera compañía elegida).
+      if (companiasExtra.length > 0) {
+        const ordenBase = actividades.filter((a) => a.proceso_id === prev.proceso_id).length;
+        const nuevas = companiasExtra.map((c, i) => ({
+          proceso_id: prev.proceso_id, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania: c,
+          responsable_user_id: responsableId, estado: actForm.estado, orden: ordenBase + i,
+          dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
+        }));
+        const { data, error: insError } = await supabase.from('cronograma_actividades' as any).insert(nuevas).select('*');
+        if (insError) {
+          toast({ title: 'Se guardó, pero no se pudieron duplicar todas las compañías', description: insError.message, variant: 'destructive' });
+        } else {
+          setActividades((curr) => [...curr, ...(data as unknown as CronogramaActividad[])]);
+        }
+      }
     } else {
-      const orden = actividades.filter((a) => a.proceso_id === actividadDialog.procesoId).length;
-      const { data, error } = await supabase.from('cronograma_actividades' as any).insert({
-        proceso_id: actividadDialog.procesoId, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania,
-        responsable_user_id: responsableId, estado: actForm.estado, orden,
+      const ordenBase = actividades.filter((a) => a.proceso_id === actividadDialog.procesoId).length;
+      const nuevas = companiasDestino.map((c, i) => ({
+        proceso_id: actividadDialog.procesoId, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania: c,
+        responsable_user_id: responsableId, estado: actForm.estado, orden: ordenBase + i,
         dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
-      }).select('*').single();
+      }));
+      const { data, error } = await supabase.from('cronograma_actividades' as any).insert(nuevas).select('*');
       if (error || !data) { toast({ title: 'Error', description: error?.message, variant: 'destructive' }); return; }
-      setActividades((curr) => [...curr, data as unknown as CronogramaActividad]);
+      setActividades((curr) => [...curr, ...(data as unknown as CronogramaActividad[])]);
     }
     setActividadDialog(null);
   };
@@ -431,7 +475,7 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
           <SelectTrigger className="h-8 w-48 text-xs"><SelectValue placeholder="Responsable" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los responsables</SelectItem>
-            {directory.map((u) => <SelectItem key={u.user_id} value={u.user_id}>{u.full_name}</SelectItem>)}
+            {directoryMiembros.map((u) => <SelectItem key={u.user_id} value={u.user_id}>{u.full_name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filtroMes} onValueChange={setFiltroMes}>
@@ -545,7 +589,7 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
                           <SelectTrigger className="h-7 px-2 text-[11px]"><SelectValue placeholder="Sin asignar" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">Sin asignar</SelectItem>
-                            {directory.map((u) => <SelectItem key={u.user_id} value={u.user_id}>{u.full_name}</SelectItem>)}
+                            {directoryMiembros.map((u) => <SelectItem key={u.user_id} value={u.user_id}>{u.full_name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -597,25 +641,25 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
               <Label>Nombre *</Label>
               <Input autoFocus value={actForm.nombre} onChange={(e) => setActForm((f) => ({ ...f, nombre: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Año</Label>
-                <Select value={String(actForm.anio)} onValueChange={(v) => setActForm((f) => ({ ...f, anio: Number(v) }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {ANIOS_DISPONIBLES.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Compañía</Label>
-                <Select value={actForm.compania || 'none'} onValueChange={(v) => setActForm((f) => ({ ...f, compania: v === 'none' ? '' : (v as CronogramaCompania) }))}>
-                  <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin asignar</SelectItem>
-                    {COMPANIAS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            <div className="max-w-[160px]">
+              <Label>Año</Label>
+              <Select value={String(actForm.anio)} onValueChange={(v) => setActForm((f) => ({ ...f, anio: Number(v) }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ANIOS_DISPONIBLES.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Compañía(s)</Label>
+              <p className="text-[11px] text-slate-400 mb-1">Si aplica a varias, se crea una actividad idéntica en cada una.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {COMPANIAS.map((c) => (
+                  <label key={c} className="flex items-center gap-1.5 text-xs">
+                    <Checkbox checked={actForm.companias.includes(c)} onCheckedChange={() => toggleCompaniaForm(c)} />
+                    {c}
+                  </label>
+                ))}
               </div>
             </div>
             <div>
@@ -650,7 +694,7 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
                   <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Sin asignar</SelectItem>
-                    {directory.map((u) => <SelectItem key={u.user_id} value={u.user_id}>{u.full_name}</SelectItem>)}
+                    {directoryMiembros.map((u) => <SelectItem key={u.user_id} value={u.user_id}>{u.full_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
