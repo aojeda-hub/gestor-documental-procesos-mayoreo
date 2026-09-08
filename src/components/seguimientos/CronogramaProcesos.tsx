@@ -40,6 +40,13 @@ const ANIOS_DISPONIBLES = Array.from({ length: ANIO_ACTUAL + 4 - 2024 + 1 }, (_,
 
 const COMPANIAS: CronogramaCompania[] = ['Febeca', 'Sillaca', 'Beval', 'Mundial de Partes', 'Cofersa'];
 
+const PAIS_COMPANIAS: Record<string, CronogramaCompania[]> = {
+  'Venezuela': ['Febeca', 'Sillaca', 'Beval'],
+  'Colombia': ['Mundial de Partes'],
+  'Costa Rica': ['Cofersa'],
+};
+const PAISES = Object.keys(PAIS_COMPANIAS);
+
 interface CronogramaProcesosProps {
   board: SeguimientoBoard;
   grupoProcesosColumnId: string | null;
@@ -60,6 +67,7 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
   const [newProcesoNombre, setNewProcesoNombre] = useState('');
 
   const [filtroAnio, setFiltroAnio] = useState(ANIO_ACTUAL);
+  const [filtroPais, setFiltroPais] = useState('todos');
   const [filtroCompania, setFiltroCompania] = useState('todos');
   const [filtroProceso, setFiltroProceso] = useState('todos');
   const [filtroEstado, setFiltroEstado] = useState('todos');
@@ -353,11 +361,15 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
   // resumen por proceso) parte de las actividades del año seleccionado.
   const actividadesDelAnio = useMemo(() => actividades.filter((a) => a.anio === filtroAnio), [actividades, filtroAnio]);
 
-  // El filtro de compañía se aplica a todas las vistas del cronograma
-  // (resumen por proceso y tabla), no solo a la tabla.
+  // Los filtros de país y compañía se aplican a todas las vistas del
+  // cronograma (resumen por proceso y tabla), no solo a la tabla.
   const actividadesVisibles = useMemo(
-    () => actividadesDelAnio.filter((a) => filtroCompania === 'todos' || a.compania === filtroCompania),
-    [actividadesDelAnio, filtroCompania],
+    () => actividadesDelAnio.filter((a) => {
+      if (filtroPais !== 'todos' && !(a.compania && PAIS_COMPANIAS[filtroPais].includes(a.compania))) return false;
+      if (filtroCompania !== 'todos' && a.compania !== filtroCompania) return false;
+      return true;
+    }),
+    [actividadesDelAnio, filtroPais, filtroCompania],
   );
 
   const actividadesFiltradas = useMemo(() => actividadesVisibles.filter((a) => {
@@ -415,11 +427,12 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
       return;
     }
     const siloLabel = board.silo ? (SILO_LABELS[board.silo as SiloType] ?? board.silo) : 'Personal';
+    const companiaLabel = filtroCompania !== 'todos' ? filtroCompania : (filtroPais !== 'todos' ? filtroPais : 'Todas las compañías');
     const { exportCronogramaPDF } = await import('@/lib/pdfExport');
     await exportCronogramaPDF(rows, {
       silo: siloLabel,
       anio: filtroAnio,
-      compania: filtroCompania === 'todos' ? 'Todas las compañías' : filtroCompania,
+      compania: companiaLabel,
     });
   };
 
@@ -448,11 +461,28 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
             {ANIOS_DISPONIBLES.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select
+          value={filtroPais}
+          onValueChange={(v) => {
+            setFiltroPais(v);
+            // Si la compañía elegida no pertenece al país nuevo, se limpia
+            // en vez de dejar un filtro combinado que no muestra nada.
+            if (v !== 'todos' && filtroCompania !== 'todos' && !PAIS_COMPANIAS[v].includes(filtroCompania as CronogramaCompania)) {
+              setFiltroCompania('todos');
+            }
+          }}
+        >
+          <SelectTrigger className="h-8 w-36 text-xs font-semibold"><SelectValue placeholder="País" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los países</SelectItem>
+            {PAISES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Select value={filtroCompania} onValueChange={setFiltroCompania}>
           <SelectTrigger className="h-8 w-44 text-xs font-semibold"><SelectValue placeholder="Compañía" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Global (todas)</SelectItem>
-            {COMPANIAS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {(filtroPais !== 'todos' ? PAIS_COMPANIAS[filtroPais] : COMPANIAS).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filtroProceso} onValueChange={setFiltroProceso}>
