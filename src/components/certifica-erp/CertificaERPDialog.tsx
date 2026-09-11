@@ -21,7 +21,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
@@ -581,7 +581,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
         prioridad: PRIORIDAD_LABEL[r.prioridad],
         responsable: null,
         origen: "Incidencia",
-        fecha: format(new Date(r.fecha), "yyyy-MM-dd"),
+        fecha: r.fecha,
       })),
       ...certIncidenciasFiltradas.map((c) => ({
         numero: `C#${c.numero}`,
@@ -829,7 +829,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
                   </TableCell>
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${PRIORIDAD_STYLES[r.prioridad]}`}>{PRIORIDAD_LABEL[r.prioridad]}</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Incidencia</TableCell>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(r.fecha), "d MMM yyyy", { locale: es })}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(parseISO(r.fecha), "d MMM yyyy", { locale: es })}</TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setEditingInc(r)}>
                       <Pencil className="h-3 w-3" /> Editar
@@ -1297,6 +1297,7 @@ function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; 
           {selectedScript && (
             <CasosEditor
               scriptId={selectedScript}
+              proyectoId={proyectoId}
               proyectoNombre={proyectoNombre}
               scriptNombre={(scripts ?? []).find((s) => s.id === selectedScript)?.nombre ?? ""}
             />
@@ -1307,7 +1308,7 @@ function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; 
   );
 }
 
-function CasosEditor({ scriptId, proyectoNombre, scriptNombre }: { scriptId: string; proyectoNombre: string; scriptNombre: string }) {
+function CasosEditor({ scriptId, proyectoId, proyectoNombre, scriptNombre }: { scriptId: string; proyectoId: string; proyectoNombre: string; scriptNombre: string }) {
   const qc = useQueryClient();
   const { user } = useAuth();
 
@@ -1503,7 +1504,7 @@ function CasosEditor({ scriptId, proyectoNombre, scriptNombre }: { scriptId: str
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(casos ?? []).map((c) => <CasoRowEditor key={c.id} caso={c} />)}
+              {(casos ?? []).map((c) => <CasoRowEditor key={c.id} caso={c} proyectoId={proyectoId} />)}
             </TableBody>
           </Table>
         </div>
@@ -1512,8 +1513,9 @@ function CasosEditor({ scriptId, proyectoNombre, scriptNombre }: { scriptId: str
   );
 }
 
-function CasoRowEditor({ caso }: { caso: CasoRow }) {
+function CasoRowEditor({ caso, proyectoId }: { caso: CasoRow; proyectoId: string }) {
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [local, setLocal] = useState(caso);
   const [saving, setSaving] = useState(false);
   const [savedTick, setSavedTick] = useState(0);
@@ -1572,11 +1574,50 @@ function CasoRowEditor({ caso }: { caso: CasoRow }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Al marcar un caso como "Incidencia" se crea automáticamente la incidencia
+  // real en el proyecto (antes solo aparecía como fila especial dentro de
+  // "Incidencias" al filtrar por "Todos", y no bajo "Pendiente" — por eso no
+  // "viajaba" a la sección visualmente).
+  const crearIncidenciaDesdeCaso = async (c: CasoRow) => {
+    if (!user) return;
+    try {
+      const { data: existing } = await supabase.from("incidencias").select("id").eq("test_caso_id", c.id).maybeSingle();
+      if (existing?.id) return;
+      const today = new Date().toISOString().slice(0, 10);
+      const descripcion = (c.resultado_obtenido || c.resultado_esperado || c.titulo || "Incidencia detectada en certificación").toString();
+      const { error } = await supabase.from("incidencias").insert({
+        titulo: c.titulo,
+        descripcion: descripcion.length >= 5 ? descripcion : `${descripcion} - certificación`,
+        sistema_nombre: c.entorno || "Certificación",
+        modulo: c.modulo || null,
+        prioridad: "media",
+        estado: "pendiente",
+        responsable: c.responsable || "",
+        fecha: today,
+        fecha_ocurrencia: today,
+        proyecto_id: proyectoId,
+        created_by: user.id,
+        test_caso_id: c.id,
+      });
+      if (error) throw error;
+      toast.success(`Incidencia creada en la sección de Incidencias a partir de "${c.titulo}"`);
+      qc.invalidateQueries({ queryKey: ["cert-proyecto-incidencias", proyectoId] });
+      qc.invalidateQueries({ queryKey: ["cert-proyecto-cert-incidencias", proyectoId] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo crear la incidencia automáticamente");
+    }
+  };
+
   const updateAndSave = async <K extends keyof CasoRow>(key: K, value: CasoRow[K]) => {
-    setLocal((p) => ({ ...p, [key]: value }));
+    const yaEraIncidencia = local.estado === "incidencia";
+    const localActualizado = { ...local, [key]: value };
+    setLocal(localActualizado);
     pendingRef.current = { ...pendingRef.current, [key]: value };
     await flush();
     await qc.invalidateQueries({ queryKey: ["cert-casos", caso.script_id] });
+    if (key === "estado" && value === "incidencia" && !yaEraIncidencia) {
+      await crearIncidenciaDesdeCaso(localActualizado);
+    }
   };
 
   const eliminar = async () => {
@@ -2252,8 +2293,8 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
               <Detail label="Sección" icon={<Tag className="h-4 w-4" />}><span className="text-sm font-medium">{inc.modulo || '—'}</span></Detail>
               <Detail label="Responsable Técnico" icon={<User className="h-4 w-4" />}><span className="text-sm font-medium">{inc.responsable ?? <span className="text-muted-foreground italic">Sin asignar</span>}</span></Detail>
               <Detail label="Responsable Funcional" icon={<User className="h-4 w-4" />}><span className="text-sm font-medium">{inc.responsable_funcional ?? <span className="text-muted-foreground italic">Sin asignar</span>}</span></Detail>
-              <Detail label="Fecha ocurrencia" icon={<Calendar className="h-4 w-4" />}><span className="text-sm">{inc.fecha_ocurrencia ? format(new Date(inc.fecha_ocurrencia), "d 'de' MMMM yyyy", { locale: es }) : "—"}</span></Detail>
-              <Detail label="Fecha registro" icon={<Calendar className="h-4 w-4" />}><span className="text-sm">{format(new Date(inc.fecha), "d 'de' MMMM yyyy", { locale: es })}</span></Detail>
+              <Detail label="Fecha ocurrencia" icon={<Calendar className="h-4 w-4" />}><span className="text-sm">{inc.fecha_ocurrencia ? format(parseISO(inc.fecha_ocurrencia), "d 'de' MMMM yyyy", { locale: es }) : "—"}</span></Detail>
+              <Detail label="Fecha registro" icon={<Calendar className="h-4 w-4" />}><span className="text-sm">{format(parseISO(inc.fecha), "d 'de' MMMM yyyy", { locale: es })}</span></Detail>
               {inc.fecha_completado && <Detail label="Solventado" icon={<CheckCircle2 className="h-4 w-4" />}><span className="text-sm font-medium text-green-600">{format(new Date(inc.fecha_completado), "d MMM yyyy, HH:mm", { locale: es })}</span></Detail>}
               {inc.codigo_transaccion && <Detail label="Código transacción" icon={<Hash className="h-4 w-4" />}><span className="font-mono text-sm">{inc.codigo_transaccion}</span></Detail>}
               {inc.nombre_transaccion && <Detail label="Nombre transacción" icon={<FileText className="h-4 w-4" />}><span className="text-sm">{inc.nombre_transaccion}</span></Detail>}
