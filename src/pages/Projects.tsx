@@ -17,7 +17,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
-import type { Project, ProjectTask, ProjectPhase, SiloType, TaskDependency, ProyectoRiesgo, ProjectMilestone, ObjetivoEstrategico } from '@/types/database';
+import type { Project, ProjectEstado, ProjectTask, ProjectPhase, SiloType, TaskDependency, ProyectoRiesgo, ProjectMilestone, ObjetivoEstrategico } from '@/types/database';
 import { calculateProjectScheduleVariance, VARIANCE_STATUS_META } from '@/lib/baselineUtils';
 import { ensureProjectMilestones } from '@/lib/milestoneDefaults';
 import { SILO_LABELS, OBJETIVO_COLOR_CLASSES } from '@/types/database';
@@ -30,6 +30,20 @@ import { ProjectSummaryDialog } from '@/components/projects/ProjectSummaryDialog
 import { ProjectScheduleDialog } from '@/components/projects/ProjectScheduleDialog';
 import { ExportPDFDialog } from '@/components/ExportPDFDialog';
 import { exportProjectsPDF } from '@/lib/pdfExport';
+
+const ESTADOS: ProjectEstado[] = ['en_progreso', 'completado', 'cancelado', 'detenido'];
+const ESTADO_LABEL: Record<ProjectEstado, string> = {
+  en_progreso: 'En progreso', completado: 'Completados', cancelado: 'Cancelados', detenido: 'Detenidos',
+};
+const ESTADO_LABEL_SINGULAR: Record<ProjectEstado, string> = {
+  en_progreso: 'En progreso', completado: 'Completado', cancelado: 'Cancelado', detenido: 'Detenido',
+};
+const ESTADO_STYLES: Record<ProjectEstado, string> = {
+  en_progreso: 'bg-blue-100 text-blue-700 border-blue-300',
+  completado: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+  cancelado: 'bg-red-100 text-red-700 border-red-300',
+  detenido: 'bg-amber-100 text-amber-700 border-amber-300',
+};
 
 const PHASE_DESCRIPTIONS: Record<string, string> = {
   'Alineación': 'Se define el alcance, objetivos y requisitos del proyecto. Se alinean expectativas con los stakeholders, se asignan recursos y se aprueba el plan inicial.',
@@ -62,6 +76,7 @@ export default function Projects() {
   const [objetivos, setObjetivos] = useState<ObjetivoEstrategico[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSilo, setFilterSilo] = useState('all');
+  const [filterEstado, setFilterEstado] = useState<'all' | ProjectEstado>('all');
   const [search, setSearch] = useState('');
 
   const [formDialogOpen, setFormDialogOpen] = useState(false);
@@ -172,9 +187,20 @@ export default function Projects() {
     fetchProjects();
   };
 
-  const filtered = projects.filter(p => {
+  // Base para los chips de estado: respeta silo/búsqueda ya activos, pero no
+  // el estado (así el contador de cada chip refleja el resto de filtros).
+  const bySiloYBusqueda = projects.filter(p => {
     if (filterSilo !== 'all' && p.silo !== filterSilo) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+  const estadoCounts = ESTADOS.reduce((acc, e) => {
+    acc[e] = bySiloYBusqueda.filter(p => (p.estado || 'en_progreso') === e).length;
+    return acc;
+  }, {} as Record<ProjectEstado, number>);
+
+  const filtered = bySiloYBusqueda.filter(p => {
+    if (filterEstado !== 'all' && (p.estado || 'en_progreso') !== filterEstado) return false;
     return true;
   });
 
@@ -227,6 +253,25 @@ export default function Projects() {
         </TabsContent>
 
         <TabsContent value="tabla" className="mt-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setFilterEstado('all')}
+          className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${filterEstado === 'all' ? 'bg-foreground text-background border-foreground' : 'bg-background text-muted-foreground border-border hover:bg-muted'}`}
+        >
+          Todos ({bySiloYBusqueda.length})
+        </button>
+        {ESTADOS.map(e => (
+          <button
+            key={e}
+            type="button"
+            onClick={() => setFilterEstado(e)}
+            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${filterEstado === e ? `${ESTADO_STYLES[e]} ring-2 ring-offset-1 ring-foreground/30` : 'bg-background text-muted-foreground border-border hover:bg-muted'}`}
+          >
+            {ESTADO_LABEL[e]} ({estadoCounts[e]})
+          </button>
+        ))}
+      </div>
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
@@ -235,6 +280,7 @@ export default function Projects() {
                 <TableHead>Nombre del Proyecto</TableHead>
                 <TableHead>Objetivo Estratégico</TableHead>
                 <TableHead>Silo</TableHead>
+                <TableHead>Estado</TableHead>
                 <TableHead>Fases</TableHead>
                 <TableHead>Inicio</TableHead>
                 <TableHead>Cierre</TableHead>
@@ -246,9 +292,9 @@ export default function Projects() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No se encontraron proyectos.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No se encontraron proyectos.</TableCell></TableRow>
               ) : filtered.map(project => {
                 const objetivo = project.objetivo_estrategico_id ? objetivoById.get(project.objetivo_estrategico_id) : undefined;
                 const objetivoColors = objetivo ? OBJETIVO_COLOR_CLASSES[objetivo.color] : undefined;
@@ -293,6 +339,11 @@ export default function Projects() {
                       )}
                     </TableCell>
                     <TableCell><Badge variant="outline">{SILO_LABELS[project.silo]}</Badge></TableCell>
+                    <TableCell>
+                      <span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${ESTADO_STYLES[project.estado || 'en_progreso']}`}>
+                        {ESTADO_LABEL_SINGULAR[project.estado || 'en_progreso']}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col items-start gap-1.5">
                         <div className="flex items-center gap-1 h-4">

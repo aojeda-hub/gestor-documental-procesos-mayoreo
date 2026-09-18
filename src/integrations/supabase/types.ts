@@ -1493,6 +1493,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           end_date: string | null
+          estado: string
           goal: string | null
           id: string
           kickoff_data: Json | null
@@ -1513,6 +1514,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           end_date?: string | null
+          estado?: string
           goal?: string | null
           id?: string
           kickoff_data?: Json | null
@@ -1533,6 +1535,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           end_date?: string | null
+          estado?: string
           goal?: string | null
           id?: string
           kickoff_data?: Json | null

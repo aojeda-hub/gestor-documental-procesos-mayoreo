@@ -407,7 +407,14 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
           description: `La fase "${nextPhaseObj.name}" ha sido desbloqueada y activada.`,
         });
       } else {
-        // Last phase completed
+        // Última fase (Adopción) completada: el proyecto pasa a Completado
+        // automáticamente, sin necesidad de marcarlo a mano.
+        const { error: eEstado } = await supabase
+          .from('projects')
+          .update({ estado: 'completado' })
+          .eq('id', projectId);
+        if (eEstado) throw eEstado;
+
         toast({
           title: `🎉 Proyecto completado`,
           description: `Todas las fases han sido completadas con éxito.`,

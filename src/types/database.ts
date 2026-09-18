@@ -230,11 +230,14 @@ export interface ReviewAlert {
   documents?: Document;
 }
 
+export type ProjectEstado = 'en_progreso' | 'completado' | 'cancelado' | 'detenido';
+
 export interface Project {
   id: string;
   name: string;
   silo: SiloType;
   phase: string;
+  estado: ProjectEstado;
   planned_progress: number | null;
   start_date?: string | null;
   end_date?: string | null;

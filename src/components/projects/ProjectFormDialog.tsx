@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { SILO_LABELS } from '@/types/database';
-import type { Project, SiloType, ObjetivoEstrategico } from '@/types/database';
+import type { Project, ProjectEstado, SiloType, ObjetivoEstrategico } from '@/types/database';
 import { ensureProjectChecklist } from '@/lib/phaseGateDefaults';
 
 interface ProjectFormDialogProps {
@@ -20,6 +20,11 @@ interface ProjectFormDialogProps {
 }
 
 const PHASES = ['Alineación', 'Diseño', 'Construcción', 'Implementación', 'Adopción'];
+
+const ESTADOS: ProjectEstado[] = ['en_progreso', 'completado', 'cancelado', 'detenido'];
+const ESTADO_LABEL: Record<ProjectEstado, string> = {
+  en_progreso: 'En progreso', completado: 'Completado', cancelado: 'Cancelado', detenido: 'Detenido',
+};
 
 const PHASE_DESCRIPTIONS: Record<string, string> = {
   'Alineación': 'Se define el alcance, objetivos y requisitos del proyecto. Se alinean expectativas con los stakeholders, se asignan recursos y se aprueba el plan inicial.',
@@ -33,6 +38,7 @@ const emptyForm = {
   name: '',
   silo: 'procesos' as SiloType,
   phase: 'Alineación',
+  estado: 'en_progreso' as ProjectEstado,
   start_date: '',
   end_date: '',
   description: '',
@@ -63,6 +69,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
         name: project.name,
         silo: project.silo,
         phase: project.phase,
+        estado: project.estado || 'en_progreso',
         start_date: project.start_date || '',
         end_date: project.end_date || '',
         description: project.description || '',
@@ -153,6 +160,16 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Estado del Proyecto</Label>
+            <Select value={form.estado} onValueChange={v => setField('estado', v as ProjectEstado)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ESTADOS.map(e => <SelectItem key={e} value={e}>{ESTADO_LABEL[e]}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
