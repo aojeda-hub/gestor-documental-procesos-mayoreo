@@ -96,6 +96,26 @@ export default function Seguimientos() {
   const [membersDialogExisting, setMembersDialogExisting] = useState<string[]>([]);
   const [membersDialogNewIds, setMembersDialogNewIds] = useState<string[]>([]);
   const [addingMembers, setAddingMembers] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+
+  const handleRemoveMember = async (memberUserId: string) => {
+    if (!membersDialogBoard) return;
+    setRemovingMemberId(memberUserId);
+    try {
+      const { error } = await supabase
+        .from('seguimiento_board_miembros' as any)
+        .delete()
+        .eq('board_id', membersDialogBoard.id)
+        .eq('member_user_id', memberUserId);
+      if (error) throw error;
+      setMembersDialogExisting((curr) => curr.filter((id) => id !== memberUserId));
+      toast({ title: 'Miembro eliminado del tablero' });
+    } catch (e) {
+      toast({ title: 'Error', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [verArchivados, setVerArchivados] = useState(false);
@@ -846,8 +866,17 @@ export default function Seguimientos() {
                 <Label className="text-xs text-slate-500">Ya son miembros</Label>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {membersDialogExisting.map((id) => (
-                    <Badge key={id} variant="secondary">
+                    <Badge key={id} variant="secondary" className="gap-1 pr-1">
                       {directory.find((u) => u.user_id === id)?.full_name || 'Usuario'}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMember(id)}
+                        disabled={removingMemberId === id}
+                        title="Quitar del tablero"
+                        className="rounded-full hover:bg-slate-300/60 p-0.5 disabled:opacity-50"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </Badge>
                   ))}
                 </div>
