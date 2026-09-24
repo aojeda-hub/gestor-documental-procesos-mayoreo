@@ -722,6 +722,7 @@ export type Database = {
           responsable_funcional: string | null
           sistema_nombre: string | null
           test_caso_id: string | null
+          tipo: string
           titulo: string
           updated_at: string
         }
@@ -744,6 +745,7 @@ export type Database = {
           responsable_funcional?: string | null
           sistema_nombre?: string | null
           test_caso_id?: string | null
+          tipo?: string
           titulo: string
           updated_at?: string
         }
@@ -766,6 +768,7 @@ export type Database = {
           responsable_funcional?: string | null
           sistema_nombre?: string | null
           test_caso_id?: string | null
+          tipo?: string
           titulo?: string
           updated_at?: string
         }

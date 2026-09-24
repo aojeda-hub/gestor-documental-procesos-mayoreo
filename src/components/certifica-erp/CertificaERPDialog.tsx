@@ -20,6 +20,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -29,11 +30,12 @@ import {
   Building2, FolderKanban, Plus, ChevronRight, Loader2, ListChecks, FileCheck2,
   Trash2, Check, Download, ChevronLeft, X, Save, Pencil, Hash, Tag, FileText,
   Image as ImageIcon, User, Calendar, CheckCircle2, ArrowLeft, Upload, Home, MessageSquare, Archive,
+  ChevronDown, AlertTriangle, ClipboardList,
 } from "lucide-react";
 import {
-  CertView, CompaniaRow, ProyectoRow, Modulo, Estado, Prioridad,
-  MODULOS, ESTADOS, PRIORIDADES, MODULO_LABEL, ESTADO_LABEL, ESTADO_STYLES,
-  PRIORIDAD_LABEL, PRIORIDAD_STYLES, STORAGE_BUCKET, getImagePublicUrl,
+  CertView, CompaniaRow, ProyectoRow, Modulo, Estado, Prioridad, Tipo,
+  MODULOS, ESTADOS, PRIORIDADES, TIPOS, MODULO_LABEL, ESTADO_LABEL, ESTADO_STYLES,
+  PRIORIDAD_LABEL, PRIORIDAD_STYLES, TIPO_LABEL, TIPO_STYLES, STORAGE_BUCKET, getImagePublicUrl,
   normalizeSignedStorageUrl,
   TEST_ESTADOS, TEST_ENTORNOS, TEST_ESTADO_LABEL, TEST_ESTADO_STYLES,
   TestEntorno, TestEstado, exportToCsv,
@@ -102,7 +104,7 @@ function CertificaERPApp({ onClose }: { onClose: () => void }) {
   // al entrar a una incidencia y volver — de lo contrario ProyectoView se
   // desmonta al navegar y los filtros se perdían.
   const [incidenciasFiltros, setIncidenciasFiltrosState] = useState<IncidenciasFiltros>({
-    estado: "todos", verArchivadas: false, fechaDesde: "", fechaHasta: "",
+    estado: "todos", tipo: "todos", verArchivadas: false, fechaDesde: "", fechaHasta: "",
   });
   const setIncidenciasFiltros = (patch: Partial<IncidenciasFiltros>) =>
     setIncidenciasFiltrosState((prev) => ({ ...prev, ...patch }));
@@ -137,7 +139,7 @@ function CertificaERPApp({ onClose }: { onClose: () => void }) {
           />
         )}
         {view.name === "incidencia" && <IncidenciaDetail id={view.id} navigate={setView} />}
-        {view.name === "nueva" && <NuevaIncidencia proyectoId={view.proyectoId} navigate={setView} />}
+        {view.name === "nueva" && <NuevaIncidencia proyectoId={view.proyectoId} tipoInicial={view.tipo ?? "incidencia"} navigate={setView} />}
       </main>
     </div>
   );
@@ -376,9 +378,9 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
 
 /* ============================ PROYECTO VIEW ============================ */
 type ProyectoFull = { id: string; nombre: string; descripcion: string | null; compania_id: string; compania: { nombre: string; slug: string } | null; };
-type IncRow = { id: string; numero: number; titulo: string; modulo: string | null; prioridad: Prioridad; estado: Estado; sistema_nombre: string | null; fecha: string; fecha_completado: string | null; };
+type IncRow = { id: string; numero: number; titulo: string; modulo: string | null; prioridad: Prioridad; estado: Estado; tipo: Tipo; sistema_nombre: string | null; fecha: string; fecha_completado: string | null; };
 
-type IncidenciasFiltros = { estado: Estado | "todos"; verArchivadas: boolean; fechaDesde: string; fechaHasta: string };
+type IncidenciasFiltros = { estado: Estado | "todos"; tipo: Tipo | "todos"; verArchivadas: boolean; fechaDesde: string; fechaHasta: string };
 
 // Las incidencias "resuelto" se ocultan del listado por defecto pasados estos
 // días desde que se solventaron (fecha_completado, que ya llena solo un
@@ -459,7 +461,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
   proyectoId: string; proyectoNombre: string; navigate: (v: CertView) => void;
   filtros: IncidenciasFiltros; setFiltros: (patch: Partial<IncidenciasFiltros>) => void;
 }) {
-  const { estado: estadoFilter, verArchivadas, fechaDesde, fechaHasta } = filtros;
+  const { estado: estadoFilter, tipo: tipoFilter, verArchivadas, fechaDesde, fechaHasta } = filtros;
   const qc = useQueryClient();
   const { user } = useAuth();
   const [editingInc, setEditingInc] = useState<IncRow | null>(null);
@@ -469,7 +471,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
     queryKey: ["cert-proyecto-incidencias", proyectoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("incidencias")
-        .select("id, numero, titulo, modulo, prioridad, estado, sistema_nombre, fecha, fecha_completado, test_caso_id")
+        .select("id, numero, titulo, modulo, prioridad, estado, tipo, sistema_nombre, fecha, fecha_completado, test_caso_id")
         .eq("proyecto_id", proyectoId).order("numero", { ascending: false });
       if (error) throw error;
       return (data ?? []) as (IncRow & { test_caso_id: string | null })[];
@@ -493,6 +495,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
         modulo: c.modulo || null,
         prioridad: "media",
         estado: "pendiente",
+        tipo: "incidencia",
         responsable: c.responsable || "",
         fecha: today,
         fecha_ocurrencia: today,
@@ -556,13 +559,23 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
     return base;
   }, [incidenciasVisibles]);
 
-  const incidenciasFiltradas = useMemo(() => (
-    estadoFilter === "todos" ? incidenciasVisibles : incidenciasVisibles.filter((r) => r.estado === estadoFilter)
-  ), [incidenciasVisibles, estadoFilter]);
+  const tipoCounts = useMemo(() => {
+    const base: Record<Tipo, number> = { incidencia: 0, requerimiento: 0 };
+    incidenciasVisibles.forEach((r) => { base[r.tipo] = (base[r.tipo] ?? 0) + 1; });
+    return base;
+  }, [incidenciasVisibles]);
 
-  // Las incidencias detectadas en certificación aún no tienen un estado pendiente/en curso/resuelto
-  // propio (ni fecha_completado), así que solo se muestran en "Todos" y sin filtro de rango activo.
-  const certIncidenciasFiltradas = estadoFilter === "todos" && !fechaDesde && !fechaHasta ? (certIncidencias ?? []) : [];
+  const incidenciasFiltradas = useMemo(() => incidenciasVisibles.filter((r) => {
+    if (estadoFilter !== "todos" && r.estado !== estadoFilter) return false;
+    if (tipoFilter !== "todos" && r.tipo !== tipoFilter) return false;
+    return true;
+  }), [incidenciasVisibles, estadoFilter, tipoFilter]);
+
+  // Las incidencias detectadas en certificación son siempre tipo "incidencia"
+  // (nunca requerimiento) y aún no tienen un estado pendiente/en curso/resuelto
+  // propio (ni fecha_completado), así que solo se muestran en "Todos" y sin
+  // filtro de rango activo.
+  const certIncidenciasFiltradas = estadoFilter === "todos" && tipoFilter !== "requerimiento" && !fechaDesde && !fechaHasta ? (certIncidencias ?? []) : [];
 
   const exportar = async () => {
     // Exporta exactamente lo que se ve en pantalla — si hay un filtro de
@@ -580,7 +593,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
         estado: ESTADO_LABEL[r.estado],
         prioridad: PRIORIDAD_LABEL[r.prioridad],
         responsable: null,
-        origen: "Incidencia",
+        origen: TIPO_LABEL[r.tipo],
         fecha: r.fecha,
       })),
       ...certIncidenciasFiltradas.map((c) => ({
@@ -715,8 +728,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold">Incidencias en sistemas</h2>
-          <p className="text-sm text-muted-foreground">Cada incidencia indica el sistema donde ocurrió.</p>
+          <h2 className="text-lg font-semibold">Incidencias y Requerimientos</h2>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={descargarPlantillaInc} title="Descargar plantilla Excel vacía">
@@ -736,28 +748,37 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
           <Button variant="outline" onClick={exportar} disabled={(!incidencias || incidencias.length === 0) && (!certIncidencias || certIncidencias.length === 0)}>
             <Download className="h-4 w-4" /> Exportar
           </Button>
-          <Button onClick={() => navigate({ name: "nueva", proyectoId })}><Plus className="h-4 w-4" /> Nueva incidencia</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button><Plus className="h-4 w-4" /> Nuevo <ChevronDown className="h-3.5 w-3.5" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate({ name: "nueva", proyectoId, tipo: "incidencia" })}>
+                <AlertTriangle className="h-4 w-4 text-rose-600" /> Incidencia
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate({ name: "nueva", proyectoId, tipo: "requerimiento" })}>
+                <ClipboardList className="h-4 w-4 text-violet-600" /> Requerimiento
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setFiltros({ estado: "todos" })}
-          className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${estadoFilter === "todos" ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground border-border hover:bg-muted"}`}
-        >
-          Todos ({incidenciasVisibles.length})
-        </button>
-        {ESTADOS.map((e) => (
-          <button
-            key={e}
-            type="button"
-            onClick={() => setFiltros({ estado: e })}
-            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${estadoFilter === e ? `${ESTADO_STYLES[e]} ring-2 ring-offset-1 ring-foreground/30` : "bg-background text-muted-foreground border-border hover:bg-muted"}`}
-          >
-            {ESTADO_LABEL[e]} ({estadoCounts[e]})
-          </button>
-        ))}
+        <Select value={tipoFilter} onValueChange={(v) => setFiltros({ tipo: v as Tipo | "todos" })}>
+          <SelectTrigger className="h-8 w-44 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los tipos</SelectItem>
+            {TIPOS.map((t) => <SelectItem key={t} value={t}>{TIPO_LABEL[t]} ({tipoCounts[t]})</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={estadoFilter} onValueChange={(v) => setFiltros({ estado: v as Estado | "todos" })}>
+          <SelectTrigger className="h-8 w-44 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos ({incidenciasVisibles.length})</SelectItem>
+            {ESTADOS.map((e) => <SelectItem key={e} value={e}>{ESTADO_LABEL[e]} ({estadoCounts[e]})</SelectItem>)}
+          </SelectContent>
+        </Select>
         {archivadasCount > 0 && (
           <button
             type="button"
@@ -789,13 +810,16 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
       {incidenciasFiltradas.length === 0 && certIncidenciasFiltradas.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <ListChecks className="h-8 w-8 text-muted-foreground" />
-          {estadoFilter === "todos" ? (
+          {estadoFilter === "todos" && tipoFilter === "todos" ? (
             <>
-              <div className="font-medium">Sin incidencias en este proyecto</div>
-              <Button size="sm" onClick={() => navigate({ name: "nueva", proyectoId })}><Plus className="h-4 w-4" /> Registrar la primera</Button>
+              <div className="font-medium">Sin incidencias ni requerimientos en este proyecto</div>
+              <Button size="sm" onClick={() => navigate({ name: "nueva", proyectoId })}><Plus className="h-4 w-4" /> Registrar el primero</Button>
             </>
           ) : (
-            <div className="font-medium">No hay incidencias en estado "{ESTADO_LABEL[estadoFilter]}"</div>
+            <div className="font-medium">
+              No hay {tipoFilter !== "todos" ? TIPO_LABEL[tipoFilter].toLowerCase() + "s" : "registros"}
+              {estadoFilter !== "todos" ? ` en estado "${ESTADO_LABEL[estadoFilter]}"` : ""}
+            </div>
           )}
         </Card>
       ) : (
@@ -807,6 +831,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
                 <TableHead>Título</TableHead>
                 <TableHead className="w-[160px]">Sistema</TableHead>
                 <TableHead className="w-[110px]">Sección</TableHead>
+                <TableHead className="w-[120px]">Tipo</TableHead>
                 <TableHead className="w-[110px]">Estado</TableHead>
                 <TableHead className="w-[100px]">Prioridad</TableHead>
                 <TableHead className="w-[130px]">Origen</TableHead>
@@ -823,12 +848,13 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
                   <TableCell className="font-medium">{r.titulo}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.sistema_nombre ?? <span className="opacity-50">—</span>}</TableCell>
                   <TableCell><Badge variant="outline" className="text-[10px]">{r.modulo || '—'}</Badge></TableCell>
+                  <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${TIPO_STYLES[r.tipo]}`}>{TIPO_LABEL[r.tipo]}</span></TableCell>
                   <TableCell>
                     <span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${ESTADO_STYLES[r.estado]}`}>{ESTADO_LABEL[r.estado]}</span>
                     {archivada && <span className="ml-1 inline-flex items-center gap-0.5 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"><Archive className="h-2.5 w-2.5" />Archivada</span>}
                   </TableCell>
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${PRIORIDAD_STYLES[r.prioridad]}`}>{PRIORIDAD_LABEL[r.prioridad]}</span></TableCell>
-                  <TableCell className="text-[11px] text-muted-foreground">Incidencia</TableCell>
+                  <TableCell className="text-[11px] text-muted-foreground">Manual</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(parseISO(r.fecha), "d MMM yyyy", { locale: es })}</TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setEditingInc(r)}>
@@ -848,6 +874,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
                   <TableCell className="font-medium">{c.titulo}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{c.entorno}</TableCell>
                   <TableCell><Badge variant="outline" className="text-[10px]">{c.modulo ?? '—'}</Badge></TableCell>
+                  <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${TIPO_STYLES.incidencia}`}>{TIPO_LABEL.incidencia}</span></TableCell>
                   <TableCell><span className="rounded-md border px-2 py-0.5 text-[11px] font-medium bg-orange-200 text-black border-orange-400">Incidencia</span></TableCell>
                   <TableCell><span className="text-[11px] text-muted-foreground">—</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Certificación · {c.script_nombre}</TableCell>
@@ -921,7 +948,7 @@ function IncidenciaFormDialog({
   const [obsLoading, setObsLoading] = useState(false);
   const [form, setForm] = useState({
     titulo: "", descripcion: "", sistema_nombre: "",
-    modulo: "", prioridad: "media" as Prioridad, responsable: "", responsable_funcional: "",
+    modulo: "", prioridad: "media" as Prioridad, tipo: "incidencia" as Tipo, responsable: "", responsable_funcional: "",
     codigo_transaccion: "", nombre_transaccion: "",
     fecha_ocurrencia: today, fecha: today,
   });
@@ -976,7 +1003,7 @@ function IncidenciaFormDialog({
 
       (async () => {
         const { data } = await supabase.from("incidencias")
-          .select("titulo, descripcion, sistema_nombre, modulo, prioridad, responsable, responsable_funcional, codigo_transaccion, nombre_transaccion, fecha_ocurrencia, fecha")
+          .select("titulo, descripcion, sistema_nombre, modulo, prioridad, tipo, responsable, responsable_funcional, codigo_transaccion, nombre_transaccion, fecha_ocurrencia, fecha")
           .eq("id", initial.id).maybeSingle();
         if (data) {
           setForm({
@@ -985,6 +1012,7 @@ function IncidenciaFormDialog({
             sistema_nombre: data.sistema_nombre ?? "",
             modulo: (data.modulo as string) ?? "",
             prioridad: (data.prioridad as Prioridad) ?? "media",
+            tipo: (data.tipo as Tipo) ?? "incidencia",
             responsable: data.responsable ?? "",
             responsable_funcional: (data as { responsable_funcional?: string | null }).responsable_funcional ?? "",
             codigo_transaccion: data.codigo_transaccion ?? "",
@@ -1020,6 +1048,7 @@ function IncidenciaFormDialog({
         sistema_nombre: form.sistema_nombre.trim(),
         modulo: form.modulo,
         prioridad: form.prioridad,
+        tipo: form.tipo,
         responsable: form.responsable.trim(),
         responsable_funcional: form.responsable_funcional.trim() || null,
         codigo_transaccion: form.codigo_transaccion.trim() || null,
@@ -1033,14 +1062,14 @@ function IncidenciaFormDialog({
         if (error) throw error;
         if (!updated || updated.length === 0) throw new Error("No tienes permiso para editar esta incidencia.");
         incId = initial.id;
-        toast.success("Incidencia actualizada");
+        toast.success(`${TIPO_LABEL[form.tipo]} actualizada`);
       } else {
         const { data, error } = await supabase.from("incidencias").insert({
           ...payload, proyecto_id: proyectoId, created_by: user.id, test_caso_id: testCasoId ?? null,
         }).select("id").single();
         if (error) throw error;
         incId = data.id;
-        toast.success("Incidencia creada");
+        toast.success(`${TIPO_LABEL[form.tipo]} creada`);
       }
       if (incId && files.length > 0) {
         const failed: string[] = [];
@@ -1070,9 +1099,17 @@ function IncidenciaFormDialog({
     <InnerDialog open={open} onOpenChange={onOpenChange}>
       <InnerDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <InnerDialogHeader>
-          <InnerDialogTitle>{mode === "edit" ? "Editar incidencia" : "Registrar incidencia"}</InnerDialogTitle>
+          <InnerDialogTitle>{mode === "edit" ? `Editar ${TIPO_LABEL[form.tipo].toLowerCase()}` : "Registrar incidencia"}</InnerDialogTitle>
         </InnerDialogHeader>
         <div className="space-y-4 py-2">
+          {mode === "edit" && (
+            <div className="space-y-2"><Label>Tipo</Label>
+              <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v as Tipo })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{TIPOS.map((t) => <SelectItem key={t} value={t}>{TIPO_LABEL[t]}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2"><Label>Nombre del sistema *</Label><Input value={form.sistema_nombre} onChange={(e) => setForm({ ...form, sistema_nombre: e.target.value })} placeholder="Ej. Softland Nómina, SAP, Odoo…" /></div>
           <div className="space-y-2"><Label>Título *</Label><Input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} /></div>
           <div className="space-y-2"><Label>Descripción *</Label><Textarea rows={4} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} /></div>
@@ -1592,6 +1629,7 @@ function CasoRowEditor({ caso, proyectoId }: { caso: CasoRow; proyectoId: string
         modulo: c.modulo || null,
         prioridad: "media",
         estado: "pendiente",
+        tipo: "incidencia",
         responsable: c.responsable || "",
         fecha: today,
         fecha_ocurrencia: today,
@@ -1668,7 +1706,7 @@ function CasoRowEditor({ caso, proyectoId }: { caso: CasoRow; proyectoId: string
 /* ============================ INCIDENCIA DETAIL ============================ */
 type Inc = {
   id: string; numero: number; titulo: string; descripcion: string; modulo: string | null;
-  prioridad: Prioridad; estado: Estado; fecha: string; codigo_transaccion: string | null;
+  prioridad: Prioridad; estado: Estado; tipo: Tipo; fecha: string; codigo_transaccion: string | null;
   nombre_transaccion: string | null; responsable: string | null; responsable_funcional: string | null;
   fecha_ocurrencia: string | null;
   fecha_completado: string | null; created_at: string; updated_at: string;
@@ -1676,7 +1714,7 @@ type Inc = {
 };
 type Img = { id: string; storage_path: string; nombre_original: string | null; orden: number; signed_url: string };
 type EditForm = {
-  titulo: string; descripcion: string; modulo: string; prioridad: Prioridad; fecha: string;
+  titulo: string; descripcion: string; modulo: string; prioridad: Prioridad; tipo: Tipo; fecha: string;
   codigo_transaccion: string; nombre_transaccion: string; responsable: string; responsable_funcional: string;
   fecha_ocurrencia: string;
 };
@@ -1873,7 +1911,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     queryKey: ["cert-incidencia", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("incidencias")
-        .select("id, numero, titulo, descripcion, modulo, prioridad, estado, fecha, codigo_transaccion, nombre_transaccion, responsable, responsable_funcional, fecha_ocurrencia, fecha_completado, created_at, updated_at, proyecto_id")
+        .select("id, numero, titulo, descripcion, modulo, prioridad, estado, tipo, fecha, codigo_transaccion, nombre_transaccion, responsable, responsable_funcional, fecha_ocurrencia, fecha_completado, created_at, updated_at, proyecto_id")
         .eq("id", id).maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("No encontrada");
@@ -1980,7 +2018,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
   useEffect(() => {
     if (inc && !editing) {
       setForm({
-        titulo: inc.titulo, descripcion: inc.descripcion, modulo: inc.modulo ?? "", prioridad: inc.prioridad,
+        titulo: inc.titulo, descripcion: inc.descripcion, modulo: inc.modulo ?? "", prioridad: inc.prioridad, tipo: inc.tipo,
         fecha: inc.fecha, codigo_transaccion: inc.codigo_transaccion ?? "",
         nombre_transaccion: inc.nombre_transaccion ?? "", responsable: inc.responsable ?? "",
         responsable_funcional: inc.responsable_funcional ?? "",
@@ -2060,7 +2098,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     setSaving(true);
     const { data: updated, error } = await supabase.from("incidencias").update({
       titulo: form.titulo.trim(), descripcion: form.descripcion.trim(),
-      modulo: form.modulo, prioridad: form.prioridad, fecha: form.fecha,
+      modulo: form.modulo, prioridad: form.prioridad, tipo: form.tipo, fecha: form.fecha,
       codigo_transaccion: form.codigo_transaccion.trim() || null,
       nombre_transaccion: form.nombre_transaccion.trim() || null,
       responsable: form.responsable.trim() || null,
@@ -2070,7 +2108,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     if (!updated || updated.length === 0) { toast.error("No tienes permiso para editar esta incidencia."); return; }
-    toast.success("Incidencia actualizada"); setEditing(false);
+    toast.success(`${TIPO_LABEL[form.tipo]} actualizada`); setEditing(false);
     qc.invalidateQueries({ queryKey: ["cert-incidencia", id] });
   };
 
@@ -2103,7 +2141,10 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
             <Hash className="h-3.5 w-3.5" /><span className="font-mono">{inc.numero}</span>
             <span>·</span><span>{inc.modulo || '—'}</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">{inc.titulo}</h1>
+          <div className="mt-1 flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">{inc.titulo}</h1>
+            <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${TIPO_STYLES[inc.tipo]}`}>{TIPO_LABEL[inc.tipo]}</span>
+          </div>
         </div>
         {!editing ? (
           <div className="flex gap-2">
@@ -2116,7 +2157,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>¿Eliminar incidencia #{inc.numero}?</AlertDialogTitle>
+                  <AlertDialogTitle>¿Eliminar {TIPO_LABEL[inc.tipo].toLowerCase()} #{inc.numero}?</AlertDialogTitle>
                   <AlertDialogDescription>Esta acción es permanente. Se eliminarán también todos los archivos adjuntos.</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -2273,6 +2314,12 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
 
           {editing && form ? (
             <Card className="space-y-4 p-6">
+              <div className="space-y-2"><Label>Tipo</Label>
+                <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v as Tipo })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{TIPOS.map((t) => <SelectItem key={t} value={t}>{TIPO_LABEL[t]}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2"><Label>Sección</Label>
                 <Input value={form.modulo} onChange={(e) => setForm({ ...form, modulo: e.target.value })} placeholder="Escribe la sección" />
               </div>
@@ -2360,7 +2407,7 @@ function Detail({ label, icon, children }: { label: string; icon: React.ReactNod
 /* ============================ NUEVA INCIDENCIA ============================ */
 type ProyectoOption = { id: string; nombre: string; compania: { nombre: string } | null };
 
-function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; navigate: (v: CertView) => void }) {
+function NuevaIncidencia({ proyectoId, tipoInicial, navigate }: { proyectoId?: string; tipoInicial: Tipo; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const { data: directory } = useResponsablesDirectory();
@@ -2370,7 +2417,7 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     proyecto_id: proyectoId ?? "", sistema_nombre: "", titulo: "", descripcion: "",
-    modulo: "", prioridad: "media" as Prioridad,
+    modulo: "", prioridad: "media" as Prioridad, tipo: tipoInicial,
     codigo_transaccion: "", nombre_transaccion: "", responsable: "", responsable_funcional: "",
     fecha_ocurrencia: today, fecha: today,
   });
@@ -2413,7 +2460,7 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
       const { data: inc, error: insErr } = await supabase.from("incidencias").insert({
         proyecto_id: form.proyecto_id, sistema_nombre: form.sistema_nombre,
         titulo: form.titulo, descripcion: form.descripcion,
-        modulo: form.modulo, prioridad: form.prioridad,
+        modulo: form.modulo, prioridad: form.prioridad, tipo: form.tipo,
         codigo_transaccion: form.codigo_transaccion || null,
         nombre_transaccion: form.nombre_transaccion || null,
         responsable: form.responsable, responsable_funcional: form.responsable_funcional || null,
@@ -2436,8 +2483,9 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
       }
 
       await qc.invalidateQueries({ queryKey: ["cert-proyecto-incidencias", form.proyecto_id] });
-      if (failed.length > 0) toast.warning(`Incidencia #${inc.numero} creada, pero ${failed.length} imagen(es) fallaron`);
-      else toast.success(`Incidencia #${inc.numero} creada`);
+      const tipoLabel = TIPO_LABEL[form.tipo];
+      if (failed.length > 0) toast.warning(`${tipoLabel} #${inc.numero} creada, pero ${failed.length} imagen(es) fallaron`);
+      else toast.success(`${tipoLabel} #${inc.numero} creada`);
       navigate({ name: "incidencia", id: inc.id });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error");
@@ -2450,13 +2498,28 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => proyectoId ? navigate({ name: "proyecto", id: proyectoId }) : navigate({ name: "companias" })}><ArrowLeft className="h-4 w-4" /></Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Nueva incidencia</h1>
-          <p className="text-sm text-muted-foreground">Registra una nueva incidencia del ERP</p>
+          <h1 className="text-2xl font-bold tracking-tight">{form.tipo === "requerimiento" ? "Nuevo requerimiento" : "Nueva incidencia"}</h1>
+          <p className="text-sm text-muted-foreground">{form.tipo === "requerimiento" ? "Registra un nuevo requerimiento del ERP" : "Registra una nueva incidencia del ERP"}</p>
         </div>
       </div>
 
       <Card className="p-6">
         <div className="space-y-5">
+          <div className="space-y-2">
+            <Label>Tipo *</Label>
+            <div className="flex gap-2">
+              {TIPOS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setForm({ ...form, tipo: t })}
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${form.tipo === t ? `${TIPO_STYLES[t]} ring-2 ring-offset-1 ring-foreground/30` : "bg-background text-muted-foreground border-border hover:bg-muted"}`}
+                >
+                  {TIPO_LABEL[t]}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2"><Label>Proyecto *</Label>
               <Select value={form.proyecto_id} onValueChange={(v) => setForm({ ...form, proyecto_id: v })}>
@@ -2529,7 +2592,7 @@ function NuevaIncidencia({ proyectoId, navigate }: { proyectoId?: string; naviga
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => proyectoId ? navigate({ name: "proyecto", id: proyectoId }) : navigate({ name: "companias" })}>Cancelar</Button>
-            <Button onClick={submit} disabled={submitting}>{submitting && <Loader2 className="h-4 w-4 animate-spin" />} Crear incidencia</Button>
+            <Button onClick={submit} disabled={submitting}>{submitting && <Loader2 className="h-4 w-4 animate-spin" />} Crear {form.tipo === "requerimiento" ? "requerimiento" : "incidencia"}</Button>
           </div>
         </div>
       </Card>

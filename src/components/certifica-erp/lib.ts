@@ -3,10 +3,12 @@
 export type Modulo = "nomina" | "ventas" | "compras" | "inventario" | "contabilidad";
 export type Estado = "pendiente" | "en_curso" | "resuelto";
 export type Prioridad = "baja" | "media" | "alta";
+export type Tipo = "incidencia" | "requerimiento";
 
 export const MODULOS: Modulo[] = ["nomina", "ventas", "compras", "inventario", "contabilidad"];
 export const ESTADOS: Estado[] = ["pendiente", "en_curso", "resuelto"];
 export const PRIORIDADES: Prioridad[] = ["baja", "media", "alta"];
+export const TIPOS: Tipo[] = ["incidencia", "requerimiento"];
 
 export const MODULO_LABEL: Record<Modulo, string> = {
   nomina: "Nómina", ventas: "Ventas", compras: "Compras", inventario: "Inventario", contabilidad: "Contabilidad",
@@ -26,6 +28,13 @@ export const PRIORIDAD_STYLES: Record<Prioridad, string> = {
   baja: "bg-muted text-muted-foreground border-border",
   media: "bg-blue-500/10 text-blue-600 border-blue-500/30",
   alta: "bg-destructive/15 text-destructive border-destructive/30",
+};
+export const TIPO_LABEL: Record<Tipo, string> = {
+  incidencia: "Incidencia", requerimiento: "Requerimiento",
+};
+export const TIPO_STYLES: Record<Tipo, string> = {
+  incidencia: "bg-rose-100 text-rose-700 border-rose-300",
+  requerimiento: "bg-violet-100 text-violet-700 border-violet-300",
 };
 
 export const STORAGE_BUCKET = "incidencias";
@@ -91,4 +100,4 @@ export type CertView =
   | { name: "compania"; slug: string }
   | { name: "proyecto"; id: string }
   | { name: "incidencia"; id: string }
-  | { name: "nueva"; proyectoId?: string };
+  | { name: "nueva"; proyectoId?: string; tipo?: Tipo };
