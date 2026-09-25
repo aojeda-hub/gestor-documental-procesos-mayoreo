@@ -1,3 +1,7 @@
+---
+inclusion: always
+---
+
 # Gestor Documental de Procesos - Mayoreo
 
 ## Descripción del Proyecto

@@ -1,3 +1,7 @@
+---
+inclusion: always
+---
+
 # Stack Tecnológico
 
 ## Frontend Framework
