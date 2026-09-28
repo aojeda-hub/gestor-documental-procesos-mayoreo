@@ -542,6 +542,18 @@ export type Database = {
       }
       documents: {
         Row: {
+          codigo: string | null
+          fecha_actualizacion: string | null
+          documento_codigo: string | null
+          macroproceso: string | null
+          macroproceso_codigo: string | null
+          mapeo_sistemico: string | null
+          observaciones: string | null
+          proceso: string | null
+          proceso_codigo: string | null
+          subarea: string | null
+          subproceso: string | null
+          subproceso_codigo: string | null
           cargo: string | null
           confidential: boolean
           created_at: string
@@ -557,6 +569,17 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          fecha_actualizacion?: string | null
+          documento_codigo?: string | null
+          macroproceso?: string | null
+          macroproceso_codigo?: string | null
+          mapeo_sistemico?: string | null
+          observaciones?: string | null
+          proceso?: string | null
+          proceso_codigo?: string | null
+          subarea?: string | null
+          subproceso?: string | null
+          subproceso_codigo?: string | null
           cargo?: string | null
           confidential?: boolean
           created_at?: string
@@ -572,6 +595,17 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          fecha_actualizacion?: string | null
+          documento_codigo?: string | null
+          macroproceso?: string | null
+          macroproceso_codigo?: string | null
+          mapeo_sistemico?: string | null
+          observaciones?: string | null
+          proceso?: string | null
+          proceso_codigo?: string | null
+          subarea?: string | null
+          subproceso?: string | null
+          subproceso_codigo?: string | null
           cargo?: string | null
           confidential?: boolean
           created_at?: string
@@ -2426,6 +2460,7 @@ export type Database = {
       documento_estatus:
         | "aprobado"
         | "revision"
+        | "por_aprobar"
         | "desactualizado"
         | "desincorporado"
         | "en_construccion"
@@ -2626,6 +2661,7 @@ export const Constants = {
       documento_estatus: [
         "aprobado",
         "revision",
+        "por_aprobar",
         "desactualizado",
         "desincorporado",
         "en_construccion",

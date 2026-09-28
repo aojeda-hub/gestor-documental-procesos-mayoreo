@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard, FileText, BarChart3, LogOut, Menu, X, Users as UsersIcon, Network, FolderKanban, Briefcase, ListChecks, Sparkles, ShieldCheck, Wand2
+  LayoutDashboard, FileText, LogOut, Menu, X, Users as UsersIcon, Network, FolderKanban, Briefcase, ListChecks, Sparkles, ShieldCheck, Wand2, Workflow
 } from 'lucide-react';
 import { SILO_LABELS, ROLE_LABELS } from '@/types/database';
 import logo from '@/assets/logo.png';
@@ -14,7 +14,7 @@ import { NotificationsBell } from '../notifications/NotificationsBell';
 const navItems = [
   { to: '/', label: 'Inicio', icon: LayoutDashboard },
   { to: '/documentos', label: 'Documentos', icon: FileText },
-  { to: '/indicadores', label: 'Indicadores', icon: BarChart3 },
+  { to: '/mapa-procesos', label: 'Mapa de Procesos', icon: Workflow },
   { to: '/proyectos', label: 'Proyectos', icon: FolderKanban, responsableOrAdmin: true },
   { to: '/seguimientos', label: 'Mis Seguimientos', icon: ListChecks, responsableOrAdmin: true },
   { to: 'https://bpa-mayoreo.vercel.app/', label: 'BPA', icon: Network, adminOnly: true, external: true },

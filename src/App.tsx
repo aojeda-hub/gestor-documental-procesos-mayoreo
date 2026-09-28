@@ -9,6 +9,7 @@ import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
 import Indicators from "@/pages/Indicators";
+import MapaProcesos from "@/pages/MapaProcesos";
 import BPA from "@/pages/BPA";
 import Desarrollos from "@/pages/Desarrollos";
 import Projects from "@/pages/Projects";
@@ -45,7 +46,8 @@ const App = () => (
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/documentos" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
-            <Route path="/indicadores" element={<ProtectedRoute><Indicators /></ProtectedRoute>} />
+            <Route path="/mapa-procesos" element={<ProtectedRoute><MapaProcesos /></ProtectedRoute>} />
+            <Route path="/indicadores"element={<ProtectedRoute><Indicators /></ProtectedRoute>} />
             <Route path="/proyectos" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
             <Route path="/seguimientos" element={<ProtectedRoute><Seguimientos /></ProtectedRoute>} />
             <Route path="/bpa" element={<ProtectedRoute><BPA /></ProtectedRoute>} />
