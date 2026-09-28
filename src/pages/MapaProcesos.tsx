@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock, FileSpreadsheet, FileText, ListFilter, Loader2, Network, Plus, Search, Table2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -64,6 +65,17 @@ export default function MapaProcesos() {
   const [tab, setTab] = useState('tabla');
 
   const [dialog, setDialog] = useState<{ open: boolean; doc: MapaDoc | null; initial?: Partial<MapaDoc> }>({ open: false, doc: null });
+
+  // Deep-link desde el Dashboard: ?silo=...&macroCodigo=...&macroNombre=...
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const siloParam = searchParams.get('silo');
+    const macroCodigo = searchParams.get('macroCodigo');
+    const macroNombre = searchParams.get('macroNombre');
+    if (siloParam) setSilo(siloParam);
+    if (macroCodigo || macroNombre) setMacro(`${macroCodigo ?? ''}|${macroNombre ?? ''}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const enMapa = useMemo(() => allDocs.filter(isEnMapa), [allDocs]);
   const base = incluirSinUbicar ? allDocs : enMapa;
