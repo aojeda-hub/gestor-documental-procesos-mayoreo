@@ -537,7 +537,7 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
           <TableHeader>
             <TableRow className="border-slate-300">
               <TableHead className="w-44 whitespace-nowrap border-r border-slate-200 bg-slate-50">Proceso</TableHead>
-              <TableHead className="min-w-[300px] whitespace-nowrap border-r border-slate-200 bg-slate-50">Actividad</TableHead>
+              <TableHead className="w-[260px] max-w-[260px] border-r border-slate-200 bg-slate-50">Actividad</TableHead>
               {MES_LABELS.map((label) => (
                 <TableHead key={label} className="w-12 text-center text-[10px] border-r border-slate-200 px-1 bg-slate-50">{label}</TableHead>
               ))}
@@ -576,11 +576,11 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap border-r border-slate-200">
-                        <button type="button" className="block text-left text-sm font-medium text-slate-800 hover:text-indigo-600 hover:underline" onClick={() => handleClickActividadNombre(act)}>
+                      <TableCell className="w-[260px] max-w-[260px] border-r border-slate-200 align-top py-2">
+                        <button type="button" className="block text-left text-sm font-medium text-slate-800 hover:text-indigo-600 hover:underline break-words whitespace-normal" onClick={() => handleClickActividadNombre(act)}>
                           {act.nombre}
                         </button>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
                           <span>{computeFrecuencia(act.meses)}</span>
                           <span className="flex items-center gap-0.5" title="Recordatorio">
                             <Bell className="h-2.5 w-2.5" /> {act.dias_recordatorio}d · {FRECUENCIA_RECORDATORIO_LABEL[act.frecuencia_recordatorio]}
