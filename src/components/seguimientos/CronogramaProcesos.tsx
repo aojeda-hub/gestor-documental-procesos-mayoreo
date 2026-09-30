@@ -23,7 +23,7 @@ import { SILO_LABELS } from '@/types/database';
 import type { UserDirectoryEntry } from '@/hooks/useUserDirectory';
 import {
   computeAvancePorProceso, registrarCambioHistorial, computeFrecuencia, revisarYEnviarRecordatorios,
-  FRECUENCIA_RECORDATORIO_LABEL, MES_LABELS,
+  crearSeguimientoDesdeActividad, FRECUENCIA_RECORDATORIO_LABEL, MES_LABELS,
 } from '@/lib/reunionOperativa';
 
 const CRONO_ESTADO_LABEL: Record<CronogramaEstado, string> = {
@@ -147,7 +147,7 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
     // de un año pasado o futuro no representan el ciclo activo ahora mismo.
     if (user) {
       const delAnioActual = actividadesList.filter((a) => a.anio === ANIO_ACTUAL);
-      const actualizadas = await revisarYEnviarRecordatorios(delAnioActual, procesosList, board.id, user.id);
+      const actualizadas = await revisarYEnviarRecordatorios(delAnioActual, procesosList, board.id, user.id, grupoProcesosColumnId);
       actividadesList = actividadesList.map((a) => actualizadas.find((u) => u.id === a.id) ?? a);
       setActividades(actividadesList);
     }
@@ -298,20 +298,14 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
     const proceso = procesos.find((p) => p.id === actividad.proceso_id);
     // Sin reunion_id: esta tarea vive en el Cronograma (persistente, no por
     // ronda) y no debe aparecer en la agenda de "Reunión" ni clonarse cada
-    // vez que se crea una reunión nueva.
-    const { data, error } = await supabase.from('seguimientos').insert({
-      titulo: actividad.nombre,
-      descripcion: proceso ? `Actividad del cronograma — proceso: ${proceso.nombre}` : 'Actividad del cronograma',
-      estado: estadoInicial === 'completado' ? 'completado' : 'pendiente',
-      prioridad: 'media',
-      user_id: user.id,
-      board_id: board.id,
-      column_id: grupoProcesosColumnId,
-      orden: 0,
-    } as any).select('id').single();
-    if (error || !data) { toast({ title: 'No se pudo crear el seguimiento', description: error?.message, variant: 'destructive' }); return null; }
-    const seguimientoId = (data as any).id as string;
-    await supabase.from('cronograma_actividades' as any).update({ seguimiento_id: seguimientoId }).eq('id', actividad.id);
+    // vez que se crea una reunión nueva. Si la actividad tiene responsable,
+    // queda sincronizado como miembro (así la tarea también le aparece a
+    // esa persona, no solo en la tabla del cronograma).
+    const seguimientoId = await crearSeguimientoDesdeActividad({
+      actividad, procesoNombre: proceso?.nombre ?? null, boardId: board.id, columnId: grupoProcesosColumnId,
+      actorUserId: user.id, estadoInicial,
+    });
+    if (!seguimientoId) { toast({ title: 'No se pudo crear el seguimiento', variant: 'destructive' }); return null; }
     setActividades((curr) => curr.map((a) => a.id === actividad.id ? { ...a, seguimiento_id: seguimientoId } : a));
     onLinkedTaskCreated();
     return seguimientoId;

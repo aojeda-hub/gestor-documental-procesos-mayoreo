@@ -263,6 +263,55 @@ const INTERVALO_DIAS: Record<CronogramaFrecuenciaRecordatorio, number> = {
   semanal: 7,
 };
 
+// Crea el seguimiento (tarea con checklist/notas) vinculado a una actividad
+// del cronograma — compartida entre el clic manual en la tabla y el aviso
+// automático de recordatorio, para que ambos caminos lleven exactamente al
+// mismo lugar accionable. Si la actividad ya tiene responsable asignado, se
+// lo agrega como miembro del seguimiento (dispara además la notificación
+// propia de "te agregaron a una tarea"), así la tarea también le aparece a
+// esa persona en sus seguimientos, no solo en la tabla del cronograma.
+export async function crearSeguimientoDesdeActividad(params: {
+  actividad: CronogramaActividad;
+  procesoNombre: string | null;
+  boardId: string;
+  columnId: string;
+  actorUserId: string;
+  estadoInicial: 'pendiente' | 'en_progreso' | 'completado';
+}): Promise<string | null> {
+  const { actividad, procesoNombre, boardId, columnId, actorUserId, estadoInicial } = params;
+  const { data, error } = await supabase.from('seguimientos').insert({
+    titulo: actividad.nombre,
+    descripcion: procesoNombre ? `Actividad del cronograma — proceso: ${procesoNombre}` : 'Actividad del cronograma',
+    estado: estadoInicial === 'completado' ? 'completado' : 'pendiente',
+    prioridad: 'media',
+    user_id: actorUserId,
+    board_id: boardId,
+    column_id: columnId,
+    orden: 0,
+  } as any).select('id').single();
+  if (error || !data) return null;
+  const seguimientoId = (data as any).id as string;
+  await supabase.from('cronograma_actividades' as any).update({ seguimiento_id: seguimientoId }).eq('id', actividad.id);
+  if (actividad.responsable_user_id) {
+    try { await syncSeguimientoResponsables(seguimientoId, [], [actividad.responsable_user_id]); } catch { /* no bloquea la creación */ }
+  }
+  return seguimientoId;
+}
+
+// Resumen del checklist de la tarea vinculada, para que el recordatorio diga
+// concretamente qué falta por hacer en vez de solo "está programada para X".
+async function resumenChecklist(seguimientoId: string): Promise<string> {
+  const { data: cls } = await supabase.from('seguimiento_checklists' as any).select('id').eq('seguimiento_id', seguimientoId);
+  const checklistIds = ((cls ?? []) as any[]).map((c) => c.id);
+  if (checklistIds.length === 0) return ' Ábrela para definir las tareas pendientes.';
+  const { data: items } = await supabase.from('seguimiento_checklist_items' as any).select('completado').in('checklist_id', checklistIds);
+  const total = (items ?? []).length;
+  if (total === 0) return ' Ábrela para definir las tareas pendientes.';
+  const pendientes = ((items ?? []) as any[]).filter((i) => !i.completado).length;
+  if (pendientes === 0) return ' Todas sus tareas ya están marcadas como hechas — revisa y márcala como completada.';
+  return ` Tienes ${pendientes} de ${total} tarea(s) pendiente(s).`;
+}
+
 // Recorre las actividades con responsable asignado y, si la fecha de hoy cae
 // dentro de su ventana de recordatorio (dias de anticipacion configurados en
 // la propia actividad, antes del mes en que esta programada), le genera una
@@ -276,6 +325,7 @@ export async function revisarYEnviarRecordatorios(
   procesos: CronogramaProceso[],
   boardId: string,
   actorUserId: string,
+  columnId: string | null,
 ): Promise<CronogramaActividad[]> {
   const hoy = new Date();
   const actualizadas = [...actividades];
@@ -299,14 +349,29 @@ export async function revisarYEnviarRecordatorios(
     if (!corresponde) continue;
 
     const proceso = procesos.find((p) => p.id === act.proceso_id);
+
+    // Sin tarea vinculada todavía: se crea aquí mismo, para que el
+    // recordatorio siempre lleve a algo accionable (con checklist propio)
+    // en vez de solo mencionar la actividad.
+    let seguimientoId = act.seguimiento_id;
+    if (!seguimientoId && columnId) {
+      seguimientoId = await crearSeguimientoDesdeActividad({
+        actividad: act, procesoNombre: proceso?.nombre ?? null, boardId, columnId, actorUserId,
+        estadoInicial: act.estado,
+      });
+    }
+
+    const detalle = seguimientoId ? await resumenChecklist(seguimientoId) : '';
+    const link = seguimientoId ? `/seguimientos?card=${seguimientoId}` : `/seguimientos?tab=reunion_operativa&board=${boardId}`;
+
     const { error } = await supabase.from('notificaciones' as any).insert({
       user_id: act.responsable_user_id,
       created_by: actorUserId,
       tipo: 'cronograma_recordatorio',
       titulo: 'Actividad próxima en el cronograma',
-      mensaje: `"${act.nombre}"${proceso ? ` (${proceso.nombre})` : ''} está programada para ${MES_LABELS[mes - 1]}.`,
-      link: `/seguimientos?tab=reunion_operativa&board=${boardId}`,
-      metadata: { actividad_id: act.id, board_id: boardId },
+      mensaje: `"${act.nombre}"${proceso ? ` (${proceso.nombre})` : ''} está programada para ${MES_LABELS[mes - 1]}.${detalle}`,
+      link,
+      metadata: { actividad_id: act.id, board_id: boardId, seguimiento_id: seguimientoId },
     });
     if (error) continue;
 
@@ -314,7 +379,7 @@ export async function revisarYEnviarRecordatorios(
     await supabase.from('cronograma_actividades' as any)
       .update({ recordatorio_para: ciclo, recordatorio_ultimo_envio: ahoraIso })
       .eq('id', act.id);
-    actualizadas[i] = { ...act, recordatorio_para: ciclo, recordatorio_ultimo_envio: ahoraIso };
+    actualizadas[i] = { ...act, seguimiento_id: seguimientoId ?? act.seguimiento_id, recordatorio_para: ciclo, recordatorio_ultimo_envio: ahoraIso };
   }
 
   return actualizadas;
