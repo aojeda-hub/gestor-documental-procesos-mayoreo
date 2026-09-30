@@ -298,9 +298,17 @@ export async function exportIncidenciasPDF(
   });
 
   const finalY = (doc as any).lastAutoTable.finalY || 40;
+  // El listado mezcla Incidencias y Requerimientos (y lo detectado en
+  // Certificación, que siempre cuenta como Incidencia) — un solo "Total de
+  // incidencias" con el conteo de filas mezcladas era engañoso.
+  const totalRequerimientos = incidencias.filter((i) => i.origen === 'Requerimiento').length;
+  const totalIncidencias = incidencias.length - totalRequerimientos;
   doc.setFontSize(9);
   doc.setTextColor(80);
-  doc.text(`Total de incidencias: ${incidencias.length}`, PDF_MARGIN, finalY + 8);
+  doc.text(
+    `Total: ${incidencias.length}  ·  Incidencias: ${totalIncidencias}  ·  Requerimientos: ${totalRequerimientos}`,
+    PDF_MARGIN, finalY + 8,
+  );
 
   footer(doc);
   const safe = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
