@@ -378,7 +378,7 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
 
 /* ============================ PROYECTO VIEW ============================ */
 type ProyectoFull = { id: string; nombre: string; descripcion: string | null; compania_id: string; compania: { nombre: string; slug: string } | null; };
-type IncRow = { id: string; numero: number; titulo: string; modulo: string | null; prioridad: Prioridad; estado: Estado; tipo: Tipo; sistema_nombre: string | null; fecha: string; fecha_completado: string | null; };
+type IncRow = { id: string; numero: number; titulo: string; modulo: string | null; prioridad: Prioridad; estado: Estado; tipo: Tipo; sistema_nombre: string | null; responsable: string | null; fecha: string; fecha_completado: string | null; };
 
 type IncidenciasFiltros = { estado: Estado | "todos"; tipo: Tipo | "todos"; verArchivadas: boolean; fechaDesde: string; fechaHasta: string };
 
@@ -471,7 +471,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
     queryKey: ["cert-proyecto-incidencias", proyectoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("incidencias")
-        .select("id, numero, titulo, modulo, prioridad, estado, tipo, sistema_nombre, fecha, fecha_completado, test_caso_id")
+        .select("id, numero, titulo, modulo, prioridad, estado, tipo, sistema_nombre, responsable, fecha, fecha_completado, test_caso_id")
         .eq("proyecto_id", proyectoId).order("numero", { ascending: false });
       if (error) throw error;
       return (data ?? []) as (IncRow & { test_caso_id: string | null })[];
@@ -592,7 +592,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
         modulo: r.modulo || "-",
         estado: ESTADO_LABEL[r.estado],
         prioridad: PRIORIDAD_LABEL[r.prioridad],
-        responsable: null,
+        responsable: r.responsable,
         origen: TIPO_LABEL[r.tipo],
         fecha: r.fecha,
       })),
