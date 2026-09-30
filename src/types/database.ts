@@ -168,7 +168,7 @@ export interface CronogramaActividad {
   nombre: string;
   meses: number[];
   anio: number;
-  compania: CronogramaCompania | null;
+  companias: CronogramaCompania[] | null;
   estado: CronogramaEstado;
   responsable_user_id: string | null;
   seguimiento_id: string | null;

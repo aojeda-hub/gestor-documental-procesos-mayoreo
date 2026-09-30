@@ -47,6 +47,22 @@ const PAIS_COMPANIAS: Record<string, CronogramaCompania[]> = {
 };
 const PAISES = Object.keys(PAIS_COMPANIAS);
 
+// Si el conjunto de compañías coincide exactamente con un país, se muestra el
+// nombre del país en vez de listar cada compañía (más limpio en la tabla).
+function formatCompanias(companias?: CronogramaCompania[] | null): string | null {
+  if (!companias || companias.length === 0) return null;
+  for (const [pais, lista] of Object.entries(PAIS_COMPANIAS)) {
+    if (lista.length === companias.length && lista.every((c) => companias.includes(c))) return pais;
+  }
+  return [...companias].sort().join(', ');
+}
+
+function companiasIguales(a?: CronogramaCompania[] | null, b?: CronogramaCompania[] | null): boolean {
+  const x = [...(a ?? [])].sort();
+  const y = [...(b ?? [])].sort();
+  return x.length === y.length && x.every((c, i) => c === y[i]);
+}
+
 interface CronogramaProcesosProps {
   board: SeguimientoBoard;
   grupoProcesosColumnId: string | null;
@@ -176,7 +192,7 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
   };
   const openEditActividad = (actividad: CronogramaActividad) => {
     setActForm({
-      nombre: actividad.nombre, meses: actividad.meses, anio: actividad.anio, companias: actividad.compania ? [actividad.compania] : [],
+      nombre: actividad.nombre, meses: actividad.meses, anio: actividad.anio, companias: actividad.companias ?? [],
       responsable_user_id: actividad.responsable_user_id ?? '', estado: actividad.estado,
       dias_recordatorio: actividad.dias_recordatorio, frecuencia_recordatorio: actividad.frecuencia_recordatorio,
     });
@@ -193,22 +209,21 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
     if (!actividadDialog || !actForm.nombre.trim() || !user) return;
     const responsableId = actForm.responsable_user_id || null;
     const diasRecordatorio = Number.isFinite(actForm.dias_recordatorio) && actForm.dias_recordatorio >= 0 ? Math.round(actForm.dias_recordatorio) : 7;
-    // Sin compañía seleccionada = una actividad sin clasificar. Con una o
-    // más, se guarda/crea una fila por cada compañía elegida — así no hay
-    // que repetir la misma actividad cuando aplica a varias compañías.
-    const companiasDestino: (CronogramaCompania | null)[] = actForm.companias.length > 0 ? actForm.companias : [null];
-    const [primeraCompania, ...companiasExtra] = companiasDestino;
+    // Sin compañías seleccionadas = actividad sin clasificar. Con una o más,
+    // quedan todas juntas en la misma fila — no hace falta repetir la
+    // actividad cuando aplica a varias compañías (ej. las de Venezuela).
+    const companias = actForm.companias.length > 0 ? actForm.companias : null;
 
     if (actividadDialog.actividad) {
       const prev = actividadDialog.actividad;
       const { error } = await supabase.from('cronograma_actividades' as any).update({
-        nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania: primeraCompania, responsable_user_id: responsableId, estado: actForm.estado,
+        nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, companias, responsable_user_id: responsableId, estado: actForm.estado,
         dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
       }).eq('id', prev.id);
       if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
       if (prev.nombre !== actForm.nombre.trim()) await registrarCambioHistorial(prev.id, user.id, 'nombre', prev.nombre, actForm.nombre.trim());
       if (prev.anio !== actForm.anio) await registrarCambioHistorial(prev.id, user.id, 'año', String(prev.anio), String(actForm.anio));
-      if (prev.compania !== primeraCompania) await registrarCambioHistorial(prev.id, user.id, 'compañía', prev.compania ?? 'Sin asignar', primeraCompania ?? 'Sin asignar');
+      if (!companiasIguales(prev.companias, companias)) await registrarCambioHistorial(prev.id, user.id, 'compañía(s)', formatCompanias(prev.companias) ?? 'Sin asignar', formatCompanias(companias) ?? 'Sin asignar');
       if (prev.responsable_user_id !== responsableId) await registrarCambioHistorial(prev.id, user.id, 'responsable', responsableNombre(prev.responsable_user_id), responsableNombre(responsableId));
       if (prev.estado !== actForm.estado) await registrarCambioHistorial(prev.id, user.id, 'estado', prev.estado, actForm.estado);
       if (prev.dias_recordatorio !== diasRecordatorio || prev.frecuencia_recordatorio !== actForm.frecuencia_recordatorio) {
@@ -224,37 +239,19 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
       }
       setActividades((curr) => curr.map((a) => a.id === prev.id
         ? {
-          ...a, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania: primeraCompania, responsable_user_id: responsableId, estado: actForm.estado,
+          ...a, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, companias, responsable_user_id: responsableId, estado: actForm.estado,
           dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
         }
         : a));
-
-      // Si se agregaron más compañías al editar, se clonan como filas
-      // nuevas (la fila editada ya cubre la primera compañía elegida).
-      if (companiasExtra.length > 0) {
-        const ordenBase = actividades.filter((a) => a.proceso_id === prev.proceso_id).length;
-        const nuevas = companiasExtra.map((c, i) => ({
-          proceso_id: prev.proceso_id, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania: c,
-          responsable_user_id: responsableId, estado: actForm.estado, orden: ordenBase + i,
-          dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
-        }));
-        const { data, error: insError } = await supabase.from('cronograma_actividades' as any).insert(nuevas).select('*');
-        if (insError) {
-          toast({ title: 'Se guardó, pero no se pudieron duplicar todas las compañías', description: insError.message, variant: 'destructive' });
-        } else {
-          setActividades((curr) => [...curr, ...(data as unknown as CronogramaActividad[])]);
-        }
-      }
     } else {
-      const ordenBase = actividades.filter((a) => a.proceso_id === actividadDialog.procesoId).length;
-      const nuevas = companiasDestino.map((c, i) => ({
-        proceso_id: actividadDialog.procesoId, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, compania: c,
-        responsable_user_id: responsableId, estado: actForm.estado, orden: ordenBase + i,
+      const orden = actividades.filter((a) => a.proceso_id === actividadDialog.procesoId).length;
+      const { data, error } = await supabase.from('cronograma_actividades' as any).insert({
+        proceso_id: actividadDialog.procesoId, nombre: actForm.nombre.trim(), meses: actForm.meses, anio: actForm.anio, companias,
+        responsable_user_id: responsableId, estado: actForm.estado, orden,
         dias_recordatorio: diasRecordatorio, frecuencia_recordatorio: actForm.frecuencia_recordatorio,
-      }));
-      const { data, error } = await supabase.from('cronograma_actividades' as any).insert(nuevas).select('*');
+      }).select('*').single();
       if (error || !data) { toast({ title: 'Error', description: error?.message, variant: 'destructive' }); return; }
-      setActividades((curr) => [...curr, ...(data as unknown as CronogramaActividad[])]);
+      setActividades((curr) => [...curr, data as unknown as CronogramaActividad]);
     }
     setActividadDialog(null);
   };
@@ -365,8 +362,8 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
   // cronograma (resumen por proceso y tabla), no solo a la tabla.
   const actividadesVisibles = useMemo(
     () => actividadesDelAnio.filter((a) => {
-      if (filtroPais !== 'todos' && !(a.compania && PAIS_COMPANIAS[filtroPais].includes(a.compania))) return false;
-      if (filtroCompania !== 'todos' && a.compania !== filtroCompania) return false;
+      if (filtroPais !== 'todos' && !(a.companias?.some((c) => PAIS_COMPANIAS[filtroPais].includes(c)))) return false;
+      if (filtroCompania !== 'todos' && !a.companias?.includes(filtroCompania as CronogramaCompania)) return false;
       return true;
     }),
     [actividadesDelAnio, filtroPais, filtroCompania],
@@ -396,7 +393,7 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
     setCopiandoAnio(true);
     try {
       const nuevas = actividadesDelAnio.map((a) => ({
-        proceso_id: a.proceso_id, nombre: a.nombre, meses: a.meses, anio: copiarAnioDestino, compania: a.compania,
+        proceso_id: a.proceso_id, nombre: a.nombre, meses: a.meses, anio: copiarAnioDestino, companias: a.companias,
         responsable_user_id: a.responsable_user_id, estado: 'pendiente' as CronogramaEstado, orden: a.orden,
         dias_recordatorio: a.dias_recordatorio, frecuencia_recordatorio: a.frecuencia_recordatorio,
       }));
@@ -419,7 +416,7 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
         meses: a.meses,
         estado: CRONO_ESTADO_LABEL_PLAIN[a.estado],
         responsable: responsableNombre(a.responsable_user_id),
-        compania: a.compania,
+        compania: formatCompanias(a.companias),
       })),
     );
     if (rows.length === 0) {
@@ -585,8 +582,8 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
                           <span className="flex items-center gap-0.5" title="Recordatorio">
                             <Bell className="h-2.5 w-2.5" /> {act.dias_recordatorio}d · {FRECUENCIA_RECORDATORIO_LABEL[act.frecuencia_recordatorio]}
                           </span>
-                          {act.compania && (
-                            <span className="rounded-sm bg-slate-100 px-1 py-0.5 font-medium text-slate-500">{act.compania}</span>
+                          {formatCompanias(act.companias) && (
+                            <span className="rounded-sm bg-slate-100 px-1 py-0.5 font-medium text-slate-500">{formatCompanias(act.companias)}</span>
                           )}
                         </div>
                       </TableCell>
@@ -682,7 +679,17 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
             </div>
             <div>
               <Label>Compañía(s)</Label>
-              <p className="text-[11px] text-slate-400 mb-1">Si aplica a varias, se crea una actividad idéntica en cada una.</p>
+              <p className="text-[11px] text-slate-400 mb-1">Si aplica a varias, quedan todas juntas en esta misma actividad — no hace falta repetirla.</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {PAISES.map((pais) => (
+                  <Button
+                    key={pais} type="button" size="sm" variant="outline" className="h-6 text-[11px] px-2"
+                    onClick={() => setActForm((f) => ({ ...f, companias: PAIS_COMPANIAS[pais] }))}
+                  >
+                    {pais} (todas)
+                  </Button>
+                ))}
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 {COMPANIAS.map((c) => (
                   <label key={c} className="flex items-center gap-1.5 text-xs">
