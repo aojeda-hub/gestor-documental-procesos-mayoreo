@@ -501,6 +501,33 @@ export type Database = {
         }
         Relationships: []
       }
+      cargo_jerarquia: {
+        Row: {
+          cargo: string
+          depto: string
+          id: string
+          parent_cargo: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cargo: string
+          depto: string
+          id?: string
+          parent_cargo?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cargo?: string
+          depto?: string
+          id?: string
+          parent_cargo?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       descripcion_cargo_ocultos: {
         Row: {
           cargo: string

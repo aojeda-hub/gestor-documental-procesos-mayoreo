@@ -5,7 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Briefcase, FileText, ExternalLink, MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2, Upload, Search } from 'lucide-react';
+import { Briefcase, FileText, ExternalLink, MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2, Upload, Search, List, Network } from 'lucide-react';
+import CargoOrganigrama from './CargoOrganigrama';
+import { getMatchedCargoDoc } from '@/lib/cargoDocMatch';
 import { DOCUMENT_ESTATUS_LABELS, DOCUMENT_ESTATUS_COLORS } from '@/types/database';
 import type { Document, DocumentEstatus } from '@/types/database';
 import { format } from 'date-fns';
@@ -171,6 +173,7 @@ export default function DescripcionesCargo({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
   const [pendingHide, setPendingHide] = useState<{ depto: string; cargo: string } | null>(null);
+  const [view, setView] = useState<'lista' | 'organigrama'>('lista');
 
   const normalizeSearch = (s: string) =>
     s.toLowerCase()
@@ -233,6 +236,45 @@ export default function DescripcionesCargo({
     );
   }, [selectedDepto, searchQuery, mergedInventory]);
 
+  // Orden jerárquico: Gerente > Jefe > Coordinador > Asesor > Analista > el resto
+  // (Especialista, Supervisor, Asistente, etc. quedan después, en su orden original).
+  const CARGO_RANK_PATTERNS: [RegExp, number][] = [
+    [/^gerente\b/i, 1],
+    [/^jef[ae]\b/i, 2],
+    [/^coord(inador)?\.?\b/i, 3],
+    [/^asesor\b/i, 4],
+    [/^analista\b/i, 5],
+  ];
+  const getCargoRank = (cargo: string) => {
+    const c = (cargo || '').trim();
+    for (const [re, rank] of CARGO_RANK_PATTERNS) if (re.test(c)) return rank;
+    return 6;
+  };
+
+  const sortedFilteredData = useMemo(() => {
+    const deptoOrder = new Map(allDepartamentos.map((d, i) => [d, i]));
+    return [...filteredData].sort((a, b) => {
+      const deptoDiff = (deptoOrder.get(a.depto) ?? 0) - (deptoOrder.get(b.depto) ?? 0);
+      if (deptoDiff !== 0) return deptoDiff;
+      return getCargoRank(a.cargo) - getCargoRank(b.cargo);
+    });
+  }, [filteredData, allDepartamentos]);
+
+  const cargoItemsDelDeptoSeleccionado = useMemo(() => {
+    if (selectedDepto === 'Todos') return [];
+    const ordenados = [...mergedInventory]
+      .filter(i => i.depto === selectedDepto)
+      .sort((a, b) => getCargoRank(a.cargo) - getCargoRank(b.cargo));
+    const seen = new Set<string>();
+    const result: { cargo: string; archivo: string }[] = [];
+    for (const item of ordenados) {
+      if (seen.has(item.cargo)) continue;
+      seen.add(item.cargo);
+      result.push({ cargo: item.cargo, archivo: item.archivo });
+    }
+    return result;
+  }, [mergedInventory, selectedDepto]);
+
   const countsByDepto = useMemo(() => {
     const map = new Map<string, number>();
     for (const item of mergedInventory) {
@@ -242,25 +284,7 @@ export default function DescripcionesCargo({
   }, [mergedInventory]);
   const totalGeneral = mergedInventory.length;
 
-  const normalize = (s: string) =>
-    s.toLowerCase()
-      .replace(/\.docx?$/i, '')
-      .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip accents
-      .replace(/[^a-z0-9]+/g, ''); // strip spaces, dashes, punctuation
-
-  const getMatchedDoc = (archivoName: string, cargo?: string) => {
-    const candidates = [archivoName, cargo ? `DC-${cargo}` : '', cargo || ''].filter(Boolean);
-    for (const candidate of candidates) {
-      const target = normalize(candidate);
-      if (!target) continue;
-      const found = docs.find(doc => {
-        const t = normalize(doc.title);
-        return t === target || t.includes(target) || target.includes(t);
-      });
-      if (found) return found;
-    }
-    return null;
-  };
+  const getMatchedDoc = (archivoName: string, cargo?: string) => getMatchedCargoDoc(docs, archivoName, cargo);
 
   return (
     <div className="space-y-6">
@@ -275,25 +299,61 @@ export default function DescripcionesCargo({
           </p>
         </div>
 
-        <div className="w-full sm:w-72">
-          <Select value={selectedDepto} onValueChange={setSelectedDepto}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Filtrar por departamento" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Todos">
-                Todos los departamentos ({totalGeneral})
-              </SelectItem>
-              {allDepartamentos.map(depto => (
-                <SelectItem key={depto} value={depto}>
-                  {depto} ({countsByDepto.get(depto) || 0})
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-md border p-0.5 bg-muted/40">
+            <Button
+              variant={view === 'lista' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => setView('lista')}
+            >
+              <List className="h-3.5 w-3.5" /> Lista
+            </Button>
+            <Button
+              variant={view === 'organigrama' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => setView('organigrama')}
+            >
+              <Network className="h-3.5 w-3.5" /> Organigrama
+            </Button>
+          </div>
+          <div className="w-full sm:w-72">
+            <Select value={selectedDepto} onValueChange={setSelectedDepto}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Filtrar por departamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">
+                  Todos los departamentos ({totalGeneral})
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                {allDepartamentos.map(depto => (
+                  <SelectItem key={depto} value={depto}>
+                    {depto} ({countsByDepto.get(depto) || 0})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
+      {view === 'organigrama' ? (
+        selectedDepto === 'Todos' ? (
+          <div className="text-center py-16 text-muted-foreground border rounded-md">
+            Selecciona un departamento específico para ver su organigrama.
+          </div>
+        ) : (
+          <CargoOrganigrama
+            depto={selectedDepto}
+            cargoItems={cargoItemsDelDeptoSeleccionado}
+            docs={docs}
+            canEdit={canEdit}
+            onViewDoc={onViewDoc}
+          />
+        )
+      ) : (
+      <>
       {/* Search bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -320,14 +380,14 @@ export default function DescripcionesCargo({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.length === 0 ? (
+                {sortedFilteredData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       No se encontraron cargos.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredData.map((item, idx) => {
+                  sortedFilteredData.map((item, idx) => {
                     const matchedDoc = getMatchedDoc(item.archivo, item.cargo);
                     const estatus = matchedDoc ? ((matchedDoc.estatus || 'por_iniciar') as DocumentEstatus) : null;
 
@@ -453,6 +513,8 @@ export default function DescripcionesCargo({
           </div>
         </CardContent>
       </Card>
+      </>
+      )}
 
       <AlertDialog open={!!pendingHide} onOpenChange={(open) => !open && setPendingHide(null)}>
         <AlertDialogContent>

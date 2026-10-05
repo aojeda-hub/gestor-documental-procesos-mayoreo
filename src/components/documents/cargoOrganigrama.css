@@ -1,0 +1,93 @@
+.org-chart {
+  display: flex;
+  justify-content: safe center;
+  padding-top: 20px;
+  position: relative;
+}
+
+.org-chart ul {
+  display: flex;
+  justify-content: safe center;
+  padding-top: 20px;
+  position: relative;
+}
+
+.org-chart,
+.org-chart ul,
+.org-chart li {
+  list-style: none;
+  margin: 0;
+  padding-top: 20px;
+}
+
+.org-chart > li {
+  padding-top: 0;
+}
+
+.org-chart li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.org-chart li::before,
+.org-chart li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 50%;
+  width: 50%;
+  height: 20px;
+  border-top: 2px solid hsl(var(--border));
+}
+
+.org-chart li::after {
+  right: auto;
+  left: 50%;
+  border-left: 2px solid hsl(var(--border));
+}
+
+.org-chart li:only-child::before,
+.org-chart li:only-child::after {
+  display: none;
+}
+
+.org-chart > li::before,
+.org-chart > li::after {
+  display: none;
+}
+
+.org-chart li:first-child::before,
+.org-chart li:last-child::after {
+  border: 0 none;
+}
+
+.org-chart li:last-child::before {
+  border-right: 2px solid hsl(var(--border));
+  border-radius: 0 6px 0 0;
+}
+
+.org-chart li:first-child::after {
+  border-radius: 6px 0 0 0;
+}
+
+.org-chart ul::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  border-left: 2px solid hsl(var(--border));
+  width: 0;
+  height: 20px;
+}
+
+.org-chart .org-node-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 170px;
+}
