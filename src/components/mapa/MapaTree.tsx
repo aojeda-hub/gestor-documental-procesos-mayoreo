@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Lock, Plus, AlertTriangle } from 'lucide-react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Lock, Plus, AlertTriangle, ExternalLink, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SILO_LABELS } from '@/types/database';
@@ -7,6 +7,8 @@ import type { SiloType } from '@/types/database';
 import { useUpdateMapaDocs } from '@/hooks/useMapaProcesos';
 import type { MapaDoc } from '@/hooks/useMapaProcesos';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { EstatusProgress, EstatusSelect } from './EstatusWidgets';
 import { TIPO_LABEL, countEstatus, fmtFecha, isRevisionVencida, joinCodigo, naturalCompare } from './mapaUtils';
 import type { EstatusCounts } from './mapaUtils';
@@ -55,7 +57,7 @@ function groupKey(level: Level, d: MapaDoc): { id: string; label: string; sort: 
   }
 }
 
-function build(docs: MapaDoc[], depth: number, parentKey: string, parentLoc: Partial<MapaDoc>): Node[] {
+function build(docs: MapaDoc[], depth: number, parentKey: string, parentLoc: Partial<MapaDoc>, ordenMap: Map<string, number>): Node[] {
   const level = LEVELS[depth];
   const groups = new Map<string, { label: string; sort: string; loc: Partial<MapaDoc>; docs: MapaDoc[] }>();
   for (const d of docs) {
@@ -71,11 +73,18 @@ function build(docs: MapaDoc[], depth: number, parentKey: string, parentLoc: Par
       const isLeaf = depth === LEVELS.length - 1;
       return {
         key, level, label: g.label, sortKey: g.sort, counts: countEstatus(g.docs), location,
-        children: isLeaf ? [] : build(g.docs, depth + 1, key, location),
+        children: isLeaf ? [] : build(g.docs, depth + 1, key, location, ordenMap),
         docs: isLeaf ? [...g.docs].sort((a, b) => naturalCompare(a.documento_codigo, b.documento_codigo) || naturalCompare(a.title, b.title)) : [],
       };
     })
-    .sort((a, b) => naturalCompare(a.sortKey, b.sortKey));
+    .sort((a, b) => {
+      const oa = ordenMap.get(a.key);
+      const ob = ordenMap.get(b.key);
+      if (oa != null && ob != null) return oa - ob;
+      if (oa != null) return -1;
+      if (ob != null) return 1;
+      return naturalCompare(a.sortKey, b.sortKey);
+    });
 }
 
 function allKeys(nodes: Node[], out: string[] = []): string[] {
@@ -91,10 +100,18 @@ interface Props {
 }
 
 export default function MapaTree({ docs, canEdit, onOpenDoc, onCreateAt }: Props) {
-  const tree = useMemo(() => build(docs, 0, '', {}), [docs]);
+  const { user } = useAuth();
+  const [ordenMap, setOrdenMap] = useState<Map<string, number>>(new Map());
+  const tree = useMemo(() => build(docs, 0, '', {}, ordenMap), [docs, ordenMap]);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const update = useUpdateMapaDocs();
   const { toast } = useToast();
+
+  useEffect(() => {
+    supabase.from('mapa_orden').select('node_key, orden').then(({ data }) => {
+      setOrdenMap(new Map((data || []).map(r => [r.node_key, r.orden])));
+    });
+  }, []);
 
   const toggle = (k: string) => setOpen(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const expandTo = (depth: number) => {
@@ -109,7 +126,22 @@ export default function MapaTree({ docs, canEdit, onOpenDoc, onCreateAt }: Props
       onError: e => toast({ title: 'No se pudo guardar', description: (e as Error).message, variant: 'destructive' }),
     });
 
-  const renderNode = (n: Node, depth: number) => {
+  const moveNode = useCallback(async (siblings: Node[], index: number, dir: -1 | 1) => {
+    const j = index + dir;
+    if (j < 0 || j >= siblings.length) return;
+    const reordered = [...siblings];
+    [reordered[index], reordered[j]] = [reordered[j], reordered[index]];
+    const rows = reordered.map((s, idx) => ({ node_key: s.key, orden: idx * 10, updated_by: user?.id || null }));
+    setOrdenMap(prev => {
+      const next = new Map(prev);
+      rows.forEach(r => next.set(r.node_key, r.orden));
+      return next;
+    });
+    const { error } = await supabase.from('mapa_orden').upsert(rows, { onConflict: 'node_key' });
+    if (error) toast({ title: 'No se pudo guardar el orden', description: error.message, variant: 'destructive' });
+  }, [user, toast]);
+
+  const renderNode = (n: Node, depth: number, siblings: Node[], index: number) => {
     const isOpen = open.has(n.key);
     return (
       <div key={n.key}>
@@ -128,6 +160,22 @@ export default function MapaTree({ docs, canEdit, onOpenDoc, onCreateAt }: Props
             {n.location.subarea && n.level === 'macro' && (
               <span className="shrink-0 rounded bg-muted px-1.5 text-[10px] text-muted-foreground">{n.location.subarea}</span>
             )}
+            {canEdit && (
+              <span className="flex items-center opacity-0 group-hover:opacity-100">
+                <Button
+                  variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={index === 0}
+                  onClick={e => { e.stopPropagation(); moveNode(siblings, index, -1); }}
+                >
+                  <ChevronUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={index === siblings.length - 1}
+                  onClick={e => { e.stopPropagation(); moveNode(siblings, index, 1); }}
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </span>
+            )}
             {canEdit && n.level === 'subproceso' && (
               <Button
                 variant="ghost" size="sm"
@@ -142,7 +190,7 @@ export default function MapaTree({ docs, canEdit, onOpenDoc, onCreateAt }: Props
         </div>
         {isOpen && (
           <>
-            {n.children.map(c => renderNode(c, depth + 1))}
+            {n.children.map((c, i) => renderNode(c, depth + 1, n.children, i))}
             {n.docs.map(d => (
               <div
                 key={d.id}
@@ -156,6 +204,17 @@ export default function MapaTree({ docs, canEdit, onOpenDoc, onCreateAt }: Props
                   <span className="truncate hover:text-primary hover:underline">{d.title}</span>
                 </button>
                 <div className="flex items-center gap-2">
+                  {d.drive_link && (
+                    <a
+                      href={d.drive_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 rounded bg-green-500/5 px-1.5 py-0.5 text-[10px] font-medium text-green-600 hover:bg-green-500/10 hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Drive
+                    </a>
+                  )}
                   {isRevisionVencida(d) && <AlertTriangle className="h-3.5 w-3.5 text-orange-500" aria-label="Requiere revisión" />}
                   <span className="w-20 text-right text-xs text-muted-foreground tabular-nums">{fmtFecha(d.fecha_actualizacion)}</span>
                   <EstatusSelect value={d.estatus} disabled={!canEdit} onChange={v => setEstatus(d, v)} />
@@ -186,7 +245,7 @@ export default function MapaTree({ docs, canEdit, onOpenDoc, onCreateAt }: Props
       <div className="overflow-hidden rounded-lg border">
         {tree.length === 0
           ? <p className="py-10 text-center text-sm text-muted-foreground">No hay documentos con estos filtros.</p>
-          : tree.map(n => renderNode(n, 0))}
+          : tree.map((n, i) => renderNode(n, 0, tree, i))}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -23,11 +24,11 @@ type Form = {
   title: string; doc_type: DocType; silo: SiloType; estatus: DocumentEstatus;
   subarea: string; macroproceso_codigo: string; macroproceso: string; mapeo_sistemico: string;
   proceso_codigo: string; proceso: string; subproceso_codigo: string; subproceso: string;
-  documento_codigo: string; fecha_actualizacion: string; observaciones: string;
+  documento_codigo: string; fecha_actualizacion: string; observaciones: string; drive_link: string;
 };
 
 const TEXT_FIELDS = ['subarea', 'macroproceso_codigo', 'macroproceso', 'mapeo_sistemico', 'proceso_codigo', 'proceso',
-  'subproceso_codigo', 'subproceso', 'documento_codigo', 'fecha_actualizacion', 'observaciones'] as const;
+  'subproceso_codigo', 'subproceso', 'documento_codigo', 'fecha_actualizacion', 'observaciones', 'drive_link'] as const;
 
 function toForm(d: Partial<MapaDoc> | null, silo: SiloType): Form {
   return {
@@ -112,9 +113,18 @@ export default function MapaDocDialog({ open, onOpenChange, doc, initial, defaul
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{doc ? 'Documento del mapa de procesos' : 'Nuevo documento en el mapa'}</DialogTitle>
-          {codigoPreview && <p className="font-mono text-sm text-muted-foreground">{codigoPreview}</p>}
+        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pr-8">
+          <div>
+            <DialogTitle>{doc ? 'Documento del mapa de procesos' : 'Nuevo documento en el mapa'}</DialogTitle>
+            {codigoPreview && <p className="font-mono text-sm text-muted-foreground">{codigoPreview}</p>}
+          </div>
+          {f.drive_link && (
+            <Button variant="default" size="sm" asChild>
+              <a href={f.drive_link} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
+              </a>
+            </Button>
+          )}
         </DialogHeader>
 
         <fieldset disabled={!canEdit} className="grid gap-4">
@@ -158,6 +168,15 @@ export default function MapaDocDialog({ open, onOpenChange, doc, initial, defaul
               <Label>Última actualización</Label>
               <Input type="date" value={f.fecha_actualizacion} onChange={e => set('fecha_actualizacion', e.target.value)} />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Enlace Google Drive</Label>
+            <Input
+              placeholder="https://docs.google.com/document/d/..."
+              value={f.drive_link}
+              onChange={e => set('drive_link', e.target.value)}
+            />
           </div>
 
           <div className="rounded-lg border bg-muted/30 p-3">

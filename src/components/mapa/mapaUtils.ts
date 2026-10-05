@@ -10,14 +10,14 @@ export const ESTATUS_FLOW: DocumentEstatus[] = [
 ];
 
 export const ESTATUS_BAR_COLORS: Record<DocumentEstatus, string> = {
-  aprobado: 'bg-emerald-500',
-  por_aprobar: 'bg-violet-500',
-  revision: 'bg-amber-500',
-  en_construccion: 'bg-blue-500',
-  creada_ia: 'bg-cyan-500',
+  aprobado: 'bg-emerald-500/60',
+  por_aprobar: 'bg-violet-400/60',
+  revision: 'bg-amber-400/60',
+  en_construccion: 'bg-sky-400/60',
+  creada_ia: 'bg-cyan-400/60',
   por_iniciar: 'bg-slate-300 dark:bg-slate-600',
-  desactualizado: 'bg-orange-500',
-  desincorporado: 'bg-slate-500',
+  desactualizado: 'bg-orange-400/60',
+  desincorporado: 'bg-slate-400/60',
 };
 
 /** Nombre singular del tipo, como en la hoja "Nomenclatura". */

@@ -186,26 +186,35 @@ export default function MapaProcesos() {
       {/* Avance por silo */}
       <Card>
         <CardContent className="space-y-3 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold">Avance por silo</h2>
-            <EstatusLegend />
-          </div>
-          <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
+          <h2 className="text-sm font-semibold">Avance por silo</h2>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {siloResumen.map(r => (
               <button
                 key={r.silo}
                 onClick={() => pickSilo(silo === r.silo ? ALL : r.silo)}
-                className={cn('grid grid-cols-[110px_1fr] items-center gap-3 rounded-md px-2 py-1.5 text-left hover:bg-accent',
-                  silo === r.silo && 'bg-accent ring-1 ring-primary/40')}
+                className={cn(
+                  'rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-accent',
+                  silo === r.silo ? 'border-primary/50 bg-accent font-semibold' : 'border-border'
+                )}
               >
-                <span className="truncate text-sm font-medium">
-                  {SILO_LABELS[r.silo]}
-                  {r.vencidos > 0 && <span className="ml-1 text-[10px] text-red-600">({r.vencidos} venc.)</span>}
-                </span>
-                <EstatusProgress counts={r.counts} />
+                <span className="truncate">{SILO_LABELS[r.silo]}</span>
               </button>
             ))}
           </div>
+
+          {(() => {
+            const sel = siloResumen.find(r => r.silo === silo);
+            if (!sel) return null;
+            return (
+              <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-medium">{SILO_LABELS[sel.silo]}</span>
+                  <EstatusLegend />
+                </div>
+                <EstatusProgress counts={sel.counts} />
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 

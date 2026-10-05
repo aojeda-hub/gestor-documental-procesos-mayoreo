@@ -552,6 +552,27 @@ export type Database = {
         }
         Relationships: []
       }
+      mapa_orden: {
+        Row: {
+          node_key: string
+          orden: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          node_key: string
+          orden: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          node_key?: string
+          orden?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       documentos_metadata: {
         Row: {
           carpeta: string | null
