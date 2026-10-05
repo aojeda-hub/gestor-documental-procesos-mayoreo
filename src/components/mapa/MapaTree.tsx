@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Lock, Plus, AlertTriangle, ExternalLink, ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Lock, Plus, AlertTriangle, ExternalLink, ChevronUp, ChevronDown, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { SILO_LABELS } from '@/types/database';
 import type { SiloType } from '@/types/database';
 import { useUpdateMapaDocs } from '@/hooks/useMapaProcesos';
-import type { MapaDoc } from '@/hooks/useMapaProcesos';
+import type { MapaDoc, MapaDocPatch } from '@/hooks/useMapaProcesos';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,6 +95,20 @@ function allKeys(nodes: Node[], out: string[] = []): string[] {
   return out;
 }
 
+/** IDs de todos los documentos que caen bajo este nodo (recursivo). */
+function collectDocIds(n: Node): string[] {
+  if (n.docs.length) return n.docs.map(d => d.id);
+  return n.children.flatMap(collectDocIds);
+}
+
+type RenamableLevel = 'macro' | 'proceso' | 'subproceso';
+const CODIGO_FIELD: Record<RenamableLevel, keyof MapaDoc> = {
+  macro: 'macroproceso_codigo', proceso: 'proceso_codigo', subproceso: 'subproceso_codigo',
+};
+const NOMBRE_FIELD: Record<RenamableLevel, keyof MapaDoc> = {
+  macro: 'macroproceso', proceso: 'proceso', subproceso: 'subproceso',
+};
+
 interface Props {
   docs: MapaDoc[];
   canEdit: boolean;
@@ -104,6 +121,9 @@ export default function MapaTree({ docs, canEdit, onOpenDoc, onCreateAt }: Props
   const [ordenMap, setOrdenMap] = useState<Map<string, number>>(new Map());
   const tree = useMemo(() => build(docs, 0, '', {}, ordenMap), [docs, ordenMap]);
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [renaming, setRenaming] = useState<Node | null>(null);
+  const [rCodigo, setRCodigo] = useState('');
+  const [rNombre, setRNombre] = useState('');
   const update = useUpdateMapaDocs();
   const { toast } = useToast();
 
@@ -141,6 +161,27 @@ export default function MapaTree({ docs, canEdit, onOpenDoc, onCreateAt }: Props
     if (error) toast({ title: 'No se pudo guardar el orden', description: error.message, variant: 'destructive' });
   }, [user, toast]);
 
+  const startRename = (n: Node) => {
+    const level = n.level as RenamableLevel;
+    setRCodigo((n.location[CODIGO_FIELD[level]] as string | null) ?? '');
+    setRNombre((n.location[NOMBRE_FIELD[level]] as string | null) ?? '');
+    setRenaming(n);
+  };
+
+  const saveRename = () => {
+    if (!renaming) return;
+    const level = renaming.level as RenamableLevel;
+    const ids = collectDocIds(renaming);
+    const patch: MapaDocPatch = {
+      [CODIGO_FIELD[level]]: rCodigo.trim() || null,
+      [NOMBRE_FIELD[level]]: rNombre.trim() || null,
+    };
+    update.mutate({ ids, patch }, {
+      onSuccess: () => { toast({ title: `${LEVEL_LABEL[level]} actualizado en ${ids.length} documento(s)` }); setRenaming(null); },
+      onError: e => toast({ title: 'No se pudo guardar', description: (e as Error).message, variant: 'destructive' }),
+    });
+  };
+
   const renderNode = (n: Node, depth: number, siblings: Node[], index: number) => {
     const isOpen = open.has(n.key);
     return (
@@ -175,6 +216,16 @@ export default function MapaTree({ docs, canEdit, onOpenDoc, onCreateAt }: Props
                   <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
               </span>
+            )}
+            {canEdit && n.level !== 'silo' && (
+              <Button
+                variant="ghost" size="sm"
+                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                onClick={e => { e.stopPropagation(); startRename(n); }}
+                title={`Editar ${LEVEL_LABEL[n.level].toLowerCase()}`}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
             )}
             {canEdit && n.level === 'subproceso' && (
               <Button
@@ -247,6 +298,33 @@ export default function MapaTree({ docs, canEdit, onOpenDoc, onCreateAt }: Props
           ? <p className="py-10 text-center text-sm text-muted-foreground">No hay documentos con estos filtros.</p>
           : tree.map((n, i) => renderNode(n, 0, tree, i))}
       </div>
+
+      <Dialog open={!!renaming} onOpenChange={(o) => !o && setRenaming(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar {renaming ? LEVEL_LABEL[renaming.level].toLowerCase() : ''}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Código</Label>
+              <Input className="font-mono" value={rCodigo} onChange={e => setRCodigo(e.target.value.toUpperCase())} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nombre</Label>
+              <Input value={rNombre} onChange={e => setRNombre(e.target.value)} />
+            </div>
+            {renaming && (
+              <p className="text-xs text-muted-foreground">
+                Se actualizará en {collectDocIds(renaming).length} documento(s) que comparten este {LEVEL_LABEL[renaming.level].toLowerCase()}.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenaming(null)}>Cancelar</Button>
+            <Button onClick={saveRename} disabled={update.isPending}>{update.isPending ? 'Guardando…' : 'Guardar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
