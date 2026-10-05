@@ -1,13 +1,20 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Briefcase, FileText, ExternalLink, MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2, Upload, Search } from 'lucide-react';
-import type { Document } from '@/types/database';
+import { DOCUMENT_ESTATUS_LABELS, DOCUMENT_ESTATUS_COLORS } from '@/types/database';
+import type { Document, DocumentEstatus } from '@/types/database';
+import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const inventoryData = [
   { depto: "PROCESOS", cargo: "Jefe de Procesos", archivo: "DC-Jefe de Procesos.docx" },
@@ -159,30 +166,54 @@ export default function DescripcionesCargo({
   onDownload,
   onUploadDoc
 }: DescripcionesCargoProps) {
+  const { user } = useAuth();
   const [selectedDepto, setSelectedDepto] = useState<string>("Todos");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
+  const [pendingHide, setPendingHide] = useState<{ depto: string; cargo: string } | null>(null);
 
   const normalizeSearch = (s: string) =>
     s.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      .normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  const hiddenKey = (depto: string, cargo: string) => `${depto}::${normalizeSearch(cargo)}`;
+
+  const loadHidden = useCallback(async () => {
+    const { data } = await supabase.from('descripcion_cargo_ocultos').select('depto, cargo');
+    setHiddenKeys(new Set((data || []).map(h => hiddenKey(h.depto, h.cargo))));
+  }, []);
+
+  useEffect(() => { loadHidden(); }, [loadHidden]);
+
+  const confirmHide = async () => {
+    if (!pendingHide) return;
+    const { depto, cargo } = pendingHide;
+    setPendingHide(null);
+    const { error } = await supabase.from('descripcion_cargo_ocultos').insert({
+      depto, cargo, hidden_by: user?.id || null,
+    });
+    if (!error) {
+      setHiddenKeys(prev => new Set(prev).add(hiddenKey(depto, cargo)));
+    }
+  };
 
   // Merge static inventory with user-created descripciones de cargo not present in inventory
   const mergedInventory = useMemo(() => {
     const normalizeCargo = (s: string) =>
-      (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '');
+      (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
     const existing = new Set(inventoryData.map(i => normalizeCargo(i.cargo)));
     const extras: typeof inventoryData = [];
     for (const d of docs) {
-      if ((d as any).doc_type !== 'descripcion_cargo') continue;
-      const cargo = (d as any).cargo as string | undefined;
-      const depto = (d as any).departamento as string | undefined;
+      if (d.doc_type !== 'descripcion_cargo') continue;
+      const cargo = d.cargo;
+      const depto = d.departamento;
       if (!cargo || !depto) continue;
       if (existing.has(normalizeCargo(cargo))) continue;
       extras.push({ depto: depto.toUpperCase(), cargo, archivo: d.title });
       existing.add(normalizeCargo(cargo));
     }
-    return [...inventoryData, ...extras];
-  }, [docs]);
+    return [...inventoryData, ...extras].filter(item => !hiddenKeys.has(hiddenKey(item.depto, item.cargo)));
+  }, [docs, hiddenKeys]);
 
   const allDepartamentos = useMemo(
     () => Array.from(new Set(mergedInventory.map(i => i.depto))),
@@ -214,7 +245,7 @@ export default function DescripcionesCargo({
   const normalize = (s: string) =>
     s.toLowerCase()
       .replace(/\.docx?$/i, '')
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip accents
       .replace(/[^a-z0-9]+/g, ''); // strip spaces, dashes, punctuation
 
   const getMatchedDoc = (archivoName: string, cargo?: string) => {
@@ -243,7 +274,7 @@ export default function DescripcionesCargo({
             Directorio y acceso a documentos descriptivos por departamento.
           </p>
         </div>
-        
+
         <div className="w-full sm:w-72">
           <Select value={selectedDepto} onValueChange={setSelectedDepto}>
             <SelectTrigger className="w-full">
@@ -281,22 +312,25 @@ export default function DescripcionesCargo({
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="w-1/3">Departamento</TableHead>
-                  <TableHead className="w-1/3">Cargo</TableHead>
-                  <TableHead className="w-1/3">Documento</TableHead>
+                  <TableHead>Departamento</TableHead>
+                  <TableHead>Cargo</TableHead>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Última actualización</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       No se encontraron cargos.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredData.map((item, idx) => {
                     const matchedDoc = getMatchedDoc(item.archivo, item.cargo);
-                    
+                    const estatus = matchedDoc ? ((matchedDoc.estatus || 'por_iniciar') as DocumentEstatus) : null;
+
                     return (
                       <TableRow key={idx} className="group hover:bg-accent/20">
                         <TableCell className="font-medium text-muted-foreground">
@@ -311,7 +345,7 @@ export default function DescripcionesCargo({
                               <span className="text-sm text-muted-foreground italic">Sin documento</span>
                             ) : matchedDoc ? (
                               <div className="flex items-center gap-2">
-                                <span 
+                                <span
                                   className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors"
                                   onClick={() => onViewDoc(matchedDoc)}
                                 >
@@ -373,17 +407,42 @@ export default function DescripcionesCargo({
                                   )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                            ) : canEdit && onUploadDoc ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => onUploadDoc && onUploadDoc(item.archivo ? item.archivo.replace(/\\.docx?$/i, '') : `DC-${item.cargo}`)}
-                                className="h-8 gap-1.5 opacity-70 group-hover:opacity-100 transition-opacity"
-                              >
-                                <Upload className="h-3.5 w-3.5" /> Subir
-                              </Button>
+                            ) : canEdit ? (
+                              <div className="flex items-center gap-1.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                                {onUploadDoc && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => onUploadDoc(item.archivo ? item.archivo.replace(/\.docx?$/i, '') : `DC-${item.cargo}`)}
+                                    className="h-8 gap-1.5"
+                                  >
+                                    <Upload className="h-3.5 w-3.5" /> Subir
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setPendingHide({ depto: item.depto, cargo: item.cargo })}
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                  title="Quitar este cargo de la lista"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
                             ) : null}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {estatus ? (
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded border whitespace-nowrap ${DOCUMENT_ESTATUS_COLORS[estatus]}`}>
+                              {DOCUMENT_ESTATUS_LABELS[estatus]}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {matchedDoc?.updated_at ? format(new Date(matchedDoc.updated_at), 'dd/MM/yyyy') : '—'}
                         </TableCell>
                       </TableRow>
                     );
@@ -394,6 +453,25 @@ export default function DescripcionesCargo({
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!pendingHide} onOpenChange={(open) => !open && setPendingHide(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Quitar este cargo de la lista?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingHide && (
+                <>"{pendingHide.cargo}" ({pendingHide.depto}) dejará de aparecer en Descripciones de Cargo porque no tiene documento subido. Podrás volver a agregarlo más adelante si hace falta.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmHide} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Quitar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -94,6 +94,9 @@ export interface Document {
   codigo?: string | null;
   fecha_actualizacion?: string | null;
   observaciones?: string | null;
+  // Clasificación de Descripciones de Cargo (doc_type === 'descripcion_cargo')
+  departamento?: string | null;
+  cargo?: string | null;
 }
 
 export interface Seguimiento {

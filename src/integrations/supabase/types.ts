@@ -501,6 +501,30 @@ export type Database = {
         }
         Relationships: []
       }
+      descripcion_cargo_ocultos: {
+        Row: {
+          cargo: string
+          depto: string
+          hidden_at: string
+          hidden_by: string | null
+          id: string
+        }
+        Insert: {
+          cargo: string
+          depto: string
+          hidden_at?: string
+          hidden_by?: string | null
+          id?: string
+        }
+        Update: {
+          cargo?: string
+          depto?: string
+          hidden_at?: string
+          hidden_by?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
       documentos_metadata: {
         Row: {
           carpeta: string | null
