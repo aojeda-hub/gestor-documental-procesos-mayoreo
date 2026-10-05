@@ -6,7 +6,7 @@ import type { MapaDoc } from '@/hooks/useMapaProcesos';
 
 /** Orden del flujo de vida de un documento (para barras y leyendas). */
 export const ESTATUS_FLOW: DocumentEstatus[] = [
-  'aprobado', 'por_aprobar', 'revision', 'en_construccion', 'por_iniciar', 'desactualizado', 'desincorporado',
+  'aprobado', 'por_aprobar', 'revision', 'en_construccion', 'creada_ia', 'por_iniciar', 'desactualizado', 'desincorporado',
 ];
 
 export const ESTATUS_BAR_COLORS: Record<DocumentEstatus, string> = {
@@ -14,6 +14,7 @@ export const ESTATUS_BAR_COLORS: Record<DocumentEstatus, string> = {
   por_aprobar: 'bg-violet-500',
   revision: 'bg-amber-500',
   en_construccion: 'bg-blue-500',
+  creada_ia: 'bg-cyan-500',
   por_iniciar: 'bg-slate-300 dark:bg-slate-600',
   desactualizado: 'bg-orange-500',
   desincorporado: 'bg-slate-500',

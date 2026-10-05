@@ -87,7 +87,7 @@ export default function CargoOrganigrama({ depto, cargoItems, docs, canEdit, onV
   const renderNode = (cargo: string): JSX.Element => {
     const kids = childrenMap.get(cargo) || [];
     const descendants = getDescendants(cargo, childrenMap);
-    const matchedDoc = getMatchedCargoDoc(docs, archivoByCargo.get(cargo) || '', cargo);
+    const matchedDoc = getMatchedCargoDoc(docs, archivoByCargo.get(cargo) || '', cargo, depto);
     return (
       <li key={cargo}>
         <div className="org-node-card rounded-md border bg-card px-3 py-2 shadow-sm">

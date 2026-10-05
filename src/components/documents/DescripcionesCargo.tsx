@@ -284,7 +284,7 @@ export default function DescripcionesCargo({
   }, [mergedInventory]);
   const totalGeneral = mergedInventory.length;
 
-  const getMatchedDoc = (archivoName: string, cargo?: string) => getMatchedCargoDoc(docs, archivoName, cargo);
+  const getMatchedDoc = (archivoName: string, cargo?: string, depto?: string) => getMatchedCargoDoc(docs, archivoName, cargo, depto);
 
   return (
     <div className="space-y-6">
@@ -388,7 +388,7 @@ export default function DescripcionesCargo({
                   </TableRow>
                 ) : (
                   sortedFilteredData.map((item, idx) => {
-                    const matchedDoc = getMatchedDoc(item.archivo, item.cargo);
+                    const matchedDoc = getMatchedDoc(item.archivo, item.cargo, item.depto);
                     const estatus = matchedDoc ? ((matchedDoc.estatus || 'por_iniciar') as DocumentEstatus) : null;
 
                     return (

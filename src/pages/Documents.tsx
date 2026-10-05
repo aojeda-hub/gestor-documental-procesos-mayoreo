@@ -229,6 +229,8 @@ export default function Documents() {
     setFormSilo(doc.silo);
     setFormConfidential(doc.confidential);
     setFormEstatus((doc as any).estatus || 'por_iniciar');
+    setFormDepartamento(doc.departamento || '');
+    setFormCargo(doc.cargo || '');
     setShowDetailsDialog(true);
 
     const { data } = await supabase.from('document_versions').select('*')
@@ -247,8 +249,11 @@ export default function Documents() {
     if (!selectedDoc) return;
     setIsUpdating(true);
     try {
+      const finalDepartamento = formType === 'descripcion_cargo' ? (formDepartamento || '').trim() || null : null;
+      const finalCargo = formType === 'descripcion_cargo' ? (formCargo || '').trim() || null : null;
       await supabase.from('documents').update({
-        title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, estatus: formEstatus, drive_link: vDriveUrl.trim() || null
+        title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, estatus: formEstatus, drive_link: vDriveUrl.trim() || null,
+        departamento: finalDepartamento, cargo: finalCargo,
       } as any).eq('id', selectedDoc.id);
 
       if (currentVersion) {
@@ -786,6 +791,36 @@ export default function Documents() {
                   </Select>
                 </div>
               </div>
+              {formType === 'descripcion_cargo' && (
+                <div className="rounded-md border bg-muted/30 p-4 space-y-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Clasificación de la Descripción de Cargo
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Departamento</Label>
+                      <Select value={formDepartamento} onValueChange={setFormDepartamento} disabled={!canEdit}>
+                        <SelectTrigger><SelectValue placeholder="Selecciona departamento" /></SelectTrigger>
+                        <SelectContent>
+                          {DC_DEPARTAMENTOS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Cargo</Label>
+                      <Input
+                        value={formCargo}
+                        onChange={e => setFormCargo(e.target.value)}
+                        placeholder="Ej: Jefe de Compras"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Esta es la relación real con la que el sistema la vincula en Descripciones de Cargo, aunque cambies el título más adelante.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Estatus</Label>

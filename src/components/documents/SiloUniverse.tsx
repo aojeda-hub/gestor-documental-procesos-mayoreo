@@ -62,7 +62,7 @@ export default function SiloUniverse({
   const statusCounts = useMemo(() => {
     const counts: Record<DocumentEstatus, number> = {
       aprobado: 0, revision: 0, por_aprobar: 0, desactualizado: 0,
-      desincorporado: 0, en_construccion: 0, por_iniciar: 0,
+      desincorporado: 0, en_construccion: 0, creada_ia: 0, por_iniciar: 0,
     };
     for (const d of docs) {
       const e = (d.estatus || 'por_iniciar') as DocumentEstatus;

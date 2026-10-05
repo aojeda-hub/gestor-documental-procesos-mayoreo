@@ -34,6 +34,7 @@ export type DocumentEstatus =
   | 'desactualizado'
   | 'desincorporado'
   | 'en_construccion'
+  | 'creada_ia'
   | 'por_iniciar';
 
 export const DOCUMENT_ESTATUS_OPTIONS: DocumentEstatus[] = [
@@ -43,6 +44,7 @@ export const DOCUMENT_ESTATUS_OPTIONS: DocumentEstatus[] = [
   'desactualizado',
   'desincorporado',
   'en_construccion',
+  'creada_ia',
   'por_iniciar',
 ];
 
@@ -53,6 +55,7 @@ export const DOCUMENT_ESTATUS_LABELS: Record<DocumentEstatus, string> = {
   desactualizado: 'Desactualizado',
   desincorporado: 'Desincorporado',
   en_construccion: 'En construcción',
+  creada_ia: 'Creada con IA',
   por_iniciar: 'Por iniciar',
 };
 
@@ -63,6 +66,7 @@ export const DOCUMENT_ESTATUS_COLORS: Record<DocumentEstatus, string> = {
   desactualizado: 'bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30',
   desincorporado: 'bg-slate-500/15 text-slate-700 dark:text-slate-400 border-slate-500/30',
   en_construccion: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30',
+  creada_ia: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/30',
   por_iniciar: 'bg-muted text-muted-foreground border-border',
 };
 
