@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
 import type { Project, ProjectEstado, ProjectTask, ProjectPhase, SiloType, TaskDependency, ProyectoRiesgo, ProjectMilestone, ObjetivoEstrategico } from '@/types/database';
@@ -75,9 +76,10 @@ export default function Projects() {
   const [projects, setProjects] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[]; scheduleVariance: ReturnType<typeof calculateProjectScheduleVariance> })[]>([]);
   const [objetivos, setObjetivos] = useState<ObjetivoEstrategico[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterSilo, setFilterSilo] = useState('all');
-  const [filterEstado, setFilterEstado] = useState<'all' | ProjectEstado>('all');
-  const [search, setSearch] = useState('');
+  const [filterSilo, setFilterSilo] = usePersistedState('projects.filterSilo', 'all');
+  const [filterEstado, setFilterEstado] = usePersistedState<'all' | ProjectEstado>('projects.filterEstado', 'all');
+  const [search, setSearch] = usePersistedState('projects.search', '');
+  const [activeTab, setActiveTab] = usePersistedState('projects.activeTab', 'tabla');
 
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [tasksDialogOpen, setTasksDialogOpen] = useState(false);
@@ -242,7 +244,7 @@ export default function Projects() {
 
       <CertificaERPDialog open={certificaErpOpen} onOpenChange={setCertificaErpOpen} />
 
-      <Tabs defaultValue="tabla" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="tabla">Tabla</TabsTrigger>
           <TabsTrigger value="objetivo">Por Objetivo</TabsTrigger>

@@ -32,7 +32,6 @@ export default function Dashboard() {
   const isViewerOnly = roles.includes('viewer') && !roles.includes('admin') && !roles.includes('editor') && !roles.includes('responsable_metodos');
 
   const [totalDocs, setTotalDocs] = useState(0);
-  const [totalIndicators, setTotalIndicators] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalProjects, setTotalProjects] = useState(0);
   const [siloStats, setSiloStats] = useState<SiloStat[]>([]);
@@ -48,9 +47,8 @@ export default function Dashboard() {
   useEffect(() => {
     if (isViewerOnly) return;
     const load = async () => {
-      const [docsRes, indRes, usersRes, projRes, docsData, recentRes] = await Promise.all([
+      const [docsRes, usersRes, projRes, docsData, recentRes] = await Promise.all([
         supabase.from('documents').select('id, confidential'),
-        supabase.from('indicators').select('id', { count: 'exact', head: true }),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('projects' as any).select('id', { count: 'exact', head: true }),
         supabase.from('documents').select('silo, confidential'),
@@ -64,7 +62,6 @@ export default function Dashboard() {
         return true;
       });
       setTotalDocs(allowedDocs.length);
-      setTotalIndicators(indRes.count || 0);
       setTotalUsers(usersRes.count || 0);
       setTotalProjects(projRes.count || 0);
 
@@ -132,7 +129,7 @@ export default function Dashboard() {
       </div>
 
       {/* Top Stat Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {/* Featured Card */}
         <button
           onClick={() => navigate('/documentos')}
@@ -153,13 +150,6 @@ export default function Dashboard() {
         </button>
 
         {/* Standard Cards */}
-        <StatCard
-          label="Indicadores"
-          value={totalIndicators}
-          icon={BarChart3}
-          subtitle="Métricas activas"
-          onClick={() => navigate('/indicadores')}
-        />
         <StatCard
           label="Proyectos"
           value={totalProjects}

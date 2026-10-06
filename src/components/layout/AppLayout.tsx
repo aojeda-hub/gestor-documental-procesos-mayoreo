@@ -108,9 +108,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <h2 className="text-lg font-semibold">
-            {navItems.find(n => n.to === location.pathname)?.label || 'Sistema'}
-          </h2>
           <div className="ml-auto">
             <NotificationsBell />
           </div>
