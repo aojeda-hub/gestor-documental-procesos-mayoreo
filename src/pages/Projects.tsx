@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedState } from '@/hooks/usePersistedState';
-import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle, Fish } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
 import type { Project, ProjectEstado, ProjectTask, ProjectPhase, SiloType, TaskDependency, ProyectoRiesgo, ProjectMilestone, ObjetivoEstrategico } from '@/types/database';
 import { calculateProjectScheduleVariance, VARIANCE_STATUS_META } from '@/lib/baselineUtils';
@@ -27,6 +27,7 @@ import { ProjectObjectiveTimeline } from '@/components/projects/ProjectObjective
 import { ProjectPhasesPanel } from '@/components/projects/ProjectPhasesPanel';
 import { ProjectKickoffDialog } from '@/components/projects/ProjectKickoffDialog';
 import { ProjectDocumentsDialog } from '@/components/projects/ProjectDocumentsDialog';
+import { ProjectIshikawaDialog } from '@/components/projects/ProjectIshikawaDialog';
 import { ProjectSummaryDialog } from '@/components/projects/ProjectSummaryDialog';
 import { ProjectScheduleDialog } from '@/components/projects/ProjectScheduleDialog';
 import { ExportPDFDialog } from '@/components/ExportPDFDialog';
@@ -86,6 +87,7 @@ export default function Projects() {
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
   const [docsDialogOpen, setDocsDialogOpen] = useState(false);
+  const [ishikawaDialogOpen, setIshikawaDialogOpen] = useState(false);
   const [certificaErpOpen, setCertificaErpOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[]; scheduleVariance: ReturnType<typeof calculateProjectScheduleVariance> }) | null>(null);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
@@ -429,6 +431,14 @@ export default function Projects() {
                         >
                           <Paperclip className="h-4 w-4 text-emerald-600" />
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => { setSelectedProject(project); setIshikawaDialogOpen(true); }}
+                          title="Análisis de Ishikawa"
+                        >
+                          <Fish className="h-4 w-4 text-cyan-600" />
+                        </Button>
                         {canEdit && (
                           <>
                             <Button 
@@ -515,6 +525,16 @@ export default function Projects() {
           onOpenChange={setDocsDialogOpen}
           projectId={selectedProject.id}
           projectName={selectedProject.name}
+        />
+      )}
+
+      {selectedProject && (
+        <ProjectIshikawaDialog
+          open={ishikawaDialogOpen}
+          onOpenChange={setIshikawaDialogOpen}
+          projectId={selectedProject.id}
+          projectName={selectedProject.name}
+          canEdit={canEdit}
         />
       )}
 
