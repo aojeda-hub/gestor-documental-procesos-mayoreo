@@ -17,21 +17,25 @@ const PILAR_ICONS: Record<string, typeof TrendingUp> = {
   talento: Users,
 };
 
-const MAX_MONTH_COLUMNS = 8;
+type ViewUnit = 'mes' | 'anio';
+const ANIO_INICIAL = 2024;
 
 function monthIndex(dateStr: string): number {
   const d = new Date(dateStr + 'T00:00:00');
   return d.getFullYear() * 12 + d.getMonth();
 }
 
-function monthLabel(idx: number): string {
-  const d = new Date(Math.floor(idx / 12), idx % 12, 1);
-  return d.toLocaleDateString('es', { month: 'long' }).toUpperCase();
+function yearIndex(dateStr: string): number {
+  return new Date(dateStr + 'T00:00:00').getFullYear();
 }
 
 function shortMonthLabel(idx: number): string {
   const d = new Date(Math.floor(idx / 12), idx % 12, 1);
   return d.toLocaleDateString('es', { month: 'short' }).replace('.', '');
+}
+
+function yearOf(idx: number): number {
+  return Math.floor(idx / 12);
 }
 
 function progressOf(p: { end_date?: string | null; actual_progress: number | null }, isCulminado: boolean): number {
@@ -42,9 +46,11 @@ function progressOf(p: { end_date?: string | null; actual_progress: number | nul
 export function ProjectObjectiveTimeline({ projects, objetivos }: ProjectObjectiveTimelineProps) {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [viewUnit, setViewUnit] = useState<ViewUnit>('mes');
 
   const today = new Date();
   const todayIdx = today.getFullYear() * 12 + today.getMonth();
+  const todayYear = today.getFullYear();
 
   const classified = useMemo(() => {
     return projects.map(p => {
@@ -93,7 +99,19 @@ export function ProjectObjectiveTimeline({ projects, objetivos }: ProjectObjecti
 
   const visibleObjetivos = activeFilter === 'all' ? objetivos : objetivos.filter(o => o.id === activeFilter);
 
-  const months = useMemo(() => {
+  const periods = useMemo(() => {
+    if (viewUnit === 'anio') {
+      let min = ANIO_INICIAL;
+      let max = todayYear;
+      activeProjects.forEach(p => {
+        if (p.start_date) min = Math.min(min, yearIndex(p.start_date));
+        const effectiveEnd = p.isAtrasado ? todayYear : (p.end_date ? yearIndex(p.end_date) : todayYear);
+        max = Math.max(max, effectiveEnd);
+      });
+      const list: number[] = [];
+      for (let y = min; y <= max; y++) list.push(y);
+      return list;
+    }
     let min = todayIdx;
     let max = todayIdx;
     activeProjects.forEach(p => {
@@ -101,15 +119,28 @@ export function ProjectObjectiveTimeline({ projects, objetivos }: ProjectObjecti
       const effectiveEnd = p.isAtrasado ? todayIdx : (p.end_date ? monthIndex(p.end_date) : todayIdx);
       max = Math.max(max, effectiveEnd);
     });
-    if (max - min + 1 > MAX_MONTH_COLUMNS) max = min + MAX_MONTH_COLUMNS - 1;
     const list: number[] = [];
     for (let i = min; i <= max; i++) list.push(i);
     return list;
-  }, [activeProjects, todayIdx]);
+  }, [activeProjects, todayIdx, todayYear, viewUnit]);
 
-  const currentMonthFrac = months.length > 0
-    ? (todayIdx - months[0] + (today.getDate() / new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate())) / months.length
+  const todayPeriod = viewUnit === 'anio' ? todayYear : todayIdx;
+
+  const currentFrac = periods.length > 0
+    ? viewUnit === 'anio'
+      ? (todayYear - periods[0] + (today.getMonth() + 1) / 12) / periods.length
+      : (todayIdx - periods[0] + (today.getDate() / new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate())) / periods.length
     : 0;
+
+  const getColRange = (p: { start_date?: string | null; end_date?: string | null; isAtrasado: boolean }) => {
+    const startRaw = p.start_date ? (viewUnit === 'anio' ? yearIndex(p.start_date) : monthIndex(p.start_date)) : periods[0];
+    const endRaw = p.isAtrasado
+      ? todayPeriod
+      : (p.end_date ? (viewUnit === 'anio' ? yearIndex(p.end_date) : monthIndex(p.end_date)) : startRaw);
+    const colStart = Math.max(1, startRaw - periods[0] + 1);
+    const colEnd = Math.min(periods.length, Math.max(colStart, endRaw - periods[0] + 1)) + 1;
+    return { colStart, colEnd };
+  };
 
   const SIDEBAR_WIDTH = 190;
 
@@ -127,6 +158,20 @@ export function ProjectObjectiveTimeline({ projects, objetivos }: ProjectObjecti
         <div className="relative max-w-xs w-full">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar proyecto..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
+        </div>
+        <div className="inline-flex rounded-md border p-0.5 bg-muted/40">
+          <button
+            onClick={() => setViewUnit('mes')}
+            className={`text-xs px-3 py-1.5 rounded-sm transition-colors ${viewUnit === 'mes' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Meses
+          </button>
+          <button
+            onClick={() => setViewUnit('anio')}
+            className={`text-xs px-3 py-1.5 rounded-sm transition-colors ${viewUnit === 'anio' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Años
+          </button>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <button
@@ -153,23 +198,28 @@ export function ProjectObjectiveTimeline({ projects, objetivos }: ProjectObjecti
       </div>
 
       <div className="rounded-lg border overflow-x-auto">
-        <div style={{ minWidth: SIDEBAR_WIDTH + months.length * 90 }}>
+        <div style={{ minWidth: SIDEBAR_WIDTH + periods.length * (viewUnit === 'anio' ? 90 : 64) }}>
           <div className="relative">
             <div className="flex border-b bg-muted/40 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
               <div style={{ width: SIDEBAR_WIDTH }} className="shrink-0 px-3 py-2">Línea / Pilar</div>
-              <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${months.length || 1}, 1fr)` }}>
-                {months.map(m => (
-                  <div key={m} className={`px-2 py-2 border-l ${m === todayIdx ? 'text-red-500 font-semibold' : ''}`}>
-                    {monthLabel(m)}{m === todayIdx && <span className="ml-1">●</span>}
-                  </div>
-                ))}
+              <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${periods.length || 1}, 1fr)` }}>
+                {periods.map((m, i) => {
+                  const isToday = m === todayPeriod;
+                  const showYear = viewUnit === 'mes' && (i === 0 || m % 12 === 0);
+                  return (
+                    <div key={m} className={`px-2 py-2 border-l text-center leading-tight ${isToday ? 'text-red-500 font-semibold' : ''}`}>
+                      <div>{viewUnit === 'anio' ? m : shortMonthLabel(m).toUpperCase()}{isToday && <span className="ml-1">●</span>}</div>
+                      {showYear && <div className="text-[9px] font-normal normal-case text-muted-foreground/80">{yearOf(m)}</div>}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {months.length > 0 && (
+            {periods.length > 0 && (
               <div
                 className="absolute top-0 bottom-0 border-l-2 border-dashed border-red-400 z-10 pointer-events-none"
-                style={{ left: `calc(${SIDEBAR_WIDTH}px + (100% - ${SIDEBAR_WIDTH}px) * ${Math.min(Math.max(currentMonthFrac, 0), 1)})` }}
+                style={{ left: `calc(${SIDEBAR_WIDTH}px + (100% - ${SIDEBAR_WIDTH}px) * ${Math.min(Math.max(currentFrac, 0), 1)})` }}
               />
             )}
 
@@ -202,16 +252,13 @@ export function ProjectObjectiveTimeline({ projects, objetivos }: ProjectObjecti
                       </div>
                     ) : (
                       pilarProjects.map(p => {
-                        const startIdx = p.start_date ? monthIndex(p.start_date) : months[0];
-                        const endIdx = p.isAtrasado ? todayIdx : (p.end_date ? monthIndex(p.end_date) : startIdx);
-                        const colStart = Math.max(1, startIdx - months[0] + 1);
-                        const colEnd = Math.min(months.length, Math.max(colStart, endIdx - months[0] + 1)) + 1;
+                        const { colStart, colEnd } = getColRange(p);
                         const pct = progressOf(p, false);
-                        const barColorClass = p.isAtrasado ? 'bg-red-500' : colors?.bar;
-                        const barBgClass = p.isAtrasado ? 'bg-red-100 border-red-300' : `${colors?.barBg} border-current`;
+                        const barColorClass = p.isAtrasado ? 'bg-red-500/80' : colors?.bar;
+                        const barBgClass = p.isAtrasado ? 'bg-red-100/70 border-red-300 dark:bg-red-500/15 dark:border-red-500/30' : `${colors?.barBg} border-current`;
 
                         return (
-                          <div key={p.id} className="grid h-7" style={{ gridTemplateColumns: `repeat(${months.length}, 1fr)` }}>
+                          <div key={p.id} className="grid h-7" style={{ gridTemplateColumns: `repeat(${periods.length}, 1fr)` }}>
                             <div
                               style={{ gridColumn: `${colStart} / ${colEnd}` }}
                               className={`relative h-7 rounded-full border ${barBgClass} ${p.isAtrasado ? 'text-red-600' : colors?.text} overflow-hidden flex items-center`}
