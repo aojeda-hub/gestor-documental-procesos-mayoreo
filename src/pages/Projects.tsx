@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedState } from '@/hooks/usePersistedState';
-import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle, Fish } from 'lucide-react';
+import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle, Fish, ClipboardList } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
 import type { Project, ProjectEstado, ProjectTask, ProjectPhase, SiloType, TaskDependency, ProyectoRiesgo, ProjectMilestone, ObjetivoEstrategico } from '@/types/database';
 import { calculateProjectScheduleVariance, VARIANCE_STATUS_META } from '@/lib/baselineUtils';
@@ -28,6 +28,7 @@ import { ProjectPhasesPanel } from '@/components/projects/ProjectPhasesPanel';
 import { ProjectKickoffDialog } from '@/components/projects/ProjectKickoffDialog';
 import { ProjectDocumentsDialog } from '@/components/projects/ProjectDocumentsDialog';
 import { ProjectIshikawaDialog } from '@/components/projects/ProjectIshikawaDialog';
+import { ProjectSeguimientosDialog } from '@/components/projects/ProjectSeguimientosDialog';
 import { ProjectSummaryDialog } from '@/components/projects/ProjectSummaryDialog';
 import { ProjectScheduleDialog } from '@/components/projects/ProjectScheduleDialog';
 import { ExportPDFDialog } from '@/components/ExportPDFDialog';
@@ -88,7 +89,40 @@ export default function Projects() {
   const [kickoffDialogOpen, setKickoffDialogOpen] = useState(false);
   const [docsDialogOpen, setDocsDialogOpen] = useState(false);
   const [ishikawaDialogOpen, setIshikawaDialogOpen] = useState(false);
+  const [seguimientosDialogOpen, setSeguimientosDialogOpen] = useState(false);
+  const [seguimientosPendientes, setSeguimientosPendientes] = useState<Map<string, number>>(new Map());
+
+  const fetchSeguimientosPendientes = async () => {
+    const { data, error } = await supabase
+      .from('seguimientos' as any)
+      .select('project_id, estado')
+      .not('project_id', 'is', null);
+    if (error) return;
+    const map = new Map<string, number>();
+    (data as unknown as { project_id: string; estado: string }[] || []).forEach((row) => {
+      if (row.estado === 'completado' || row.estado === 'cancelado') return;
+      map.set(row.project_id, (map.get(row.project_id) || 0) + 1);
+    });
+    setSeguimientosPendientes(map);
+  };
   const [certificaErpOpen, setCertificaErpOpen] = useState(false);
+  const [certificaErpLinkedProject, setCertificaErpLinkedProject] = useState<{ id: string; name: string } | null>(null);
+  const [certAbiertas, setCertAbiertas] = useState<Map<string, number>>(new Map());
+
+  const fetchCertAbiertas = async () => {
+    const { data, error } = await supabase
+      .from('proyectos' as any)
+      .select('projects_id, incidencias(estado)')
+      .not('projects_id', 'is', null);
+    if (error) return;
+    const map = new Map<string, number>();
+    (data as any[] || []).forEach((row) => {
+      if (!row.projects_id) return;
+      const abiertas = ((row.incidencias as { estado: string }[]) || []).filter(i => i.estado !== 'resuelto').length;
+      map.set(row.projects_id, abiertas);
+    });
+    setCertAbiertas(map);
+  };
   const [selectedProject, setSelectedProject] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[]; scheduleVariance: ReturnType<typeof calculateProjectScheduleVariance> }) | null>(null);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
@@ -179,7 +213,7 @@ export default function Projects() {
     setObjetivos((data || []) as ObjetivoEstrategico[]);
   };
 
-  useEffect(() => { fetchProjects(); fetchObjetivos(); }, []);
+  useEffect(() => { fetchProjects(); fetchObjetivos(); fetchCertAbiertas(); fetchSeguimientosPendientes(); }, []);
 
   const objetivoById = new Map(objetivos.map(o => [o.id, o]));
 
@@ -235,7 +269,7 @@ export default function Projects() {
               await exportProjectsPDF(list, silo);
             }}
           />
-          <Button variant="outline" onClick={() => setCertificaErpOpen(true)}>
+          <Button variant="outline" onClick={() => { setCertificaErpLinkedProject(null); setCertificaErpOpen(true); }}>
             <FileCheck2 className="mr-2 h-4 w-4" /> CertificaERP
           </Button>
           <Button onClick={() => { setSelectedProject(null); setFormDialogOpen(true); }}>
@@ -244,7 +278,11 @@ export default function Projects() {
         </div>
       </div>
 
-      <CertificaERPDialog open={certificaErpOpen} onOpenChange={setCertificaErpOpen} />
+      <CertificaERPDialog
+        open={certificaErpOpen}
+        onOpenChange={(v) => { setCertificaErpOpen(v); if (!v) fetchCertAbiertas(); }}
+        linkedProject={certificaErpLinkedProject ?? undefined}
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
@@ -439,6 +477,46 @@ export default function Projects() {
                         >
                           <Fish className="h-4 w-4 text-cyan-600" />
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="relative"
+                          onClick={() => { setSelectedProject(project); setSeguimientosDialogOpen(true); }}
+                          title={
+                            seguimientosPendientes.has(project.id)
+                              ? `Seguimientos — ${seguimientosPendientes.get(project.id)} pendiente(s)`
+                              : 'Seguimientos de este proyecto'
+                          }
+                        >
+                          <ClipboardList className="h-4 w-4 text-amber-600" />
+                          {!!seguimientosPendientes.get(project.id) && (
+                            <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[9px] flex items-center justify-center bg-amber-500 hover:bg-amber-500 text-white border-0">
+                              {(seguimientosPendientes.get(project.id) || 0) > 9 ? '9+' : seguimientosPendientes.get(project.id)}
+                            </Badge>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="relative"
+                          onClick={() => {
+                            setSelectedProject(project);
+                            setCertificaErpLinkedProject({ id: project.id, name: project.name });
+                            setCertificaErpOpen(true);
+                          }}
+                          title={
+                            certAbiertas.has(project.id)
+                              ? `CertificaERP — ${certAbiertas.get(project.id)} incidencia(s)/requerimiento(s) abiertos`
+                              : 'CertificaERP de este proyecto'
+                          }
+                        >
+                          <FileCheck2 className="h-4 w-4 text-indigo-600" />
+                          {!!certAbiertas.get(project.id) && (
+                            <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[9px] flex items-center justify-center bg-rose-500 hover:bg-rose-500 text-white border-0">
+                              {(certAbiertas.get(project.id) || 0) > 9 ? '9+' : certAbiertas.get(project.id)}
+                            </Badge>
+                          )}
+                        </Button>
                         {canEdit && (
                           <>
                             <Button 
@@ -535,6 +613,15 @@ export default function Projects() {
           projectId={selectedProject.id}
           projectName={selectedProject.name}
           canEdit={canEdit}
+        />
+      )}
+
+      {selectedProject && (
+        <ProjectSeguimientosDialog
+          open={seguimientosDialogOpen}
+          onOpenChange={(v) => { setSeguimientosDialogOpen(v); if (!v) fetchSeguimientosPendientes(); }}
+          projectId={selectedProject.id}
+          projectName={selectedProject.name}
         />
       )}
 

@@ -113,6 +113,7 @@ export interface Seguimiento {
   responsable: string | null;
   categoria: string | null;
   proyecto: string | null;
+  project_id?: string | null;
   fecha_limite: string | null;
   fecha_completado: string | null;
   fecha_inicio?: string | null;

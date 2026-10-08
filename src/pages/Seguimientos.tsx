@@ -36,8 +36,11 @@ import { crearTableroReunionOperativa, agregarMiembrosTablero } from '@/lib/reun
 
 const empty = {
   titulo: '', descripcion: '', estado: 'pendiente' as Estado, prioridad: 'media' as Prioridad,
-  proyecto: '', fecha_limite: '',
+  proyecto: '', project_id: null as string | null, fecha_limite: '',
 };
+
+const SIN_PROYECTO = '__sin_proyecto__';
+const OTRO_PROYECTO = '__otro_proyecto__';
 
 // Los seguimientos "completado" se ocultan del listado general por defecto
 // pasados estos días desde que se completaron (fecha_completado, que llena
@@ -97,6 +100,12 @@ export default function Seguimientos() {
   const [membersDialogNewIds, setMembersDialogNewIds] = useState<string[]>([]);
   const [addingMembers, setAddingMembers] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [projectsList, setProjectsList] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    supabase.from('projects').select('id, name').order('name')
+      .then(({ data }) => setProjectsList((data as { id: string; name: string }[]) || []));
+  }, []);
 
   const handleRemoveMember = async (memberUserId: string) => {
     if (!membersDialogBoard) return;
@@ -404,6 +413,7 @@ export default function Seguimientos() {
       estado: s.estado,
       prioridad: s.prioridad,
       proyecto: s.proyecto || '',
+      project_id: s.project_id || null,
       fecha_limite: s.fecha_limite || '',
     });
     setFormResponsables(membersByTask[s.id] || []);
@@ -421,6 +431,7 @@ export default function Seguimientos() {
       estado: form.estado,
       prioridad: form.prioridad,
       proyecto: form.proyecto.trim() || null,
+      project_id: form.project_id,
       fecha_limite: form.fecha_limite || null,
     };
     const { data: savedRow, error } = editing
@@ -458,6 +469,8 @@ export default function Seguimientos() {
       load();
     }
   };
+
+  const proyectoSeleccion = form.project_id ?? (form.proyecto ? OTRO_PROYECTO : SIN_PROYECTO);
 
   const totals = {
     total: itemsVisibles.length,
@@ -929,8 +942,30 @@ export default function Seguimientos() {
               <Input value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} placeholder="Título del seguimiento" />
             </div>
             <div>
-              <Label>Nombre del proyecto</Label>
-              <Input value={form.proyecto} onChange={e => setForm({ ...form, proyecto: e.target.value })} placeholder="Nombre del proyecto" />
+              <Label>Proyecto</Label>
+              <Select
+                value={proyectoSeleccion}
+                onValueChange={(v) => {
+                  if (v === SIN_PROYECTO) setForm({ ...form, project_id: null, proyecto: '' });
+                  else if (v === OTRO_PROYECTO) setForm({ ...form, project_id: null });
+                  else setForm({ ...form, project_id: v, proyecto: projectsList.find(p => p.id === v)?.name || '' });
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecciona un proyecto" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_PROYECTO}>Sin proyecto</SelectItem>
+                  {projectsList.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  <SelectItem value={OTRO_PROYECTO}>Otro (escribir texto)...</SelectItem>
+                </SelectContent>
+              </Select>
+              {proyectoSeleccion === OTRO_PROYECTO && (
+                <Input
+                  className="mt-2"
+                  value={form.proyecto}
+                  onChange={e => setForm({ ...form, proyecto: e.target.value })}
+                  placeholder="Nombre del proyecto"
+                />
+              )}
             </div>
             <div>
               <Label>Descripción</Label>

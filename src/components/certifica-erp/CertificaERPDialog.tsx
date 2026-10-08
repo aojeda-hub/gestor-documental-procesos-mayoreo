@@ -84,22 +84,49 @@ function ResponsableSelect({ label, required, value, onChange, directory }: {
   );
 }
 
-interface Props { open: boolean; onOpenChange: (v: boolean) => void; }
+interface Props {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  /** Cuando se abre desde la ficha de un proyecto real (projects), entra directo
+   * a su proyecto de CertificaERP ya vinculado, o a la pantalla para vincularlo. */
+  linkedProject?: { id: string; name: string };
+}
 
-export function CertificaERPDialog({ open, onOpenChange }: Props) {
+export function CertificaERPDialog({ open, onOpenChange, linkedProject }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[98vw] w-[1400px] h-[95vh] p-0 gap-0 flex flex-col overflow-hidden">
         <QueryClientProvider client={queryClient}>
-          <CertificaERPApp onClose={() => onOpenChange(false)} />
+          <CertificaERPApp onClose={() => onOpenChange(false)} linkedProject={linkedProject} />
         </QueryClientProvider>
       </DialogContent>
     </Dialog>
   );
 }
 
-function CertificaERPApp({ onClose }: { onClose: () => void }) {
+function CertificaERPApp({ onClose, linkedProject }: { onClose: () => void; linkedProject?: { id: string; name: string } }) {
   const [view, setView] = useState<CertView>({ name: "companias" });
+
+  // Si se abrió desde un proyecto real, resuelve si ya tiene un proyecto de
+  // CertificaERP vinculado (projects_id) y salta directo ahí; si no, muestra
+  // la pantalla para vincular uno existente o crear uno nuevo ya vinculado.
+  const { data: linkedProyectoId, isLoading: resolviendoLink } = useQuery({
+    queryKey: ["cert-linked-proyecto", linkedProject?.id],
+    enabled: !!linkedProject,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("proyectos")
+        .select("id").eq("projects_id", linkedProject!.id).maybeSingle();
+      if (error) throw error;
+      return (data as { id: string } | null)?.id ?? null;
+    },
+  });
+
+  useEffect(() => {
+    if (!linkedProject || resolviendoLink) return;
+    setView(linkedProyectoId
+      ? { name: "proyecto", id: linkedProyectoId }
+      : { name: "vincular", projectId: linkedProject.id, projectName: linkedProject.name });
+  }, [linkedProject, linkedProyectoId, resolviendoLink]);
   // Vive aquí (no dentro de ProyectoView/IncidenciasTab) para que sobreviva
   // al entrar a una incidencia y volver — de lo contrario ProyectoView se
   // desmonta al navegar y los filtros se perdían.
@@ -128,19 +155,153 @@ function CertificaERPApp({ onClose }: { onClose: () => void }) {
         </div>
       </header>
       <main className="flex-1 min-h-0 overflow-y-auto px-4 py-5 sm:px-6">
-        {view.name === "companias" && <CompaniasList navigate={setView} />}
-        {view.name === "compania" && <CompaniaView slug={view.slug} navigate={setView} />}
-        {view.name === "proyecto" && (
-          <ProyectoView
-            id={view.id}
-            navigate={setView}
-            incidenciasFiltros={incidenciasFiltros}
-            onIncidenciasFiltrosChange={setIncidenciasFiltros}
-          />
+        {linkedProject && resolviendoLink ? (
+          <div className="flex h-full items-center justify-center text-muted-foreground gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Buscando proyecto vinculado...
+          </div>
+        ) : (
+          <>
+            {view.name === "companias" && <CompaniasList navigate={setView} />}
+            {view.name === "compania" && <CompaniaView slug={view.slug} navigate={setView} />}
+            {view.name === "proyecto" && (
+              <ProyectoView
+                id={view.id}
+                navigate={setView}
+                incidenciasFiltros={incidenciasFiltros}
+                onIncidenciasFiltrosChange={setIncidenciasFiltros}
+              />
+            )}
+            {view.name === "incidencia" && <IncidenciaDetail id={view.id} navigate={setView} />}
+            {view.name === "nueva" && <NuevaIncidencia proyectoId={view.proyectoId} tipoInicial={view.tipo ?? "incidencia"} navigate={setView} />}
+            {view.name === "vincular" && (
+              <VincularProyectoView projectId={view.projectId} projectName={view.projectName} navigate={setView} />
+            )}
+          </>
         )}
-        {view.name === "incidencia" && <IncidenciaDetail id={view.id} navigate={setView} />}
-        {view.name === "nueva" && <NuevaIncidencia proyectoId={view.proyectoId} tipoInicial={view.tipo ?? "incidencia"} navigate={setView} />}
       </main>
+    </div>
+  );
+}
+
+/* ============================ VINCULAR PROYECTO (desde Proyectos) ============================ */
+// Puente entre un proyecto real (projects) y su contraparte en CertificaERP
+// (proyectos). No borra ni reemplaza nada: solo marca `projects_id` en una
+// fila existente, o crea una fila nueva ya vinculada desde el inicio.
+function VincularProyectoView({ projectId, projectName, navigate }: {
+  projectId: string; projectName: string; navigate: (v: CertView) => void;
+}) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [companiaId, setCompaniaId] = useState("");
+  const [nombreNuevo, setNombreNuevo] = useState(projectName);
+  const [vinculando, setVinculando] = useState<string | null>(null);
+  const [creando, setCreando] = useState(false);
+
+  const { data: companias } = useQuery({
+    queryKey: ["cert-companias"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("companias")
+        .select("id, nombre, slug, orden, activo").eq("activo", true).order("orden");
+      if (error) throw error;
+      return (data ?? []) as CompaniaRow[];
+    },
+  });
+
+  const { data: disponibles, isLoading } = useQuery({
+    queryKey: ["cert-proyectos-sin-vincular"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("proyectos")
+        .select("id, nombre, compania_id, companias(nombre)")
+        .is("projects_id", null)
+        .order("nombre");
+      if (error) throw error;
+      return (data ?? []) as (ProyectoRow & { companias: { nombre: string } | null })[];
+    },
+  });
+
+  const vincular = async (proyectoId: string) => {
+    setVinculando(proyectoId);
+    try {
+      const { error } = await supabase.from("proyectos").update({ projects_id: projectId }).eq("id", proyectoId);
+      if (error) throw error;
+      toast.success("Proyecto vinculado");
+      await qc.invalidateQueries({ queryKey: ["cert-proyectos-sin-vincular"] });
+      navigate({ name: "proyecto", id: proyectoId });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+    finally { setVinculando(null); }
+  };
+
+  const crearYVincular = async () => {
+    if (!user || !companiaId) { toast.error("Selecciona una compañía"); return; }
+    if (nombreNuevo.trim().length < 3) { toast.error("Mínimo 3 caracteres"); return; }
+    setCreando(true);
+    try {
+      const { data, error } = await supabase.from("proyectos").insert({
+        compania_id: companiaId, nombre: nombreNuevo.trim(), created_by: user.id, projects_id: projectId,
+      }).select("id").single();
+      if (error) throw error;
+      toast.success("Proyecto creado y vinculado");
+      navigate({ name: "proyecto", id: (data as { id: string }).id });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+    finally { setCreando(false); }
+  };
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Vincular "{projectName}" con CertificaERP</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Este proyecto todavía no tiene incidencias/requerimientos de certificación asociados. Vincúlalo a uno
+          existente o crea uno nuevo.
+        </p>
+      </div>
+
+      <Card className="p-5 space-y-3">
+        <div className="text-sm font-semibold">Vincular a un proyecto existente de CertificaERP</div>
+        {isLoading ? (
+          <div className="h-16 animate-pulse rounded bg-muted/40" />
+        ) : !disponibles || disponibles.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">No hay proyectos de CertificaERP sin vincular.</p>
+        ) : (
+          <div className="space-y-1.5 max-h-56 overflow-y-auto">
+            {disponibles.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{p.nombre}</div>
+                  <div className="text-xs text-muted-foreground truncate">{p.companias?.nombre}</div>
+                </div>
+                <Button size="sm" variant="outline" disabled={vinculando === p.id} onClick={() => vincular(p.id)}>
+                  {vinculando === p.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Vincular
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-5 space-y-3">
+        <div className="text-sm font-semibold">O crear uno nuevo ya vinculado</div>
+        <div className="space-y-2">
+          <Label>Compañía *</Label>
+          <Select value={companiaId} onValueChange={setCompaniaId}>
+            <SelectTrigger><SelectValue placeholder="Selecciona compañía" /></SelectTrigger>
+            <SelectContent>
+              {(companias ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Nombre del proyecto *</Label>
+          <Input value={nombreNuevo} onChange={(e) => setNombreNuevo(e.target.value)} />
+        </div>
+        <Button onClick={crearYVincular} disabled={creando}>
+          {creando && <Loader2 className="h-4 w-4 animate-spin" />} <Plus className="h-4 w-4" /> Crear y vincular
+        </Button>
+      </Card>
+
+      <button onClick={() => navigate({ name: "companias" })} className="text-xs text-muted-foreground hover:text-foreground">
+        Prefiero explorar CertificaERP sin vincular este proyecto por ahora →
+      </button>
     </div>
   );
 }

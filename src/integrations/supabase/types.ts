@@ -1678,6 +1678,7 @@ export type Database = {
           descripcion: string | null
           id: string
           nombre: string
+          projects_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1688,6 +1689,7 @@ export type Database = {
           descripcion?: string | null
           id?: string
           nombre: string
+          projects_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1698,6 +1700,7 @@ export type Database = {
           descripcion?: string | null
           id?: string
           nombre?: string
+          projects_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1706,6 +1709,13 @@ export type Database = {
             columns: ["compania_id"]
             isOneToOne: false
             referencedRelation: "companias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyectos_projects_id_fkey"
+            columns: ["projects_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -2118,6 +2128,7 @@ export type Database = {
           id: string
           orden: number
           prioridad: Database["public"]["Enums"]["seguimiento_prioridad"]
+          project_id: string | null
           proyecto: string | null
           responsable: string | null
           titulo: string
@@ -2138,6 +2149,7 @@ export type Database = {
           id?: string
           orden?: number
           prioridad?: Database["public"]["Enums"]["seguimiento_prioridad"]
+          project_id?: string | null
           proyecto?: string | null
           responsable?: string | null
           titulo: string
@@ -2158,6 +2170,7 @@ export type Database = {
           id?: string
           orden?: number
           prioridad?: Database["public"]["Enums"]["seguimiento_prioridad"]
+          project_id?: string | null
           proyecto?: string | null
           responsable?: string | null
           titulo?: string
@@ -2178,6 +2191,13 @@ export type Database = {
             columns: ["column_id"]
             isOneToOne: false
             referencedRelation: "seguimiento_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seguimientos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
