@@ -39,6 +39,7 @@ const emptyForm = {
   silo: 'procesos' as SiloType,
   phase: 'Alineación',
   estado: 'en_progreso' as ProjectEstado,
+  stop_reason: '',
   start_date: '',
   end_date: '',
   description: '',
@@ -70,6 +71,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
         silo: project.silo,
         phase: project.phase,
         estado: project.estado || 'en_progreso',
+        stop_reason: project.stop_reason || '',
         start_date: project.start_date || '',
         end_date: project.end_date || '',
         description: project.description || '',
@@ -93,6 +95,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
         ...form,
         specific_goals: form.specific_goals.map(g => g.trim()).filter(Boolean),
         objetivo_estrategico_id: form.objetivo_estrategico_id || null,
+        stop_reason: form.stop_reason.trim() || null,
       };
       let error;
 
@@ -170,6 +173,20 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
                 {ESTADOS.map(e => <SelectItem key={e} value={e}>{ESTADO_LABEL[e]}</SelectItem>)}
               </SelectContent>
             </Select>
+            {(form.estado === 'cancelado' || form.estado === 'detenido') && (
+              <div className="space-y-2 pt-1">
+                <Label htmlFor="stop_reason">
+                  Motivo de {form.estado === 'cancelado' ? 'la cancelación' : 'la detención'}
+                </Label>
+                <Textarea
+                  id="stop_reason"
+                  value={form.stop_reason}
+                  onChange={e => setField('stop_reason', e.target.value)}
+                  placeholder="¿Por qué se cancela/detiene este proyecto?"
+                  className="h-20"
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

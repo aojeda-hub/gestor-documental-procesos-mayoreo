@@ -263,6 +263,7 @@ export interface Project {
   silo: SiloType;
   phase: string;
   estado: ProjectEstado;
+  stop_reason?: string | null;
   planned_progress: number | null;
   start_date?: string | null;
   end_date?: string | null;

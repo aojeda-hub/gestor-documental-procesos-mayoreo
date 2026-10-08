@@ -1615,6 +1615,7 @@ export type Database = {
           silo: string
           specific_goals: string[] | null
           start_date: string | null
+          stop_reason: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1636,6 +1637,7 @@ export type Database = {
           silo: string
           specific_goals?: string[] | null
           start_date?: string | null
+          stop_reason?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1657,6 +1659,7 @@ export type Database = {
           silo?: string
           specific_goals?: string[] | null
           start_date?: string | null
+          stop_reason?: string | null
           updated_at?: string | null
         }
         Relationships: [

@@ -394,7 +394,10 @@ export default function Projects() {
                     </TableCell>
                     <TableCell><Badge variant="outline">{SILO_LABELS[project.silo]}</Badge></TableCell>
                     <TableCell>
-                      <span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${ESTADO_STYLES[project.estado || 'en_progreso']}`}>
+                      <span
+                        className={`rounded-md border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${ESTADO_STYLES[project.estado || 'en_progreso']}`}
+                        title={project.stop_reason || undefined}
+                      >
                         {ESTADO_LABEL_SINGULAR[project.estado || 'en_progreso']}
                       </span>
                     </TableCell>
