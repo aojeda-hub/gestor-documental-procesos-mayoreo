@@ -186,6 +186,18 @@ export default function Projects() {
         return { ...project, actual_progress, planned_progress, phases, scheduleVariance };
       });
 
+      // Si el avance real ya llegó a 100% pero el estado se había quedado en
+      // "En progreso" (nadie lo marcó a mano), lo completamos solo. No toca
+      // "Cancelado" ni "Detenido": esas son decisiones explícitas del usuario.
+      const aCompletar = projectsWithProgress.filter(p => p.actual_progress === 100 && p.estado === 'en_progreso');
+      if (aCompletar.length > 0) {
+        const { error: completeError } = await supabase
+          .from('projects')
+          .update({ estado: 'completado' })
+          .in('id', aCompletar.map(p => p.id));
+        if (!completeError) aCompletar.forEach(p => { p.estado = 'completado'; });
+      }
+
       setProjects(projectsWithProgress as any);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
