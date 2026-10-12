@@ -36,13 +36,18 @@ interface Props {
   canEdit: boolean;
 }
 
-// Geometría del diagrama (viewBox 1200x700, todo lo demás se posiciona en %)
-const W = 1200, H = 700;
-const SPINE_Y = 350;
+// Geometría del diagrama: el ancho es fijo (viewBox 1200 x alto variable), el
+// alto se calcula según cuántas causas tenga la rama más larga, para que las
+// causas nunca queden más juntas que STEP px entre sí (si no, el texto de
+// varias líneas termina montándose una encima de otra).
+const W = 1200;
 const ATTACH_X = [250, 480, 710];
-const BOX_Y_TOP = 55, BOX_Y_BOTTOM = 645;
 const BOX_DX = 55;
 const BOX_W = 150, BOX_H = 44;
+const STEP = 50; // separación mínima entre causas consecutivas de una misma espina
+const ARM_BASE = 50; // distancia de la espina central a la primera causa
+const MARGIN_OUTER = 60; // margen entre la última causa y la caja de categoría
+const MARGIN_EDGE = 70; // margen entre la caja de categoría y el borde del lienzo
 
 function pct(x: number, total: number) { return `${(x / total) * 100}%`; }
 
@@ -111,22 +116,36 @@ export function ProjectIshikawaDialog({ open, onOpenChange, projectId, projectNa
   const diagramGeo = useMemo(() => {
     const top = CATEGORIAS.filter(c => c.side === 'top');
     const bottom = CATEGORIAS.filter(c => c.side === 'bottom');
-    const build = (list: typeof CATEGORIAS, boxY: number) => list.map((cat, i) => {
+
+    const maxCount = (list: typeof CATEGORIAS) =>
+      Math.max(1, ...list.map(cat => (porCategoria.get(cat.key) || []).length));
+    const armLen = (count: number) => ARM_BASE + count * STEP + MARGIN_OUTER;
+
+    const topArm = armLen(maxCount(top));
+    const bottomArm = armLen(maxCount(bottom));
+    const spineY = MARGIN_EDGE + topArm;
+    const height = spineY + bottomArm + MARGIN_EDGE;
+
+    const build = (list: typeof CATEGORIAS, dir: 1 | -1, arm: number) => list.map((cat, i) => {
       const attachX = ATTACH_X[i];
       const boxX = attachX - BOX_DX;
+      const boxY = spineY + dir * arm;
+      const dx = boxX - attachX;
+      const dy = boxY - spineY;
+      const boneLen = Math.hypot(dx, dy) || 1;
       const items = porCategoria.get(cat.key) || [];
       const points = items.map((causa, idx) => {
-        const t = 0.22 + (idx + 1) * (0.55 / (items.length + 1));
-        return {
-          causa,
-          x: attachX + t * (boxX - attachX),
-          y: SPINE_Y + t * (boxY - SPINE_Y),
-        };
+        const dist = ARM_BASE + idx * STEP;
+        const t = dist / boneLen;
+        return { causa, x: attachX + t * dx, y: spineY + t * dy };
       });
       return { cat, attachX, boxX, boxY, points };
     });
-    return [...build(top, BOX_Y_TOP), ...build(bottom, BOX_Y_BOTTOM)];
+
+    return { spineY, height, nodes: [...build(top, -1, topArm), ...build(bottom, 1, bottomArm)] };
   }, [porCategoria]);
+
+  const { spineY, height: H, nodes } = diagramGeo;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -207,11 +226,11 @@ export function ProjectIshikawaDialog({ open, onOpenChange, projectId, projectNa
           <div className="overflow-x-auto">
             <div className="relative w-full min-w-[900px]" style={{ aspectRatio: `${W}/${H}` }}>
               <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full">
-                <line x1={20} y1={SPINE_Y} x2={880} y2={SPINE_Y} stroke="currentColor" className="text-slate-400" strokeWidth={2} />
-                <polygon points={`20,${SPINE_Y} 0,${SPINE_Y - 14} 0,${SPINE_Y + 14}`} className="fill-slate-400" />
-                {diagramGeo.map(g => (
+                <line x1={20} y1={spineY} x2={880} y2={spineY} stroke="currentColor" className="text-slate-400" strokeWidth={2} />
+                <polygon points={`20,${spineY} 0,${spineY - 14} 0,${spineY + 14}`} className="fill-slate-400" />
+                {nodes.map(g => (
                   <g key={g.cat.key}>
-                    <line x1={g.attachX} y1={SPINE_Y} x2={g.boxX} y2={g.boxY} stroke="currentColor" className="text-slate-400" strokeWidth={1.5} />
+                    <line x1={g.attachX} y1={spineY} x2={g.boxX} y2={g.boxY} stroke="currentColor" className="text-slate-400" strokeWidth={1.5} />
                     {g.points.map(p => (
                       <circle key={p.causa.id} cx={p.x} cy={p.y} r={3} className="fill-slate-500" />
                     ))}
@@ -223,7 +242,7 @@ export function ProjectIshikawaDialog({ open, onOpenChange, projectId, projectNa
               <div
                 className="absolute flex items-center justify-center rounded-md bg-slate-800 p-3 text-center text-xs font-medium text-white shadow-md"
                 style={{
-                  left: pct(900, W), top: pct(290, H),
+                  left: pct(900, W), top: pct(spineY - 60, H),
                   width: pct(250, W), height: pct(120, H),
                 }}
               >
@@ -231,7 +250,7 @@ export function ProjectIshikawaDialog({ open, onOpenChange, projectId, projectNa
               </div>
 
               {/* Cajas de categoría */}
-              {diagramGeo.map(g => (
+              {nodes.map(g => (
                 <div
                   key={g.cat.key}
                   className="absolute flex items-center justify-center rounded-md border bg-background px-2 text-center text-xs font-semibold shadow-sm"
@@ -245,13 +264,13 @@ export function ProjectIshikawaDialog({ open, onOpenChange, projectId, projectNa
               ))}
 
               {/* Texto de cada causa */}
-              {diagramGeo.flatMap(g => g.points.map(p => (
+              {nodes.flatMap(g => g.points.map(p => (
                 <div
                   key={p.causa.id}
-                  className="absolute w-32 -translate-x-1/2 text-center text-[10px] leading-tight text-muted-foreground"
+                  className="absolute w-36 -translate-x-1/2 -translate-y-1/2 text-center text-[10px] leading-tight text-muted-foreground"
                   style={{
                     left: pct(p.x, W),
-                    top: pct(g.cat.side === 'top' ? p.y - 46 : p.y + 10, H),
+                    top: pct(g.cat.side === 'top' ? p.y - 14 : p.y + 14, H),
                   }}
                 >
                   {p.causa.texto}

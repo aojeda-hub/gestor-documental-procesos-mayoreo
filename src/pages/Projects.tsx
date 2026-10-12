@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedState } from '@/hooks/usePersistedState';
-import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle, Fish, ClipboardList } from 'lucide-react';
+import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle, Fish, ClipboardList, MoreVertical } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
 import type { Project, ProjectEstado, ProjectTask, ProjectPhase, SiloType, TaskDependency, ProyectoRiesgo, ProjectMilestone, ObjetivoEstrategico } from '@/types/database';
 import { calculateProjectScheduleVariance, VARIANCE_STATUS_META } from '@/lib/baselineUtils';
@@ -447,112 +448,77 @@ export default function Projects() {
                       ) : ND}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => { setSelectedProject(project); setKickoffDialogOpen(true); }}
-                          title="Kickoff del Proyecto"
-                        >
-                          <Rocket className="h-4 w-4 text-orange-500" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setSelectedProject(project);
-                            fetchProjectTasks(project.id, { start_date: project.start_date, end_date: project.end_date });
-                            setScheduleDialogOpen(true);
-                          }}
-                          title="Cronograma (Gantt, ruta crítica, hitos y desvío)"
-                        >
-                          <CalendarRange className="h-4 w-4 text-purple-600" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => { setSelectedProject(project); setTasksDialogOpen(true); }}
-                          title="Gestionar Tareas"
-                        >
-                          <ListChecks className="h-4 w-4 text-blue-600" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => { setSelectedProject(project); setDocsDialogOpen(true); }}
-                          title="Documentos de soporte"
-                        >
-                          <Paperclip className="h-4 w-4 text-emerald-600" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => { setSelectedProject(project); setIshikawaDialogOpen(true); }}
-                          title="Análisis de Ishikawa"
-                        >
-                          <Fish className="h-4 w-4 text-cyan-600" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="relative"
-                          onClick={() => { setSelectedProject(project); setSeguimientosDialogOpen(true); }}
-                          title={
-                            seguimientosPendientes.has(project.id)
-                              ? `Seguimientos — ${seguimientosPendientes.get(project.id)} pendiente(s)`
-                              : 'Seguimientos de este proyecto'
-                          }
-                        >
-                          <ClipboardList className="h-4 w-4 text-amber-600" />
-                          {!!seguimientosPendientes.get(project.id) && (
-                            <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[9px] flex items-center justify-center bg-amber-500 hover:bg-amber-500 text-white border-0">
-                              {(seguimientosPendientes.get(project.id) || 0) > 9 ? '9+' : seguimientosPendientes.get(project.id)}
-                            </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="ghost" className="relative h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                            {(!!seguimientosPendientes.get(project.id) || !!certAbiertas.get(project.id)) && (
+                              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500" />
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-64">
+                          <DropdownMenuItem onClick={() => { setSelectedProject(project); setKickoffDialogOpen(true); }}>
+                            <Rocket className="h-4 w-4 mr-2 text-orange-500" /> Kickoff del Proyecto
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedProject(project);
+                              fetchProjectTasks(project.id, { start_date: project.start_date, end_date: project.end_date });
+                              setScheduleDialogOpen(true);
+                            }}
+                          >
+                            <CalendarRange className="h-4 w-4 mr-2 text-purple-600" /> Cronograma
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSelectedProject(project); setTasksDialogOpen(true); }}>
+                            <ListChecks className="h-4 w-4 mr-2 text-blue-600" /> Gestionar Tareas
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSelectedProject(project); setDocsDialogOpen(true); }}>
+                            <Paperclip className="h-4 w-4 mr-2 text-emerald-600" /> Documentos de soporte
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSelectedProject(project); setIshikawaDialogOpen(true); }}>
+                            <Fish className="h-4 w-4 mr-2 text-cyan-600" /> Análisis de Ishikawa
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSelectedProject(project); setSeguimientosDialogOpen(true); }}>
+                            <ClipboardList className="h-4 w-4 mr-2 text-amber-600" />
+                            Seguimientos
+                            {!!seguimientosPendientes.get(project.id) && (
+                              <Badge className="ml-auto h-4 min-w-4 px-1 text-[9px] bg-amber-500 hover:bg-amber-500 text-white border-0">
+                                {seguimientosPendientes.get(project.id)}
+                              </Badge>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedProject(project);
+                              setCertificaErpLinkedProject({ id: project.id, name: project.name });
+                              setCertificaErpOpen(true);
+                            }}
+                          >
+                            <FileCheck2 className="h-4 w-4 mr-2 text-indigo-600" />
+                            CertificaERP
+                            {!!certAbiertas.get(project.id) && (
+                              <Badge className="ml-auto h-4 min-w-4 px-1 text-[9px] bg-rose-500 hover:bg-rose-500 text-white border-0">
+                                {certAbiertas.get(project.id)}
+                              </Badge>
+                            )}
+                          </DropdownMenuItem>
+                          {canEdit && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => { setSelectedProject(project); setFormDialogOpen(true); }}>
+                                <Edit2 className="h-4 w-4 mr-2 text-slate-600" /> Editar Proyecto
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(project.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Eliminar Proyecto
+                              </DropdownMenuItem>
+                            </>
                           )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="relative"
-                          onClick={() => {
-                            setSelectedProject(project);
-                            setCertificaErpLinkedProject({ id: project.id, name: project.name });
-                            setCertificaErpOpen(true);
-                          }}
-                          title={
-                            certAbiertas.has(project.id)
-                              ? `CertificaERP — ${certAbiertas.get(project.id)} incidencia(s)/requerimiento(s) abiertos`
-                              : 'CertificaERP de este proyecto'
-                          }
-                        >
-                          <FileCheck2 className="h-4 w-4 text-indigo-600" />
-                          {!!certAbiertas.get(project.id) && (
-                            <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[9px] flex items-center justify-center bg-rose-500 hover:bg-rose-500 text-white border-0">
-                              {(certAbiertas.get(project.id) || 0) > 9 ? '9+' : certAbiertas.get(project.id)}
-                            </Badge>
-                          )}
-                        </Button>
-                        {canEdit && (
-                          <>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => { setSelectedProject(project); setFormDialogOpen(true); }}
-                              title="Editar Proyecto"
-                            >
-                              <Edit2 className="h-4 w-4 text-slate-600" />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => handleDelete(project.id)}
-                              title="Eliminar Proyecto"
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 );
