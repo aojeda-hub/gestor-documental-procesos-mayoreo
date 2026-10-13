@@ -20,6 +20,8 @@ interface ProjectKickoffDialogProps {
   onOpenChange: (open: boolean) => void;
   project: Project;
   onSave: () => void;
+  /** admin, responsable de métodos o dueño del proyecto */
+  canEdit?: boolean;
 }
 
 const AGENDA_ITEMS = [
@@ -32,10 +34,9 @@ const AGENDA_ITEMS = [
   { id: 'steps', label: 'Definir próximos pasos (acciones inmediatas)' },
 ];
 
-export function ProjectKickoffDialog({ open, onOpenChange, project, onSave }: ProjectKickoffDialogProps) {
+export function ProjectKickoffDialog({ open, onOpenChange, project, onSave, canEdit = false }: ProjectKickoffDialogProps) {
   const { toast } = useToast();
-  const { hasRole } = useAuth();
-  const isViewer = false; // viewer ahora tiene permisos completos sobre proyectos
+  const isViewer = !canEdit;
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>({
     date: '',

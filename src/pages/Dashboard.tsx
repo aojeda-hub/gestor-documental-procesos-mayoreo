@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,10 +27,8 @@ interface RecentDoc {
 }
 
 export default function Dashboard() {
-  const { profile, hasRole, roles } = useAuth();
-  const isAdmin = hasRole('admin');
-  const isRMPersonal = hasRole('responsable_metodos') && profile?.silo === 'personal';
-  const isViewerOnly = roles.includes('viewer') && !roles.includes('admin') && !roles.includes('editor') && !roles.includes('responsable_metodos');
+  const { roles, silos } = useAuth();
+  const { canSeeConfidential } = usePermissions();
 
   const [totalDocs, setTotalDocs] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -39,16 +38,9 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isViewerOnly) {
-      navigate('/proyectos');
-    }
-  }, [isViewerOnly, navigate]);
-
-  useEffect(() => {
-    if (isViewerOnly) return;
     const load = async () => {
       const [docsRes, usersRes, projRes, docsData, recentRes] = await Promise.all([
-        supabase.from('documents').select('id, confidential'),
+        supabase.from('documents').select('id, silo, confidential'),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('projects' as any).select('id', { count: 'exact', head: true }),
         supabase.from('documents').select('silo, confidential'),
@@ -57,7 +49,7 @@ export default function Dashboard() {
 
       const allowedDocs = (docsRes.data || []).filter((d: any) => {
         if (d.confidential) {
-          return isAdmin || isRMPersonal;
+          return canSeeConfidential(d.silo);
         }
         return true;
       });
@@ -67,7 +59,7 @@ export default function Dashboard() {
 
       const allowedSiloDocs = (docsData.data || []).filter((d: any) => {
         if (d.confidential) {
-          return isAdmin || isRMPersonal;
+          return canSeeConfidential(d.silo);
         }
         return true;
       });
@@ -85,7 +77,7 @@ export default function Dashboard() {
       const allowedRecent = (recentRes.data || [])
         .filter((d: any) => {
           if (d.confidential) {
-            return isAdmin || isRMPersonal;
+            return canSeeConfidential(d.silo);
           }
           return true;
         })
@@ -93,7 +85,8 @@ export default function Dashboard() {
       setRecentDocs(allowedRecent as RecentDoc[]);
     };
     load();
-  }, [isAdmin, isRMPersonal]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roles, silos]);
 
   const siloIcons: Record<string, typeof FileText> = {
     documentos: FileText, indicadores: BarChart3, usuarios: Users,

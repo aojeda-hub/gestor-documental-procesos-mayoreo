@@ -17,6 +17,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const inventoryData = [
   { depto: "PROCESOS", cargo: "Jefe de Procesos", archivo: "DC-Jefe de Procesos.docx" },
@@ -168,6 +169,7 @@ export default function DescripcionesCargo({
   onDownload,
   onUploadDoc
 }: DescripcionesCargoProps) {
+  const { canEditDocument, canDeleteDocument } = usePermissions();
   const { user } = useAuth();
   const [selectedDepto, setSelectedDepto] = useState<string>("Todos");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -446,7 +448,7 @@ export default function DescripcionesCargo({
                                   <DropdownMenuItem onClick={() => onViewDoc(matchedDoc)}>
                                     <Eye className="h-4 w-4 mr-2" /> Ver
                                   </DropdownMenuItem>
-                                  {canEdit && (
+                                  {canEditDocument(matchedDoc) && (
                                     <DropdownMenuItem onClick={() => onEditDoc(matchedDoc)}>
                                       <Pencil className="h-4 w-4 mr-2" /> Editar
                                     </DropdownMenuItem>
@@ -457,7 +459,7 @@ export default function DescripcionesCargo({
                                   <DropdownMenuItem onClick={() => onDownload(matchedDoc, 'word')}>
                                     <FileType2 className="h-4 w-4 mr-2" /> Descargar Word
                                   </DropdownMenuItem>
-                                  {canEdit && (
+                                  {canDeleteDocument(matchedDoc) && (
                                     <DropdownMenuItem
                                       onClick={() => onDeleteDoc(matchedDoc)}
                                       className="text-destructive focus:text-destructive"

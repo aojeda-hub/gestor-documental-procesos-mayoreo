@@ -3,12 +3,11 @@ export type SiloType = 'compras' | 'logistica' | 'ventas' | 'personal' | 'contro
 export type EmpresaType = 'mayoreo' | 'beconsult' | 'epa';
 export type IndicatorType = 'eficiencia' | 'eficacia' | 'efectividad' | 'calidad' | 'productividad' | 'cumplimiento';
 export type FrequencyType = 'diario' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'semestral' | 'anual';
-export type AppRole = 'admin' | 'editor' | 'viewer' | 'responsable_metodos';
+export type AppRole = 'admin' | 'colaborador' | 'responsable_metodos';
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   admin: 'Administrador',
-  editor: 'Editor',
-  viewer: 'Visor',
+  colaborador: 'Colaborador',
   responsable_metodos: 'Responsable de Métodos',
 };
 
@@ -275,6 +274,7 @@ export interface Project {
   kickoff_data?: any | null;
   baseline_captured_at?: string | null;
   objetivo_estrategico_id?: string | null;
+  created_by?: string | null;
   created_at: string;
   updated_at: string;
 }

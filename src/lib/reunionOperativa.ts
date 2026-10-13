@@ -93,8 +93,52 @@ export async function crearTableroReunionOperativa(userId: string, silo: string,
   }
 }
 
+// Copia al punto clonado las tareas (items de checklist) que aún no se han
+// completado en el punto original, conservando su checklist. Los checklists
+// cuyas tareas ya están todas hechas no se copian; uno vacío sí (sigue
+// siendo trabajo por definir). Devuelve cuántas tareas se trasladaron.
+async function clonarTareasPendientes(seguimientoOrigenId: string, seguimientoDestinoId: string): Promise<number> {
+  const { data: cls } = await supabase
+    .from('seguimiento_checklists' as any)
+    .select('id, titulo, orden')
+    .eq('seguimiento_id', seguimientoOrigenId)
+    .order('orden');
+  const checklists = (cls ?? []) as unknown as { id: string; titulo: string; orden: number }[];
+  if (checklists.length === 0) return 0;
+
+  const { data: its } = await supabase
+    .from('seguimiento_checklist_items' as any)
+    .select('checklist_id, texto, completado, orden')
+    .in('checklist_id', checklists.map((c) => c.id))
+    .order('orden');
+  const items = (its ?? []) as unknown as { checklist_id: string; texto: string; completado: boolean; orden: number }[];
+
+  let trasladadas = 0;
+  let ordenChecklist = 0;
+  for (const cl of checklists) {
+    const delChecklist = items.filter((i) => i.checklist_id === cl.id);
+    const pendientes = delChecklist.filter((i) => !i.completado);
+    if (delChecklist.length > 0 && pendientes.length === 0) continue;
+
+    const nuevoChecklistId = crypto.randomUUID();
+    const { error: clErr } = await supabase
+      .from('seguimiento_checklists' as any)
+      .insert({ id: nuevoChecklistId, seguimiento_id: seguimientoDestinoId, titulo: cl.titulo, orden: ordenChecklist++ });
+    if (clErr) continue;
+
+    if (pendientes.length > 0) {
+      const { error: itErr } = await supabase
+        .from('seguimiento_checklist_items' as any)
+        .insert(pendientes.map((it, idx) => ({ checklist_id: nuevoChecklistId, texto: it.texto, completado: false, orden: idx })));
+      if (!itErr) trasladadas += pendientes.length;
+    }
+  }
+  return trasladadas;
+}
+
 // "Nueva Reunión": crea la ronda siguiente y clona (inserta filas nuevas)
-// los puntos pendientes/en progreso de la reunión anterior. Los puntos
+// los puntos pendientes/en progreso de la reunión anterior, junto con las
+// tareas de sus checklists que aún no se completaron. Los puntos y tareas
 // completados no se clonan, y los originales no se tocan (quedan como
 // historial navegable).
 export async function nuevaReunion(
@@ -105,7 +149,7 @@ export async function nuevaReunion(
   userId: string,
   tituloOverride?: string,
   fechaOverride?: string,
-): Promise<{ meeting: ReunionOperativaMeeting; clonados: number }> {
+): Promise<{ meeting: ReunionOperativaMeeting; clonados: number; tareasTrasladadas: number }> {
   const numero = meetingAnterior.numero + 1;
   const hoy = new Date();
   const { data: meeting, error: meetingErr } = await supabase
@@ -123,6 +167,7 @@ export async function nuevaReunion(
 
   const pendientes = puntosAnteriores.filter((p) => p.estado !== 'completado');
   let clonados = 0;
+  let tareasTrasladadas = 0;
   for (const punto of pendientes) {
     const { data, error } = await supabase
       .from('seguimientos')
@@ -146,10 +191,11 @@ export async function nuevaReunion(
     if (memberIds.length > 0) {
       try { await syncSeguimientoResponsables((data as any).id, [], memberIds); } catch { /* no bloquea la clonación */ }
     }
+    try { tareasTrasladadas += await clonarTareasPendientes(punto.id, (data as any).id); } catch { /* no bloquea la clonación */ }
     clonados++;
   }
 
-  return { meeting: meeting as unknown as ReunionOperativaMeeting, clonados };
+  return { meeting: meeting as unknown as ReunionOperativaMeeting, clonados, tareasTrasladadas };
 }
 
 export interface AvanceGrupo {

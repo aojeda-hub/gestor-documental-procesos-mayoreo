@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -74,7 +74,7 @@ function businessDaysBetween(start: Date, end: Date): number {
 }
 
 export default function Projects() {
-  const { hasRole } = useAuth();
+  const { canEditProject, canDeleteProject } = usePermissions();
   const { toast } = useToast();
   const [projects, setProjects] = useState<(Project & { actual_progress: number | null; planned_progress: number | null; phases: ProjectPhase[]; scheduleVariance: ReturnType<typeof calculateProjectScheduleVariance> })[]>([]);
   const [objetivos, setObjetivos] = useState<ObjetivoEstrategico[]>([]);
@@ -131,7 +131,7 @@ export default function Projects() {
   const [projectRisks, setProjectRisks] = useState<ProyectoRiesgo[]>([]);
   const [projectMilestones, setProjectMilestones] = useState<ProjectMilestone[]>([]);
 
-  const canEdit = hasRole('admin') || hasRole('editor') || hasRole('responsable_metodos') || hasRole('viewer');
+  const canEditSelected = canEditProject(selectedProject);
 
   const fetchProjects = async () => {
     setLoading(true);
@@ -232,8 +232,9 @@ export default function Projects() {
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('¿Estás seguro de eliminar este proyecto?')) return;
-    const { error } = await supabase.from('projects').delete().eq('id', id);
+    const { data, error } = await supabase.from('projects').delete().eq('id', id).select('id');
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    if (!data?.length) { toast({ title: 'Sin permiso', description: 'Solo puedes eliminar tus propios proyectos.', variant: 'destructive' }); return; }
     toast({ title: 'Proyecto eliminado' });
     fetchProjects();
   };
@@ -503,19 +504,19 @@ export default function Projects() {
                               </Badge>
                             )}
                           </DropdownMenuItem>
-                          {canEdit && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => { setSelectedProject(project); setFormDialogOpen(true); }}>
-                                <Edit2 className="h-4 w-4 mr-2 text-slate-600" /> Editar Proyecto
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(project.id)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" /> Eliminar Proyecto
-                              </DropdownMenuItem>
-                            </>
+                          {(canEditProject(project) || canDeleteProject(project)) && <DropdownMenuSeparator />}
+                          {canEditProject(project) && (
+                            <DropdownMenuItem onClick={() => { setSelectedProject(project); setFormDialogOpen(true); }}>
+                              <Edit2 className="h-4 w-4 mr-2 text-slate-600" /> Editar Proyecto
+                            </DropdownMenuItem>
+                          )}
+                          {canDeleteProject(project) && (
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(project.id)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Eliminar Proyecto
+                            </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -561,6 +562,7 @@ export default function Projects() {
           onOpenChange={setKickoffDialogOpen}
           project={selectedProject}
           onSave={fetchProjects}
+          canEdit={canEditSelected}
         />
       )}
 
@@ -575,6 +577,7 @@ export default function Projects() {
           projectEndDate={selectedProject.end_date}
           baselineCapturedAt={selectedProject.baseline_captured_at}
           onTasksChange={fetchProjects}
+          canEdit={canEditSelected}
         />
       )}
 
@@ -584,6 +587,7 @@ export default function Projects() {
           onOpenChange={setDocsDialogOpen}
           projectId={selectedProject.id}
           projectName={selectedProject.name}
+          canEdit={canEditSelected}
         />
       )}
 
@@ -593,7 +597,7 @@ export default function Projects() {
           onOpenChange={setIshikawaDialogOpen}
           projectId={selectedProject.id}
           projectName={selectedProject.name}
-          canEdit={canEdit}
+          canEdit={canEditSelected}
         />
       )}
 

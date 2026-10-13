@@ -1,14 +1,18 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import type { Profile, AppRole } from '@/types/database';
+import type { Profile, AppRole, SiloType } from '@/types/database';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
   roles: AppRole[];
+  /** Silos asignados al usuario (user_silos). Un usuario puede tener varios. */
+  silos: SiloType[];
   loading: boolean;
+  /** true cuando ya se cargaron perfil, roles y silos del usuario actual. */
+  rolesLoaded: boolean;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
 }
@@ -20,7 +24,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [silos, setSilos] = useState<SiloType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -41,15 +47,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setProfile(null);
       setRoles([]);
+      setSilos([]);
+      setRolesLoaded(false);
       return;
     }
+    setRolesLoaded(false);
     const fetchData = async () => {
-      const [profileRes, rolesRes] = await Promise.all([
+      const [profileRes, rolesRes, silosRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('user_id', user.id).single(),
         supabase.from('user_roles').select('role').eq('user_id', user.id),
+        supabase.from('user_silos').select('silo').eq('user_id', user.id),
       ]);
       if (profileRes.data) setProfile(profileRes.data as unknown as Profile);
-      if (rolesRes.data) setRoles((rolesRes.data as unknown as { role: AppRole }[]).map(r => r.role));
+      setRoles(((rolesRes.data ?? []) as unknown as { role: AppRole }[]).map(r => r.role));
+      setSilos(((silosRes.data ?? []) as unknown as { silo: SiloType }[]).map(s => s.silo));
+      setRolesLoaded(true);
     };
     fetchData();
   }, [user]);
@@ -61,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasRole = (role: AppRole) => roles.includes(role);
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, roles, loading, signOut, hasRole }}>
+    <AuthContext.Provider value={{ user, session, profile, roles, silos, loading, rolesLoaded, signOut, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SILO_LABELS, DOC_TYPE_LABELS } from '@/types/database';
@@ -10,22 +11,22 @@ import { es } from 'date-fns/locale';
 
 export default function ProcessTable() {
   const [docs, setDocs] = useState<Document[]>([]);
-  const { profile, hasRole } = useAuth();
-  const isAdmin = hasRole('admin');
-  const isRMPersonal = hasRole('responsable_metodos') && profile?.silo === 'personal';
+  const { roles, silos } = useAuth();
+  const { canSeeConfidential } = usePermissions();
 
   useEffect(() => {
     supabase.from('documents').select('*').order('updated_at', { ascending: false })
       .then(({ data }) => {
         const allowed = (data || []).filter((d: any) => {
           if (d.confidential) {
-            return isAdmin || isRMPersonal;
+            return canSeeConfidential(d.silo);
           }
           return true;
         }).slice(0, 10);
         setDocs(allowed as Document[]);
       });
-  }, [isAdmin, isRMPersonal]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roles, silos]);
 
   return (
     <Card>

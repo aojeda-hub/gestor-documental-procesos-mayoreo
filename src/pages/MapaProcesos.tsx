@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
 import { SILO_LABELS } from '@/types/database';
 import type { DocType, DocumentEstatus, SiloType } from '@/types/database';
@@ -51,8 +52,7 @@ function Kpi({ icon: Icon, label, value, hint, tone, onClick, active }: {
 }
 
 export default function MapaProcesos() {
-  const { hasRole } = useAuth();
-  const canEdit = hasRole('admin') || hasRole('editor') || hasRole('responsable_metodos');
+  const { canEditMapa: canEdit } = usePermissions();
   const { data: allDocs = [], isLoading, error } = useMapaDocs();
 
   const [search, setSearch] = useState('');

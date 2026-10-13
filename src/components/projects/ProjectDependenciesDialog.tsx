@@ -20,6 +20,8 @@ interface ProjectDependenciesDialogProps {
   projectName: string;
   tasks: ProjectTask[];
   onDependenciesChange?: () => void;
+  /** Eliminar: admin, responsable de métodos o dueño del proyecto */
+  canDelete?: boolean;
 }
 
 const emptyForm = {
@@ -36,6 +38,7 @@ export function ProjectDependenciesDialog({
   projectName,
   tasks,
   onDependenciesChange,
+  canDelete = false,
 }: ProjectDependenciesDialogProps) {
   const { toast } = useToast();
   const [deps, setDeps] = useState<TaskDependency[]>([]);
@@ -198,9 +201,11 @@ export function ProjectDependenciesDialog({
                       <Switch checked={d.activa} onCheckedChange={() => toggleActiva(d)} />
                     </TableCell>
                     <TableCell>
-                      <Button size="icon" variant="ghost" onClick={() => deleteDep(d.id)} title="Eliminar dependencia">
-                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                      </Button>
+                      {canDelete && (
+                        <Button size="icon" variant="ghost" onClick={() => deleteDep(d.id)} title="Eliminar dependencia">
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

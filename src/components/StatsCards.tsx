@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, BarChart3, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export default function StatsCards() {
-  const { profile, hasRole } = useAuth();
-  const isAdmin = hasRole('admin');
-  const isRMPersonal = hasRole('responsable_metodos') && profile?.silo === 'personal';
+  const { roles, silos } = useAuth();
+  const { canSeeConfidential } = usePermissions();
 
   const [totalDocs, setTotalDocs] = useState(0);
   const [totalIndicators, setTotalIndicators] = useState(0);
@@ -17,15 +17,15 @@ export default function StatsCards() {
   useEffect(() => {
     const load = async () => {
       const [docs, inds, alerts, versions] = await Promise.all([
-        supabase.from('documents').select('id, confidential'),
+        supabase.from('documents').select('id, silo, confidential'),
         supabase.from('indicators').select('id', { count: 'exact', head: true }),
         supabase.from('review_alerts').select('id', { count: 'exact', head: true }).eq('acknowledged', false),
-        supabase.from('document_versions').select('document_id, documents(confidential)').eq('is_current', true),
+        supabase.from('document_versions').select('document_id, documents(confidential, silo)').eq('is_current', true),
       ]);
 
       const allowedDocs = (docs.data || []).filter((d: any) => {
         if (d.confidential) {
-          return isAdmin || isRMPersonal;
+          return canSeeConfidential(d.silo);
         }
         return true;
       });
@@ -36,14 +36,15 @@ export default function StatsCards() {
       const allowedVersions = (versions.data || []).filter((v: any) => {
         const docConfidential = (v.documents as any)?.confidential;
         if (docConfidential) {
-          return isAdmin || isRMPersonal;
+          return canSeeConfidential((v.documents as any)?.silo);
         }
         return true;
       });
       setCurrentVersions(new Set(allowedVersions.map(v => v.document_id)).size);
     };
     load();
-  }, [isAdmin, isRMPersonal]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roles, silos]);
 
   const stats = [
     { label: 'Documentos', value: totalDocs, icon: FileText, color: 'text-primary' },

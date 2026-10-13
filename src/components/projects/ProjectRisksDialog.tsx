@@ -29,6 +29,8 @@ interface ProjectRisksDialogProps {
   projectName: string;
   tasks?: ProjectTask[];
   onRisksChange?: () => void;
+  /** Eliminar: admin, responsable de métodos o dueño del proyecto */
+  canDelete?: boolean;
 }
 
 export function ProjectRisksDialog({
@@ -38,6 +40,7 @@ export function ProjectRisksDialog({
   projectName,
   tasks = [],
   onRisksChange,
+  canDelete = false,
 }: ProjectRisksDialogProps) {
   const { toast } = useToast();
   const [riesgos, setRiesgos] = useState<ProyectoRiesgo[]>([]);
@@ -316,14 +319,16 @@ export function ProjectRisksDialog({
                             >
                               <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
                             </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => deleteRiesgo(r.id)}
-                              title="Eliminar riesgo"
-                            >
-                              <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                            </Button>
+                            {canDelete && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => deleteRiesgo(r.id)}
+                                title="Eliminar riesgo"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

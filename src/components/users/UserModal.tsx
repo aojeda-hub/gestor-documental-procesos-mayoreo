@@ -53,7 +53,7 @@ export function UserModal({ open, onOpenChange, user, onSave, loading }: UserMod
   }, [user, open]);
 
   const addRole = () => {
-    setUserRoles([...userRoles, { role: 'viewer' as AppRole }]);
+    setUserRoles([...userRoles, { role: 'colaborador' as AppRole }]);
   };
 
   const removeRole = (index: number) => {
@@ -141,7 +141,7 @@ export function UserModal({ open, onOpenChange, user, onSave, loading }: UserMod
             <div className="space-y-2">
               {userRoles.map((role, index) => (
                 <div key={index} className="flex items-center gap-2">
-                  <Select value={role.role || 'viewer'} onValueChange={v => {
+                  <Select value={role.role || 'colaborador'} onValueChange={v => {
                     const newRoles = [...userRoles];
                     newRoles[index] = { ...newRoles[index], role: v as AppRole };
                     setUserRoles(newRoles);

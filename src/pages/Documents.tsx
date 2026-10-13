@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -102,7 +103,10 @@ export default function Documents() {
   const [organizerReport, setOrganizerReport] = useState<ClassificationReport | null>(null);
   const [isOrganizing, setIsOrganizing] = useState(false);
 
-  const canEdit = hasRole('admin') || hasRole('editor') || hasRole('responsable_metodos');
+  const { canCreateDocuments, canSetConfidential, canSeeConfidential, canEditDocument, canDeleteDocument } = usePermissions();
+  const canEdit = canCreateDocuments;
+  const canEditSelected = !!selectedDoc && canEditDocument(selectedDoc);
+  const canDeleteSelected = !!selectedDoc && canDeleteDocument(selectedDoc);
 
   const fetchDocs = async () => {
     setLoading(true);
@@ -127,13 +131,11 @@ export default function Documents() {
   useEffect(() => { fetchDocs(); }, []);
 
   // Filter docs by active empresa and confidentiality
-  const isRMPersonal = hasRole('responsable_metodos') && profile?.silo === 'personal';
-  const isAdmin = hasRole('admin');
 
   const empresaDocs = docs.filter(d => {
     if (d.empresa !== activeEmpresa) return false;
     if (d.confidential) {
-      return isAdmin || isRMPersonal;
+      return canSeeConfidential(d.silo);
     }
     return true;
   });
@@ -251,10 +253,12 @@ export default function Documents() {
     try {
       const finalDepartamento = formType === 'descripcion_cargo' ? (formDepartamento || '').trim() || null : null;
       const finalCargo = formType === 'descripcion_cargo' ? (formCargo || '').trim() || null : null;
-      await supabase.from('documents').update({
+      const { data: updated, error: updError } = await supabase.from('documents').update({
         title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, estatus: formEstatus, drive_link: vDriveUrl.trim() || null,
         departamento: finalDepartamento, cargo: finalCargo,
-      } as any).eq('id', selectedDoc.id);
+      } as any).eq('id', selectedDoc.id).select('id');
+      if (updError) throw updError;
+      if (!updated?.length) throw new Error('No tienes permiso para editar este documento.');
 
       if (currentVersion) {
         let urlWord = currentVersion.url_word, urlPdf = currentVersion.url_pdf, urlFile = currentVersion.url_file;
@@ -291,8 +295,11 @@ export default function Documents() {
     if (!selectedDoc) return;
     setIsDeleting(true);
     try {
+      if (!canDeleteDocument(selectedDoc)) throw new Error('Solo puedes eliminar tus propios documentos.');
       await supabase.from('document_versions').delete().eq('document_id', selectedDoc.id);
-      await supabase.from('documents').delete().eq('id', selectedDoc.id);
+      const { data: deleted, error: delError } = await supabase.from('documents').delete().eq('id', selectedDoc.id).select('id');
+      if (delError) throw delError;
+      if (!deleted?.length) throw new Error('No tienes permiso para eliminar este documento.');
       toast({ title: 'Documento eliminado' });
       setShowDeleteAlert(false);
       setShowDetailsDialog(false);
@@ -306,9 +313,11 @@ export default function Documents() {
     if (bulkDeleteDocs.length === 0) return;
     setIsDeleting(true);
     try {
-      const ids = bulkDeleteDocs.map(d => d.id);
+      const ids = bulkDeleteDocs.filter(d => canDeleteDocument(d)).map(d => d.id);
+      if (ids.length === 0) throw new Error('Solo puedes eliminar tus propios documentos.');
       await supabase.from('document_versions').delete().in('document_id', ids);
-      await supabase.from('documents').delete().in('id', ids);
+      const { error: delError } = await supabase.from('documents').delete().in('id', ids);
+      if (delError) throw delError;
       toast({ title: `${ids.length} documento${ids.length !== 1 ? 's' : ''} eliminado${ids.length !== 1 ? 's' : ''}` });
       setShowBulkDeleteAlert(false);
       setBulkDeleteDocs([]);
@@ -703,7 +712,7 @@ export default function Documents() {
                 </Select>
               </div>
               <div className="flex items-end gap-2 pb-2">
-                <Switch checked={formConfidential} onCheckedChange={setFormConfidential} />
+                <Switch checked={formConfidential} onCheckedChange={setFormConfidential} disabled={!canSetConfidential} />
                 <Label>Confidencial</Label>
               </div>
             </div>
@@ -774,18 +783,18 @@ export default function Documents() {
           </DialogHeader>
           <div className="space-y-6 mt-4">
             <div className="space-y-4">
-              <div className="space-y-2"><Label>Título</Label><Input value={formTitle} onChange={e => setFormTitle(e.target.value)} disabled={!canEdit} /></div>
+              <div className="space-y-2"><Label>Título</Label><Input value={formTitle} onChange={e => setFormTitle(e.target.value)} disabled={!canEditSelected} /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Tipo</Label>
-                  <Select value={formType} onValueChange={v => setFormType(v as DocType)} disabled={!canEdit}>
+                  <Select value={formType} onValueChange={v => setFormType(v as DocType)} disabled={!canEditSelected}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Silo</Label>
-                  <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)} disabled={!canEdit}>
+                  <Select value={formSilo} onValueChange={v => setFormSilo(v as SiloType)} disabled={!canEditSelected}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
                   </Select>
@@ -799,7 +808,7 @@ export default function Documents() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Departamento</Label>
-                      <Select value={formDepartamento} onValueChange={setFormDepartamento} disabled={!canEdit}>
+                      <Select value={formDepartamento} onValueChange={setFormDepartamento} disabled={!canEditSelected}>
                         <SelectTrigger><SelectValue placeholder="Selecciona departamento" /></SelectTrigger>
                         <SelectContent>
                           {DC_DEPARTAMENTOS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
@@ -812,7 +821,7 @@ export default function Documents() {
                         value={formCargo}
                         onChange={e => setFormCargo(e.target.value)}
                         placeholder="Ej: Jefe de Compras"
-                        disabled={!canEdit}
+                        disabled={!canEditSelected}
                       />
                     </div>
                   </div>
@@ -824,12 +833,12 @@ export default function Documents() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Estatus</Label>
-                  <Select value={formEstatus} onValueChange={v => setFormEstatus(v as DocumentEstatus)} disabled={!canEdit}>
+                  <Select value={formEstatus} onValueChange={v => setFormEstatus(v as DocumentEstatus)} disabled={!canEditSelected}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{DOCUMENT_ESTATUS_OPTIONS.map(k => <SelectItem key={k} value={k}>{DOCUMENT_ESTATUS_LABELS[k]}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-end gap-2 pb-2"><Switch checked={formConfidential} onCheckedChange={setFormConfidential} disabled={!canEdit} /><Label>Confidencial</Label></div>
+                <div className="flex items-end gap-2 pb-2"><Switch checked={formConfidential} onCheckedChange={setFormConfidential} disabled={!canEditSelected || !canSetConfidential} /><Label>Confidencial</Label></div>
               </div>
 
               <div className="space-y-2">
@@ -838,16 +847,16 @@ export default function Documents() {
                   placeholder="https://docs.google.com/document/d/..." 
                   value={vDriveUrl} 
                   onChange={e => setVDriveUrl(e.target.value)} 
-                  disabled={!canEdit} 
+                  disabled={!canEditSelected} 
                 />
               </div>
 
-              {canEdit && (
+              {canEditSelected && (
                 <div className="flex gap-2">
                   <Button className="flex-1" onClick={handleUpdateDoc} disabled={!formTitle || isUpdating}>
                     {isUpdating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</> : 'Guardar Cambios'}
                   </Button>
-                  <Button variant="destructive" onClick={() => setShowDeleteAlert(true)}>Eliminar</Button>
+                  {canDeleteSelected && <Button variant="destructive" onClick={() => setShowDeleteAlert(true)}>Eliminar</Button>}
                 </div>
               )}
             </div>

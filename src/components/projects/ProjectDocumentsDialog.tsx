@@ -22,6 +22,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   projectName: string;
+  /** admin, responsable de métodos o dueño del proyecto */
+  canEdit?: boolean;
 }
 
 const sanitize = (n: string) =>
@@ -34,7 +36,7 @@ const formatSize = (bytes: number | null) => {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 };
 
-export function ProjectDocumentsDialog({ open, onOpenChange, projectId, projectName }: Props) {
+export function ProjectDocumentsDialog({ open, onOpenChange, projectId, projectName, canEdit = false }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -129,10 +131,12 @@ export function ProjectDocumentsDialog({ open, onOpenChange, projectId, projectN
               onChange={handleUpload}
               disabled={uploading}
             />
-            <Button onClick={() => fileRef.current?.click()} disabled={uploading} size="sm">
-              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              Subir documento
-            </Button>
+            {canEdit && (
+              <Button onClick={() => fileRef.current?.click()} disabled={uploading} size="sm">
+                {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                Subir documento
+              </Button>
+            )}
           </div>
 
           <div className="max-h-[420px] overflow-y-auto space-y-2">
@@ -158,15 +162,17 @@ export function ProjectDocumentsDialog({ open, onOpenChange, projectId, projectN
                   <Button size="icon" variant="ghost" onClick={() => handleDownload(d)} title="Descargar">
                     <Download className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="text-rose-500"
-                    onClick={() => handleDelete(d)}
-                    title="Eliminar"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canEdit && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="text-rose-500"
+                      onClick={() => handleDelete(d)}
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               ))
             )}

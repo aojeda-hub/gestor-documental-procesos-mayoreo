@@ -17,6 +17,7 @@ import type { Document, DocType, SiloType, DocumentEstatus } from '@/types/datab
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import DescripcionesCargo from './DescripcionesCargo';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const SILO_ICONS: Record<SiloType, typeof ShoppingCart> = {
   compras: ShoppingCart,
@@ -50,6 +51,7 @@ export default function SiloUniverse({
   silo, siloLabel, docs, canEdit, onBack,
   onViewDoc, onEditDoc, onDeleteDoc, onBulkDelete, onDownload, onCreateDoc, customContent,
 }: SiloUniverseProps) {
+  const { canEditDocument, canDeleteDocument } = usePermissions();
   const [search, setSearch] = useState('');
   const [expandedType, setExpandedType] = useState<DocType | null>(null);
   const [selectMode, setSelectMode] = useState(false);
@@ -126,7 +128,7 @@ export default function SiloUniverse({
 
   const handleBulkDelete = () => {
     if (onBulkDelete && selected.size > 0) {
-      const selectedDocs = docs.filter(d => selected.has(d.id));
+      const selectedDocs = docs.filter(d => selected.has(d.id) && canDeleteDocument(d));
       onBulkDelete(selectedDocs);
     }
   };
@@ -450,7 +452,7 @@ export default function SiloUniverse({
                                     <DropdownMenuItem onClick={() => onViewDoc(doc)}>
                                       <Eye className="h-4 w-4 mr-2" /> Ver
                                     </DropdownMenuItem>
-                                    {canEdit && (
+                                    {canEditDocument(doc) && (
                                       <DropdownMenuItem onClick={() => onEditDoc(doc)}>
                                         <Pencil className="h-4 w-4 mr-2" /> Editar
                                       </DropdownMenuItem>
@@ -461,7 +463,7 @@ export default function SiloUniverse({
                                     <DropdownMenuItem onClick={() => onDownload(doc, 'word')}>
                                       <FileType2 className="h-4 w-4 mr-2" /> Descargar Word
                                     </DropdownMenuItem>
-                                    {canEdit && (
+                                    {canDeleteDocument(doc) && (
                                       <DropdownMenuItem
                                         onClick={() => onDeleteDoc(doc)}
                                         className="text-destructive focus:text-destructive"

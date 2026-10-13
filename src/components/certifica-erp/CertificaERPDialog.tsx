@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -349,8 +350,8 @@ function CompaniasList({ navigate }: { navigate: (v: CertView) => void }) {
 /* ============================ COMPAÑÍA VIEW ============================ */
 function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
-  const { user, hasRole } = useAuth();
-  const isAdmin = hasRole('admin');
+  const { user } = useAuth();
+  const { canManageCertProject } = usePermissions();
   const [open, setOpen] = useState(false);
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
@@ -434,7 +435,7 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
     } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
   };
 
-  const canManage = (p: ProyectoRow) => isAdmin || (!!user && p.created_by === user.id);
+  const canManage = (p: ProyectoRow) => canManageCertProject(p);
 
 
   if (isLoading) return <div className="h-32 animate-pulse rounded bg-muted/40" />;
@@ -627,6 +628,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
   const { user } = useAuth();
   const [editingInc, setEditingInc] = useState<IncRow | null>(null);
   const [creatingFromCert, setCreatingFromCert] = useState<(CasoRow & { script_nombre: string }) | null>(null);
+  const { canManageCertProject } = usePermissions();
   const { data: directory } = useResponsablesDirectory();
   const nombrePorUsuario = useMemo(() => new Map((directory ?? []).map((u) => [u.user_id, u.full_name])), [directory]);
 
@@ -1022,9 +1024,11 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
                   <TableCell className="text-xs text-muted-foreground">{(r.created_by && nombrePorUsuario.get(r.created_by)) || <span className="opacity-50">—</span>}</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(parseISO(r.fecha), "d MMM yyyy", { locale: es })}</TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setEditingInc(r)}>
-                      <Pencil className="h-3 w-3" /> Editar
-                    </Button>
+                    {canManageCertProject(r) && (
+                      <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setEditingInc(r)}>
+                        <Pencil className="h-3 w-3" /> Editar
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
                 );
@@ -1384,6 +1388,7 @@ function IncidenciaFormDialog({
 function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; proyectoNombre: string }) {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { canManageCertProject } = usePermissions();
   const [selectedScript, setSelectedScript] = useState<string | null>(null);
   const [openNew, setOpenNew] = useState(false);
   const [nombre, setNombre] = useState("");
@@ -1437,7 +1442,7 @@ function CertificacionTab({ proyectoId, proyectoNombre }: { proyectoId: string; 
   };
 
   const currentScript = (scripts ?? []).find((s) => s.id === selectedScript) ?? null;
-  const canDeleteCurrent = !!currentScript && !!user && currentScript.created_by === user.id;
+  const canDeleteCurrent = !!currentScript && canManageCertProject(currentScript);
 
   return (
     <div className="space-y-4">
@@ -2057,6 +2062,7 @@ function PdfAttachmentPreview({ file, blob }: { file: Img; blob: Blob }) {
 function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView) => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { canManageCertProject } = usePermissions();
   const { data: directory } = useResponsablesDirectory();
   const [nuevaObs, setNuevaObs] = useState("");
   const [savingObs, setSavingObs] = useState(false);
@@ -2193,6 +2199,10 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     }
   }, [inc, editing]);
 
+  // Datos de la incidencia: solo el creador o un admin. El estado lo puede
+  // cambiar cualquier usuario con rol (ver "Cambiar estado").
+  const canManageInc = !!inc && canManageCertProject(inc);
+
   const cambiarEstado = async (nuevo: Estado) => {
     if (!inc || nuevo === inc.estado) return;
     setUpdating(true);
@@ -2204,7 +2214,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
       // error explícito (p. ej. sesión expirada). Sin esta verificación
       // se mostraba un falso "Estado actualizado" y el valor volvía solo al
       // refrescar, generando la sensación de que el cambio no se guardó.
-      toast.error("No tienes permiso para cambiar el estado de esta incidencia.");
+      toast.error("No se pudo cambiar el estado. Verifica que tu usuario tenga un rol asignado.");
       qc.invalidateQueries({ queryKey: ["cert-incidencia", id] });
       return;
     }
@@ -2312,7 +2322,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
           </div>
         </div>
         {!editing ? (
-          <div className="flex gap-2">
+          canManageInc && <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Editar</Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>

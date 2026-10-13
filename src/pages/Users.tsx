@@ -7,12 +7,9 @@ import { Button } from '@/components/ui/button';
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
-import { Search, UserPlus, Filter, ShieldPlus, Loader2, Users as UsersIcon, Shield, Settings } from 'lucide-react';
+import { Search, UserPlus, Filter, ShieldPlus, Loader2 } from 'lucide-react';
 import { UserRole, SiloType } from '@/types/database';
 import { useToast } from '@/components/ui/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import RolesList from '@/components/users/RolesList';
-import PermissionsList from '@/components/users/PermissionsList';
 
 interface UserWithRoles {
   id: string;
@@ -147,19 +144,23 @@ function UserList() {
         
         if (profileError) throw profileError;
 
-        await supabase.from('user_roles').delete().eq('user_id', selectedUser.user_id);
-        
-        if (roles && roles.length > 0) {
+        const { error: delRolesError } = await supabase.from('user_roles').delete().eq('user_id', selectedUser.user_id);
+        if (delRolesError) throw delRolesError;
+
+        // Un usuario puede tener varios roles; se descartan duplicados.
+        const uniqueRoles = Array.from(new Set((roles ?? []).map((r: any) => r.role).filter(Boolean)));
+        if (uniqueRoles.length > 0) {
           const { error: rolesError } = await supabase
             .from('user_roles')
-            .insert(roles.map((r: any) => ({
+            .insert(uniqueRoles.map((role) => ({
               user_id: selectedUser.user_id,
-              role: r.role,
+              role: role as any,
             })));
           if (rolesError) throw rolesError;
         }
 
-        await supabase.from('user_silos').delete().eq('user_id', selectedUser.user_id);
+        const { error: delSilosError } = await supabase.from('user_silos').delete().eq('user_id', selectedUser.user_id);
+        if (delSilosError) throw delSilosError;
         if (silos && silos.length > 0) {
           const { error: silosError } = await supabase
             .from('user_silos')
@@ -248,22 +249,7 @@ export default function Users() {
         </div>
       </div>
 
-      <Tabs defaultValue="usuarios" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="usuarios" className="gap-2"><UsersIcon className="h-4 w-4"/> Usuarios</TabsTrigger>
-          <TabsTrigger value="roles" className="gap-2"><Shield className="h-4 w-4"/> Roles</TabsTrigger>
-          <TabsTrigger value="permisos" className="gap-2"><Settings className="h-4 w-4"/> Permisos</TabsTrigger>
-        </TabsList>
-        <TabsContent value="usuarios">
-          <UserList />
-        </TabsContent>
-        <TabsContent value="roles">
-          <RolesList />
-        </TabsContent>
-        <TabsContent value="permisos">
-          <PermissionsList />
-        </TabsContent>
-      </Tabs>
+      <UserList />
     </div>
   );
 }

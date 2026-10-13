@@ -190,9 +190,12 @@ export function ReunionOperativaView({ board, onBack, onOpenTask, refreshKey = 0
     setCreatingMeeting(true);
     try {
       const puntosDeLatest = puntos.filter((p) => p.reunion_id === latest.id);
-      const { clonados } = await nuevaReunion(board, latest, puntosDeLatest, membersByTask, user.id, newMeetingTitulo, newMeetingFecha);
+      const { clonados, tareasTrasladadas } = await nuevaReunion(board, latest, puntosDeLatest, membersByTask, user.id, newMeetingTitulo, newMeetingFecha);
       await loadAll();
-      toast({ title: 'Nueva reunión creada', description: clonados > 0 ? `${clonados} punto(s) pendiente(s) trasladado(s).` : undefined });
+      const detalle = clonados > 0
+        ? `${clonados} punto(s) pendiente(s) trasladado(s)${tareasTrasladadas > 0 ? ` con ${tareasTrasladadas} tarea(s) sin completar` : ''}.`
+        : undefined;
+      toast({ title: 'Nueva reunión creada', description: detalle });
       setNewMeetingDialogOpen(false);
     } catch (e) {
       toast({ title: 'Error', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });

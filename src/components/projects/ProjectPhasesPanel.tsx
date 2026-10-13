@@ -41,6 +41,8 @@ interface Props {
   projectEndDate?: string | null;
   baselineCapturedAt?: string | null;
   onTasksChange: () => void;
+  /** admin, responsable de métodos o dueño del proyecto */
+  canEdit?: boolean;
 }
 
 const PROGRESS_OPTIONS = [0, 25, 50, 75, 100];
@@ -52,10 +54,9 @@ const STATUS_META: Record<PhaseStatus, { label: string; cls: string; icon: any }
   bloqueada:  { label: 'Bloqueada',  cls: 'bg-muted text-muted-foreground border-border',          icon: Lock },
 };
 
-export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName, projectPhase, projectStartDate, projectEndDate, baselineCapturedAt, onTasksChange }: Props) {
+export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName, projectPhase, projectStartDate, projectEndDate, baselineCapturedAt, onTasksChange, canEdit = false }: Props) {
   const { toast } = useToast();
-  const { hasRole } = useAuth();
-  const isViewer = false; // viewer ahora tiene permisos completos sobre proyectos
+  const isViewer = !canEdit;
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [tasks, setTasks] = useState<TaskWithAssignee[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -960,6 +961,7 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
         projectName={projectName}
         tasks={tasks}
         onRisksChange={fetchData}
+        canDelete={canEdit}
       />
 
       {/* Project Milestones Dialog */}
@@ -972,6 +974,7 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
         projectStartDate={projectStartDate}
         projectEndDate={projectEndDate}
         onMilestonesChange={fetchData}
+        canDelete={canEdit}
       />
 
       {/* Project Dependencies Dialog */}
@@ -982,6 +985,7 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
         projectName={projectName}
         tasks={tasks}
         onDependenciesChange={fetchData}
+        canDelete={canEdit}
       />
 
       {/* Unified Schedule (Cronograma) Dialog */}

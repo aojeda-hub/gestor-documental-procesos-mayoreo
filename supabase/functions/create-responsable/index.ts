@@ -81,6 +81,11 @@ Deno.serve(async (req) => {
     await admin.from("user_roles").delete().eq("user_id", newUserId);
     await admin.from("user_roles").insert({ user_id: newUserId, role: "responsable_metodos" });
 
+    // Los permisos por silo (RLS) se basan en user_silos, no en profiles.silo
+    if (silo) {
+      await admin.from("user_silos").upsert({ user_id: newUserId, silo }, { onConflict: "user_id,silo" });
+    }
+
     return new Response(
       JSON.stringify({ success: true, user_id: newUserId, email, password }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

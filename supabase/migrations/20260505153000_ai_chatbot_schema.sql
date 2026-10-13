@@ -39,15 +39,7 @@ TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
 -- chat_logs: SELECT solo para admins
--- Nota: Asumiendo que existe una forma de identificar admins en profiles o rbac
--- Usaremos una verificación común en este proyecto
 CREATE POLICY "Allow admin select on chat_logs" 
 ON chat_logs FOR SELECT 
 TO authenticated 
-USING (
-  EXISTS (
-    SELECT 1 FROM profiles 
-    WHERE profiles.user_id = auth.uid() 
-    AND (profiles.silo = 'admin' OR auth.jwt() ->> 'role' = 'admin')
-  )
-);
+USING (public.has_role(auth.uid(), 'admin'));

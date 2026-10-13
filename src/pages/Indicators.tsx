@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,7 +41,7 @@ export default function Indicators() {
   const [selectedIndicator, setSelectedIndicator] = useState<Indicator | null>(null);
   const [form, setForm] = useState(emptyForm);
 
-  const canEdit = hasRole('admin') || hasRole('editor');
+  const { canEditIndicators: canEdit, canDeleteIndicator } = usePermissions();
 
   const fetchIndicators = async () => {
     setLoading(true);
@@ -89,8 +90,9 @@ export default function Indicators() {
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('¿Estás seguro de eliminar este indicador?')) return;
-    const { error } = await supabase.from('indicators').delete().eq('id', id);
+    const { data, error } = await supabase.from('indicators').delete().eq('id', id).select('id');
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    if (!data?.length) { toast({ title: 'Sin permiso', description: 'Solo puedes eliminar los indicadores que creaste.', variant: 'destructive' }); return; }
     toast({ title: 'Indicador eliminado' });
     fetchIndicators();
   };
@@ -212,9 +214,11 @@ export default function Indicators() {
                           <Button size="sm" variant="ghost" onClick={() => openEdit(ind)} title="Editar">
                             <Edit2 className="h-4 w-4 text-slate-600" />
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleDelete(ind.id)} title="Eliminar">
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
+                          {canDeleteIndicator(ind) && (
+                            <Button size="sm" variant="ghost" onClick={() => handleDelete(ind.id)} title="Eliminar">
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          )}
                         </>
                       )}
                     </div>

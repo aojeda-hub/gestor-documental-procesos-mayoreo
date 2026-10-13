@@ -24,6 +24,8 @@ interface ProjectMilestonesDialogProps {
   projectStartDate?: string | null;
   projectEndDate?: string | null;
   onMilestonesChange?: () => void;
+  /** Eliminar: admin, responsable de métodos o dueño del proyecto */
+  canDelete?: boolean;
 }
 
 const emptyForm = {
@@ -42,6 +44,7 @@ export function ProjectMilestonesDialog({
   projectStartDate,
   projectEndDate,
   onMilestonesChange,
+  canDelete = false,
 }: ProjectMilestonesDialogProps) {
   const { toast } = useToast();
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
@@ -198,9 +201,11 @@ export function ProjectMilestonesDialog({
                     <Button size="icon" variant="ghost" onClick={() => openEditForm(m)} title="Editar hito">
                       <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
-                    <Button size="icon" variant="ghost" onClick={() => deleteMilestone(m.id)} title="Eliminar hito">
-                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                    </Button>
+                    {canDelete && (
+                      <Button size="icon" variant="ghost" onClick={() => deleteMilestone(m.id)} title="Eliminar hito">
+                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               );

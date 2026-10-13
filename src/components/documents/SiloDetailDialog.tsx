@@ -8,6 +8,7 @@ import { FileText, Plus, Lock, Search, MoreVertical, Eye, Pencil, FileDown, File
 import { DOC_TYPE_LABELS } from '@/types/database';
 import type { Document, DocType, SiloType } from '@/types/database';
 import { format } from 'date-fns';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface SiloDetailDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ export default function SiloDetailDialog({
   open, onOpenChange, silo, siloLabel, docs, canEdit,
   onViewDoc, onEditDoc, onDeleteDoc, onDownload, onCreateDoc,
 }: SiloDetailDialogProps) {
+  const { canEditDocument, canDeleteDocument } = usePermissions();
   const [search, setSearch] = useState('');
   const [activeType, setActiveType] = useState<string>('all');
 
@@ -106,7 +108,7 @@ export default function SiloDetailDialog({
                     <DropdownMenuItem onClick={() => onViewDoc(doc)}>
                       <Eye className="h-4 w-4 mr-2" /> Ver
                     </DropdownMenuItem>
-                    {canEdit && (
+                    {canEditDocument(doc) && (
                       <DropdownMenuItem onClick={() => onEditDoc(doc)}>
                         <Pencil className="h-4 w-4 mr-2" /> Editar
                       </DropdownMenuItem>
@@ -117,7 +119,7 @@ export default function SiloDetailDialog({
                     <DropdownMenuItem onClick={() => onDownload(doc, 'word')}>
                       <FileType2 className="h-4 w-4 mr-2" /> Descargar Word
                     </DropdownMenuItem>
-                    {canEdit && (
+                    {canDeleteDocument(doc) && (
                       <DropdownMenuItem onClick={() => onDeleteDoc(doc)} className="text-destructive focus:text-destructive">
                         <Trash2 className="h-4 w-4 mr-2" /> Eliminar
                       </DropdownMenuItem>

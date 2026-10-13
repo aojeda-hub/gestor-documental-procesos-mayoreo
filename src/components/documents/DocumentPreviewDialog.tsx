@@ -6,6 +6,7 @@ import { Loader2, ExternalLink, FileText, Download, Pencil } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client';
 import type { Document, DocumentVersion } from '@/types/database';
 import { DOC_TYPE_LABELS } from '@/types/database';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface DocumentPreviewDialogProps {
   open: boolean;
@@ -60,6 +61,7 @@ export default function DocumentPreviewDialog({
   canEdit,
   onEdit,
 }: DocumentPreviewDialogProps) {
+  const { canEditDocument } = usePermissions();
   const [loading, setLoading] = useState(false);
   const [version, setVersion] = useState<DocumentVersion | null>(null);
   const [activeSource, setActiveSource] = useState<SourceKey | null>(null);
@@ -124,7 +126,7 @@ export default function DocumentPreviewDialog({
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {canEdit && doc && onEdit && (
+              {canEdit && doc && onEdit && canEditDocument(doc) && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -205,7 +207,7 @@ export default function DocumentPreviewDialog({
               <p className="text-sm text-muted-foreground">
                 No hay archivo disponible para previsualizar este documento.
               </p>
-              {canEdit && doc && onEdit && (
+              {canEdit && doc && onEdit && canEditDocument(doc) && (
                 <Button size="sm" variant="outline" onClick={() => { onOpenChange(false); onEdit(doc); }}>
                   <Pencil className="h-3.5 w-3.5 mr-1.5" /> Subir archivo
                 </Button>
