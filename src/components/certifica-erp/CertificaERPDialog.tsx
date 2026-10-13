@@ -539,7 +539,7 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
 
 /* ============================ PROYECTO VIEW ============================ */
 type ProyectoFull = { id: string; nombre: string; descripcion: string | null; compania_id: string; compania: { nombre: string; slug: string } | null; };
-type IncRow = { id: string; numero: number; titulo: string; modulo: string | null; prioridad: Prioridad; estado: Estado; tipo: Tipo; sistema_nombre: string | null; responsable: string | null; fecha: string; fecha_completado: string | null; };
+type IncRow = { id: string; numero: number; titulo: string; created_by: string | null; modulo: string | null; prioridad: Prioridad; estado: Estado; tipo: Tipo; sistema_nombre: string | null; responsable: string | null; fecha: string; fecha_completado: string | null; };
 
 type IncidenciasFiltros = { estado: Estado | "todos"; tipo: Tipo | "todos"; verArchivadas: boolean; fechaDesde: string; fechaHasta: string };
 
@@ -627,12 +627,14 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
   const { user } = useAuth();
   const [editingInc, setEditingInc] = useState<IncRow | null>(null);
   const [creatingFromCert, setCreatingFromCert] = useState<(CasoRow & { script_nombre: string }) | null>(null);
+  const { data: directory } = useResponsablesDirectory();
+  const nombrePorUsuario = useMemo(() => new Map((directory ?? []).map((u) => [u.user_id, u.full_name])), [directory]);
 
   const { data: incidencias } = useQuery({
     queryKey: ["cert-proyecto-incidencias", proyectoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("incidencias")
-        .select("id, numero, titulo, modulo, prioridad, estado, tipo, sistema_nombre, responsable, fecha, fecha_completado, test_caso_id")
+        .select("id, numero, titulo, modulo, prioridad, estado, tipo, sistema_nombre, responsable, fecha, fecha_completado, test_caso_id, created_by")
         .eq("proyecto_id", proyectoId).order("numero", { ascending: false });
       if (error) throw error;
       return (data ?? []) as (IncRow & { test_caso_id: string | null })[];
@@ -996,6 +998,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
                 <TableHead className="w-[110px]">Estado</TableHead>
                 <TableHead className="w-[100px]">Prioridad</TableHead>
                 <TableHead className="w-[130px]">Origen</TableHead>
+                <TableHead className="w-[140px]">Creado por</TableHead>
                 <TableHead className="w-[110px]">Fecha</TableHead>
                 <TableHead className="w-[90px] text-right">Acciones</TableHead>
               </TableRow>
@@ -1016,6 +1019,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
                   </TableCell>
                   <TableCell><span className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${PRIORIDAD_STYLES[r.prioridad]}`}>{PRIORIDAD_LABEL[r.prioridad]}</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Manual</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{(r.created_by && nombrePorUsuario.get(r.created_by)) || <span className="opacity-50">—</span>}</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(parseISO(r.fecha), "d MMM yyyy", { locale: es })}</TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setEditingInc(r)}>
@@ -1039,6 +1043,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
                   <TableCell><span className="rounded-md border px-2 py-0.5 text-[11px] font-medium bg-orange-200 text-black border-orange-400">Incidencia</span></TableCell>
                   <TableCell><span className="text-[11px] text-muted-foreground">—</span></TableCell>
                   <TableCell className="text-[11px] text-muted-foreground">Certificación · {c.script_nombre}</TableCell>
+                  <TableCell><span className="text-[11px] text-muted-foreground">—</span></TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(c.created_at), "d MMM yyyy", { locale: es })}</TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openCertAsIncidencia(c)} title="Abrir">
@@ -1871,7 +1876,7 @@ type Inc = {
   nombre_transaccion: string | null; responsable: string | null; responsable_funcional: string | null;
   fecha_ocurrencia: string | null;
   fecha_completado: string | null; created_at: string; updated_at: string;
-  proyecto_id: string | null;
+  proyecto_id: string | null; created_by: string | null;
 };
 type Img = { id: string; storage_path: string; nombre_original: string | null; orden: number; signed_url: string };
 type EditForm = {
@@ -2072,7 +2077,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     queryKey: ["cert-incidencia", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("incidencias")
-        .select("id, numero, titulo, descripcion, modulo, prioridad, estado, tipo, fecha, codigo_transaccion, nombre_transaccion, responsable, responsable_funcional, fecha_ocurrencia, fecha_completado, created_at, updated_at, proyecto_id")
+        .select("id, numero, titulo, descripcion, modulo, prioridad, estado, tipo, fecha, codigo_transaccion, nombre_transaccion, responsable, responsable_funcional, fecha_ocurrencia, fecha_completado, created_at, updated_at, proyecto_id, created_by")
         .eq("id", id).maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("No encontrada");
@@ -2196,8 +2201,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
     if (error) { toast.error(error.message); return; }
     if (!data || data.length === 0) {
       // El permiso de la base de datos (RLS) rechazó el cambio sin devolver un
-      // error explícito — sucede si el usuario no es el creador, un admin, ni
-      // coincide con el "Responsable" de la incidencia. Sin esta verificación
+      // error explícito (p. ej. sesión expirada). Sin esta verificación
       // se mostraba un falso "Estado actualizado" y el valor volvía solo al
       // refrescar, generando la sensación de que el cambio no se guardó.
       toast.error("No tienes permiso para cambiar el estado de esta incidencia.");
@@ -2506,6 +2510,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
               {inc.fecha_completado && <Detail label="Solventado" icon={<CheckCircle2 className="h-4 w-4" />}><span className="text-sm font-medium text-green-600">{format(new Date(inc.fecha_completado), "d MMM yyyy, HH:mm", { locale: es })}</span></Detail>}
               {inc.codigo_transaccion && <Detail label="Código transacción" icon={<Hash className="h-4 w-4" />}><span className="font-mono text-sm">{inc.codigo_transaccion}</span></Detail>}
               {inc.nombre_transaccion && <Detail label="Nombre transacción" icon={<FileText className="h-4 w-4" />}><span className="text-sm">{inc.nombre_transaccion}</span></Detail>}
+              <Detail label="Creada por" icon={<User className="h-4 w-4" />}><span className="text-sm font-medium">{(inc.created_by && directory?.find((u) => u.user_id === inc.created_by)?.full_name) || <span className="text-muted-foreground italic">Desconocido</span>}</span></Detail>
               <Detail label="Creada" icon={<Calendar className="h-4 w-4" />}><span className="text-sm text-muted-foreground">{format(new Date(inc.created_at), "d MMM yyyy, HH:mm", { locale: es })}</span></Detail>
             </Card>
           )}
