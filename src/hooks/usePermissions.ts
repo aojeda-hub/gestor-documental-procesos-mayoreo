@@ -23,20 +23,22 @@ export function usePermissions() {
   return {
     isAdmin, isColaborador, isRM, hasAnyRole, isOwner,
 
-    // Documentos
+    // Documentos y Mapa de Procesos: solo admin y responsable_metodos
+    // (el colaborador no tiene acceso a la documentación).
+    canViewDocuments: isAdmin || isRM,
     canSeeConfidential: (silo: SiloType | string | null | undefined) =>
       isAdmin || (isRM && !!silo && silos.includes(silo as SiloType)),
-    /** Puede crear documentos en general (algún silo / no confidenciales). */
-    canCreateDocuments: hasAnyRole,
+    /** Puede crear documentos en general (en algún silo). */
+    canCreateDocuments: isAdmin || isRM,
     /** Puede marcar documentos como confidenciales (admin o responsable). */
     canSetConfidential: isAdmin || isRM,
     canEditDocument: (doc: { silo: SiloType | string | null; confidential?: boolean | null }) =>
-      isAdmin || (isColaborador && !doc.confidential) || (isRM && inMySilo(doc.silo)),
+      isAdmin || (isRM && inMySilo(doc.silo)),
     canDeleteDocument: (doc: { silo: SiloType | string | null; created_by?: string | null }) =>
-      isAdmin || (isRM && inMySilo(doc.silo)) || isOwner(doc.created_by),
+      isAdmin || (isRM && inMySilo(doc.silo)),
 
     // Mapa de Procesos
-    canEditMapa: hasAnyRole,
+    canEditMapa: isAdmin || isRM,
 
     // Proyectos (y sus fases, tareas, documentos, Ishikawa)
     canCreateProject: hasAnyRole,

@@ -13,8 +13,8 @@ import { NotificationsBell } from '../notifications/NotificationsBell';
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: LayoutDashboard },
-  { to: '/documentos', label: 'Documentos', icon: FileText },
-  { to: '/mapa-procesos', label: 'Mapa de Procesos', icon: Workflow },
+  { to: '/documentos', label: 'Documentos', icon: FileText, adminOrResponsable: true },
+  { to: '/mapa-procesos', label: 'Mapa de Procesos', icon: Workflow, adminOrResponsable: true },
   { to: '/proyectos', label: 'Proyectos', icon: FolderKanban },
   { to: '/seguimientos', label: 'Mis Seguimientos', icon: ListChecks },
   { to: 'https://bpa-mayoreo.vercel.app/', label: 'BPA', icon: Network, adminOrResponsable: true, external: true },
