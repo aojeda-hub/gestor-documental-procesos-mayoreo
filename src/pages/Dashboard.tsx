@@ -39,11 +39,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [docsRes, usersRes, projRes, docsData, recentRes] = await Promise.all([
-        supabase.from('documents').select('id, silo, confidential'),
+      // Una sola consulta de documentos (antes se leía la tabla completa tres
+      // veces): de ella salen el total, el conteo por silo y los recientes.
+      const [usersRes, projRes, docsRes] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('projects' as any).select('id', { count: 'exact', head: true }),
-        supabase.from('documents').select('silo, confidential'),
         supabase.from('documents').select('id, title, silo, updated_at, confidential').order('updated_at', { ascending: false }),
       ]);
 
@@ -57,15 +57,8 @@ export default function Dashboard() {
       setTotalUsers(usersRes.count || 0);
       setTotalProjects(projRes.count || 0);
 
-      const allowedSiloDocs = (docsData.data || []).filter((d: any) => {
-        if (d.confidential) {
-          return canSeeConfidential(d.silo);
-        }
-        return true;
-      });
-
       const map = new Map<SiloType, number>();
-      allowedSiloDocs.forEach((d: any) => {
+      allowedDocs.forEach((d: any) => {
         if (d.silo === 'sinsilo') return;
         map.set(d.silo, (map.get(d.silo) || 0) + 1);
       });
@@ -74,14 +67,7 @@ export default function Dashboard() {
         .sort((a, b) => b.count - a.count);
       setSiloStats(stats);
 
-      const allowedRecent = (recentRes.data || [])
-        .filter((d: any) => {
-          if (d.confidential) {
-            return canSeeConfidential(d.silo);
-          }
-          return true;
-        })
-        .slice(0, 5);
+      const allowedRecent = allowedDocs.slice(0, 5);
       setRecentDocs(allowedRecent as RecentDoc[]);
     };
     load();

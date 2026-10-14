@@ -5,23 +5,28 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/layout/AppLayout";
+import { lazy, Suspense } from "react";
 import Auth from "@/pages/Auth";
-import Dashboard from "@/pages/Dashboard";
-import Documents from "@/pages/Documents";
-import Indicators from "@/pages/Indicators";
-import MapaProcesos from "@/pages/MapaProcesos";
-import BPA from "@/pages/BPA";
-import Desarrollos from "@/pages/Desarrollos";
-import Projects from "@/pages/Projects";
-import Seguimientos from "@/pages/Seguimientos";
-import Skills from "@/pages/Skills";
-import Users from "@/pages/Users";
-import Admin from "@/pages/Admin";
 import NotFound from "./pages/NotFound.tsx";
+
+// Cada pantalla se descarga solo al abrirla: antes toda la app (incluidas
+// librerías pesadas de PDF, Excel, gráficos) se bajaba de una vez al entrar.
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Documents = lazy(() => import("@/pages/Documents"));
+const Indicators = lazy(() => import("@/pages/Indicators"));
+const MapaProcesos = lazy(() => import("@/pages/MapaProcesos"));
+const BPA = lazy(() => import("@/pages/BPA"));
+const Desarrollos = lazy(() => import("@/pages/Desarrollos"));
+const Projects = lazy(() => import("@/pages/Projects"));
+const Seguimientos = lazy(() => import("@/pages/Seguimientos"));
+const Skills = lazy(() => import("@/pages/Skills"));
+const Users = lazy(() => import("@/pages/Users"));
+const Admin = lazy(() => import("@/pages/Admin"));
 import type { AppRole } from "@/types/database";
 
 const queryClient = new QueryClient();
 
+const PageLoading = () => <div className="flex h-full items-center justify-center p-12 text-muted-foreground">Cargando...</div>;
 const Loading = () => <div className="flex min-h-screen items-center justify-center text-muted-foreground">Cargando...</div>;
 
 /**
@@ -45,7 +50,7 @@ function ProtectedRoute({ children, roles: allowed }: { children: React.ReactNod
       </AppLayout>
     );
   }
-  return <AppLayout>{children}</AppLayout>;
+  return <AppLayout><Suspense fallback={<PageLoading />}>{children}</Suspense></AppLayout>;
 }
 
 function AuthRoute() {

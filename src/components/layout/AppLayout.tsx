@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { SILO_LABELS, ROLE_LABELS } from '@/types/database';
 import logo from '@/assets/logo.png';
-import Chatbot from '../chat/Chatbot';
+const Chatbot = lazy(() => import('../chat/Chatbot'));
 import { NotificationsBell } from '../notifications/NotificationsBell';
 
 const navItems = [
@@ -111,7 +111,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
         </main>
-        <Chatbot />
+        <Suspense fallback={null}><Chatbot /></Suspense>
       </div>
     </div>
   );
