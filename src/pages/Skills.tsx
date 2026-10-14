@@ -19,6 +19,8 @@ import { buildNormaDocxBlob, type NormaData } from '@/lib/normaDocx';
 import { buildProcedimientoDocxBlob, type ProcedimientoData } from '@/lib/procedimientoDocx';
 import { buildManualDocxBlob, type ManualData } from '@/lib/manualDocx';
 import { processAttachment, ACCEPTED_ATTACHMENT_EXTENSIONS, type PendingAttachment } from '@/lib/skillAttachments';
+import { loadSkillState, saveSkillState } from '@/lib/skillSessionStore';
+import { useAuth } from '@/hooks/useAuth';
 
 type DocType = 'cargo' | 'norma' | 'procedimiento' | 'manual';
 
@@ -172,57 +174,109 @@ function parseManualData(raw: string): ManualData {
 }
 
 // Cada tipo de documento conserva su propia sesión (conversación, documento
-// generado, texto sin enviar y adjuntos): cambiar de tipo o salir de Skills y
-// volver no borra nada. Vive en memoria mientras la pestaña esté abierta.
+// generado, texto sin enviar y adjuntos): cambiar de tipo, salir de Skills o
+// recargar la página no borra nada. Se mantiene en memoria y además se guarda
+// en el navegador por usuario (ver lib/skillSessionStore).
 type SkillSession = {
   messages: ChatMessage[];
   resultData: CargoData | NormaData | ProcedimientoData | ManualData | null;
   input: string;
   pendingFiles: PendingAttachment[];
 };
-const skillSessions: Partial<Record<DocType, SkillSession>> = {};
-let lastDocType: DocType = 'cargo';
+type SkillState = { sessions: Partial<Record<DocType, SkillSession>>; lastDocType: DocType };
 
-function getSession(type: DocType): SkillSession {
-  return skillSessions[type] ?? { messages: [welcomeMessage(type)], resultData: null, input: '', pendingFiles: [] };
+// Copia en memoria del usuario actual: evita releer el almacenamiento al
+// volver a Skills dentro de la misma pestaña.
+let memory: { userId: string; state: SkillState } | null = null;
+
+function emptyState(): SkillState {
+  return { sessions: {}, lastDocType: 'cargo' };
+}
+
+function sessionFrom(state: SkillState, type: DocType): SkillSession {
+  return state.sessions[type] ?? { messages: [welcomeMessage(type)], resultData: null, input: '', pendingFiles: [] };
 }
 
 export default function Skills() {
+  const { user } = useAuth();
+  const userId = user?.id ?? '';
+  const inMemory = memory && memory.userId === userId ? memory.state : null;
+  const initial = inMemory ?? emptyState();
+
   const { toast } = useToast();
-  const [docType, setDocType] = useState<DocType>(lastDocType);
-  const [messages, setMessages] = useState<ChatMessage[]>(() => getSession(lastDocType).messages);
-  const [input, setInput] = useState(() => getSession(lastDocType).input);
+  const [hydrated, setHydrated] = useState(!!inMemory);
+  const stateRef = useRef<SkillState>(initial);
+  const [docType, setDocType] = useState<DocType>(initial.lastDocType);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => sessionFrom(initial, initial.lastDocType).messages);
+  const [input, setInput] = useState(() => sessionFrom(initial, initial.lastDocType).input);
   const [loading, setLoading] = useState(false);
-  const [resultData, setResultData] = useState<CargoData | NormaData | ProcedimientoData | ManualData | null>(() => getSession(lastDocType).resultData);
+  const [resultData, setResultData] = useState<CargoData | NormaData | ProcedimientoData | ManualData | null>(() => sessionFrom(initial, initial.lastDocType).resultData);
   const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>(() => getSession(lastDocType).pendingFiles);
+  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>(() => sessionFrom(initial, initial.lastDocType).pendingFiles);
   const [attaching, setAttaching] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const applySession = (type: DocType, session: SkillSession) => {
+    setDocType(type);
+    setMessages(session.messages);
+    setResultData(session.resultData);
+    setInput(session.input);
+    setPendingFiles(session.pendingFiles);
+  };
+
+  // Primera visita en esta pestaña: recupera lo guardado antes de la recarga.
+  useEffect(() => {
+    if (hydrated || !userId) return;
+    let cancelled = false;
+    loadSkillState<SkillState>(userId).then((saved) => {
+      if (cancelled) return;
+      if (saved?.sessions) {
+        stateRef.current = saved;
+        applySession(saved.lastDocType, sessionFrom(saved, saved.lastDocType));
+      }
+      setHydrated(true);
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, hydrated]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  // Mantiene guardada la sesión del tipo activo en cada cambio.
+  // Guarda la sesión del tipo activo en cada cambio (en memoria al instante y
+  // en el navegador con una breve espera, para no escribir en cada tecla).
   useEffect(() => {
-    skillSessions[docType] = { messages, resultData, input, pendingFiles };
-    lastDocType = docType;
-  }, [docType, messages, resultData, input, pendingFiles]);
+    if (!hydrated || !userId) return;
+    const state: SkillState = {
+      sessions: { ...stateRef.current.sessions, [docType]: { messages, resultData, input, pendingFiles } },
+      lastDocType: docType,
+    };
+    stateRef.current = state;
+    memory = { userId, state };
+    const t = setTimeout(() => { saveSkillState(userId, state); }, 400);
+    return () => clearTimeout(t);
+  }, [hydrated, userId, docType, messages, resultData, input, pendingFiles]);
+
+  // Al recargar/cerrar la pestaña o salir de Skills, guarda sin esperar para
+  // no perder lo escrito en el último instante.
+  const flushRef = useRef<() => void>(() => {});
+  flushRef.current = () => { if (hydrated && userId) saveSkillState(userId, stateRef.current); };
+  useEffect(() => {
+    const onHide = () => flushRef.current();
+    window.addEventListener('pagehide', onHide);
+    return () => { window.removeEventListener('pagehide', onHide); flushRef.current(); };
+  }, []);
 
   // Mientras el asistente responde o genera, no se cambia de tipo: la
   // respuesta pertenece a la conversación que la pidió.
-  const busy = loading || generating || attaching;
+  const busy = loading || generating || attaching || !hydrated;
 
   const handleDocTypeChange = (next: DocType) => {
     if (next === docType || busy) return;
-    const session = getSession(next);
-    setDocType(next);
-    setMessages(session.messages);
-    setResultData(session.resultData);
-    setInput(session.input);
-    setPendingFiles(session.pendingFiles);
+    applySession(next, sessionFrom(stateRef.current, next));
   };
 
   const handleFilesSelected = async (files: FileList | null) => {
@@ -272,7 +326,7 @@ export default function Skills() {
   };
 
   const handleSend = async () => {
-    if ((!input.trim() && pendingFiles.length === 0) || loading) return;
+    if ((!input.trim() && pendingFiles.length === 0) || loading || !hydrated) return;
 
     const docxNotes = pendingFiles
       .filter(f => f.extractedText)
@@ -374,7 +428,7 @@ export default function Skills() {
                 active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-900' : 'border-border hover:bg-muted/50',
               )}
             >
-              {!active && skillSessions[key] && skillSessions[key]!.messages.length > 1 && (
+              {!active && (stateRef.current.sessions[key]?.messages.length ?? 0) > 1 && (
                 <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-label="Conversación en curso" />
               )}
               <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-indigo-600' : 'text-muted-foreground')} />
@@ -469,12 +523,12 @@ export default function Skills() {
                 variant="outline"
                 size="icon"
                 title="Adjuntar documento de referencia o borrador (PDF, Word, JPG, PNG)"
-                disabled={loading || attaching}
+                disabled={loading || attaching || !hydrated}
                 onClick={() => fileInputRef.current?.click()}
               >
                 {attaching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
               </Button>
-              <Input value={input} onChange={e => setInput(e.target.value)} placeholder="Escribe tu respuesta..." disabled={loading} />
+              <Input value={input} onChange={e => setInput(e.target.value)} placeholder={hydrated ? "Escribe tu respuesta..." : "Recuperando conversación..."} disabled={loading || !hydrated} />
               <Button type="submit" size="icon" disabled={loading || (!input.trim() && pendingFiles.length === 0)}><Send className="h-4 w-4" /></Button>
             </form>
             <Button
