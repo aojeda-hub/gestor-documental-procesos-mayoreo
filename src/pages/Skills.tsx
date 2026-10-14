@@ -171,16 +171,32 @@ function parseManualData(raw: string): ManualData {
   };
 }
 
+// Cada tipo de documento conserva su propia sesión (conversación, documento
+// generado, texto sin enviar y adjuntos): cambiar de tipo o salir de Skills y
+// volver no borra nada. Vive en memoria mientras la pestaña esté abierta.
+type SkillSession = {
+  messages: ChatMessage[];
+  resultData: CargoData | NormaData | ProcedimientoData | ManualData | null;
+  input: string;
+  pendingFiles: PendingAttachment[];
+};
+const skillSessions: Partial<Record<DocType, SkillSession>> = {};
+let lastDocType: DocType = 'cargo';
+
+function getSession(type: DocType): SkillSession {
+  return skillSessions[type] ?? { messages: [welcomeMessage(type)], resultData: null, input: '', pendingFiles: [] };
+}
+
 export default function Skills() {
   const { toast } = useToast();
-  const [docType, setDocType] = useState<DocType>('cargo');
-  const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage('cargo')]);
-  const [input, setInput] = useState('');
+  const [docType, setDocType] = useState<DocType>(lastDocType);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => getSession(lastDocType).messages);
+  const [input, setInput] = useState(() => getSession(lastDocType).input);
   const [loading, setLoading] = useState(false);
-  const [resultData, setResultData] = useState<CargoData | NormaData | ProcedimientoData | ManualData | null>(null);
+  const [resultData, setResultData] = useState<CargoData | NormaData | ProcedimientoData | ManualData | null>(() => getSession(lastDocType).resultData);
   const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>(() => getSession(lastDocType).pendingFiles);
   const [attaching, setAttaching] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -189,13 +205,24 @@ export default function Skills() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
+  // Mantiene guardada la sesión del tipo activo en cada cambio.
+  useEffect(() => {
+    skillSessions[docType] = { messages, resultData, input, pendingFiles };
+    lastDocType = docType;
+  }, [docType, messages, resultData, input, pendingFiles]);
+
+  // Mientras el asistente responde o genera, no se cambia de tipo: la
+  // respuesta pertenece a la conversación que la pidió.
+  const busy = loading || generating || attaching;
+
   const handleDocTypeChange = (next: DocType) => {
-    if (next === docType) return;
+    if (next === docType || busy) return;
+    const session = getSession(next);
     setDocType(next);
-    setMessages([welcomeMessage(next)]);
-    setResultData(null);
-    setInput('');
-    setPendingFiles([]);
+    setMessages(session.messages);
+    setResultData(session.resultData);
+    setInput(session.input);
+    setPendingFiles(session.pendingFiles);
   };
 
   const handleFilesSelected = async (files: FileList | null) => {
@@ -340,11 +367,16 @@ export default function Skills() {
               key={key}
               type="button"
               onClick={() => handleDocTypeChange(key)}
+              disabled={busy && !active}
+              title={busy && !active ? 'Espera a que termine la respuesta para cambiar de tipo' : undefined}
               className={cn(
-                'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors',
+                'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                 active ? 'border-indigo-500 bg-indigo-500/10 text-indigo-900' : 'border-border hover:bg-muted/50',
               )}
             >
+              {!active && skillSessions[key] && skillSessions[key]!.messages.length > 1 && (
+                <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-label="Conversación en curso" />
+              )}
               <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-indigo-600' : 'text-muted-foreground')} />
               <span>
                 <span className="block font-semibold">{info.label}</span>
