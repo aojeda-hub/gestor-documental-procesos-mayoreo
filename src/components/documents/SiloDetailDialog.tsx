@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { FileText, Plus, Lock, Search, MoreVertical, Eye, Pencil, FileDown, FileType2, Trash2 } from 'lucide-react';
-import { DOC_TYPE_LABELS } from '@/types/database';
+import { DOC_TYPE_LABELS, DOC_TYPE_LABELS_PLURAL } from '@/types/database';
 import type { Document, DocType, SiloType } from '@/types/database';
 import { format } from 'date-fns';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -69,7 +69,7 @@ export default function SiloDetailDialog({
                 const count = docs.filter(d => d.doc_type === dt).length;
                 return (
                   <SelectItem key={dt} value={dt}>
-                    {DOC_TYPE_LABELS[dt]} ({count})
+                    {DOC_TYPE_LABELS_PLURAL[dt]} ({count})
                   </SelectItem>
                 );
               })}

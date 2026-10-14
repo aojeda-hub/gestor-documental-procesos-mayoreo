@@ -444,6 +444,25 @@ export interface TaskDependency {
 
 
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
+  anexo: 'Anexo',
+  procedimiento: 'Procedimiento',
+  norma: 'Norma',
+  instructivo: 'Instructivo',
+  politica: 'Política',
+  descripcion_cargo: 'Descripción de Cargo',
+  manual: 'Manual',
+  libro: 'Libro',
+  presentacion_clave: 'Presentación Clave',
+  presentacion: 'Presentación',
+  formato: 'Formato',
+  gestion_beneficios: 'Gestión de Beneficios',
+  diagrama: 'Diagrama',
+  sintipo: 'Sin Tipo',
+};
+
+// Plural para títulos de sección y agrupaciones (p. ej. "Normas (12)");
+// DOC_TYPE_LABELS (singular) se usa al referirse a un solo documento.
+export const DOC_TYPE_LABELS_PLURAL: Record<DocType, string> = {
   anexo: 'Anexos',
   procedimiento: 'Procedimientos',
   norma: 'Normas',

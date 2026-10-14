@@ -12,7 +12,7 @@ import {
   ExternalLink, CheckSquare, X, FileSpreadsheet, ListFilter,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { DOC_TYPE_LABELS, DOCUMENT_ESTATUS_LABELS, DOCUMENT_ESTATUS_OPTIONS, DOCUMENT_ESTATUS_COLORS } from '@/types/database';
+import { DOC_TYPE_LABELS, DOC_TYPE_LABELS_PLURAL, DOCUMENT_ESTATUS_LABELS, DOCUMENT_ESTATUS_OPTIONS, DOCUMENT_ESTATUS_COLORS } from '@/types/database';
 import type { Document, DocType, SiloType, DocumentEstatus } from '@/types/database';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -97,7 +97,7 @@ export default function SiloUniverse({
     for (const dt of allTypes) {
       const typeDocs = filtered.filter(d => d.doc_type === dt);
       if (typeDocs.length > 0 || docs.some(d => d.doc_type === dt)) {
-        map.push({ type: dt, label: DOC_TYPE_LABELS[dt], docs: typeDocs });
+        map.push({ type: dt, label: DOC_TYPE_LABELS_PLURAL[dt], docs: typeDocs });
       }
     }
     return map;
