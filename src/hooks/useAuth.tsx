@@ -29,19 +29,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [rolesLoaded, setRolesLoaded] = useState(false);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Supabase revalida la sesión al volver a la pestaña (y al refrescar el
+    // token) y entrega un objeto `user` nuevo aunque sea el mismo usuario.
+    // Si se reemplazara, todo lo que depende de `user` se reiniciaría: la app
+    // volvía a "Cargando..." y se perdía lo que había en pantalla (p. ej. un
+    // documento a medio crear). Solo se cambia cuando cambia el usuario.
+    const applySession = (session: Session | null) => {
       setSession(session);
-      setUser(session?.user ?? null);
+      const next = session?.user ?? null;
+      setUser(prev => (prev && next && prev.id === next.id ? prev : next));
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+      applySession(session);
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const userId = user?.id ?? null;
 
   useEffect(() => {
     if (!user) {
@@ -64,7 +75,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRolesLoaded(true);
     };
     fetchData();
-  }, [user]);
+  // Se recargan perfil/roles/silos solo cuando cambia el usuario, no en cada
+  // revalidación de la sesión.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
