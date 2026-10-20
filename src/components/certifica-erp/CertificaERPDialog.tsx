@@ -31,7 +31,7 @@ import {
   Building2, FolderKanban, Plus, ChevronRight, Loader2, ListChecks, FileCheck2,
   Trash2, Check, Download, ChevronLeft, X, Save, Pencil, Hash, Tag, FileText,
   Image as ImageIcon, User, Calendar, CheckCircle2, ArrowLeft, Upload, Home, MessageSquare, Archive,
-  ChevronDown, AlertTriangle, ClipboardList,
+  ChevronDown, AlertTriangle, ClipboardList, FileSpreadsheet,
 } from "lucide-react";
 import {
   CertView, CompaniaRow, ProyectoRow, Modulo, Estado, Prioridad, Tipo,
@@ -777,6 +777,54 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
     toast.success(`Exportadas ${rows.length} incidencias${estadoFilter === "todos" ? "" : ` (estado "${ESTADO_LABEL[estadoFilter]}")`}`);
   };
 
+  // Misma selección que el PDF (lo que se ve en pantalla con los filtros
+  // activos), pero en Excel y con todas las columnas de la tabla.
+  const exportarExcel = async () => {
+    const totalReal = incidenciasFiltradas.length;
+    const totalCert = certIncidenciasFiltradas.length;
+    if (totalReal === 0 && totalCert === 0) { toast.info(estadoFilter === "todos" ? "No hay incidencias" : `No hay incidencias en estado "${ESTADO_LABEL[estadoFilter]}"`); return; }
+    const XLSX = await import("xlsx");
+    const rows = [
+      ...incidenciasFiltradas.map((r) => ({
+        "N°": `#${r.numero}`,
+        "Título": r.titulo,
+        "Sistema": r.sistema_nombre ?? "",
+        "Sección": r.modulo ?? "",
+        "Tipo": TIPO_LABEL[r.tipo],
+        "Estado": ESTADO_LABEL[r.estado],
+        "Archivada": esIncidenciaArchivada(r) ? "Sí" : "No",
+        "Prioridad": PRIORIDAD_LABEL[r.prioridad],
+        "Origen": "Manual",
+        "Responsable": r.responsable ?? "",
+        "Creado por": (r.created_by && nombrePorUsuario.get(r.created_by)) || "",
+        "Fecha": r.fecha,
+        "Fecha solventado": r.fecha_completado ? r.fecha_completado.slice(0, 10) : "",
+      })),
+      ...certIncidenciasFiltradas.map((c) => ({
+        "N°": `C#${c.numero}`,
+        "Título": c.titulo,
+        "Sistema": c.entorno ?? "",
+        "Sección": c.modulo ?? "",
+        "Tipo": TIPO_LABEL.incidencia,
+        "Estado": "Incidencia",
+        "Archivada": "No",
+        "Prioridad": "",
+        "Origen": `Certificación · ${c.script_nombre}`,
+        "Responsable": c.responsable ?? "",
+        "Creado por": "",
+        "Fecha": format(new Date(c.created_at), "yyyy-MM-dd"),
+        "Fecha solventado": "",
+      })),
+    ];
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [8, 45, 24, 22, 14, 12, 10, 10, 28, 24, 22, 12, 16].map((wch) => ({ wch }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Incidencias");
+    const nombre = (proyectoNombre || "Proyecto").replace(/[\\/:*?"<>|]+/g, "").trim().replace(/\s+/g, "_");
+    XLSX.writeFile(wb, `Incidencias_${nombre}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    toast.success(`Exportadas ${rows.length} incidencias a Excel${estadoFilter === "todos" ? "" : ` (estado "${ESTADO_LABEL[estadoFilter]}")`}`);
+  };
+
 
   const INC_HEADERS = ["Título", "Descripción", "Sección", "Prioridad", "Estado", "Sistema", "Código transacción", "Nombre transacción", "Responsable", "Fecha (YYYY-MM-DD)", "Fecha ocurrencia (YYYY-MM-DD)"];
 
@@ -910,9 +958,21 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
               <span className="cursor-pointer"><Upload className="h-4 w-4" /> Importar</span>
             </Button>
           </label>
-          <Button variant="outline" onClick={exportar} disabled={(!incidencias || incidencias.length === 0) && (!certIncidencias || certIncidencias.length === 0)}>
-            <Download className="h-4 w-4" /> Exportar
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={(!incidencias || incidencias.length === 0) && (!certIncidencias || certIncidencias.length === 0)}>
+                <Download className="h-4 w-4" /> Exportar <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportar}>
+                <FileText className="h-4 w-4 text-rose-600" /> PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportarExcel}>
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button><Plus className="h-4 w-4" /> Nuevo <ChevronDown className="h-3.5 w-3.5" /></Button>
