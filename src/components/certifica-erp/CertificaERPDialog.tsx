@@ -85,6 +85,44 @@ function ResponsableSelect({ label, required, value, onChange, directory }: {
   );
 }
 
+/* ============================ SECCIÓN (obligatoria) ============================ */
+// Campo de texto libre, pero sugiere las secciones ya usadas en el proyecto
+// para que la misma sección no se escriba de formas distintas y el filtro
+// por sección las agrupe correctamente.
+function SeccionInput({ proyectoId, value, onChange }: {
+  proyectoId: string | null | undefined;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const { data: sugerencias } = useQuery({
+    queryKey: ["cert-secciones", proyectoId],
+    enabled: !!proyectoId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("incidencias").select("modulo").eq("proyecto_id", proyectoId!);
+      if (error) throw error;
+      // Una sugerencia por grupo (sin variantes de acentos o errores de escritura).
+      return agruparSecciones((data ?? []).map((r: { modulo: string | null }) => r.modulo)).etiquetas;
+    },
+    staleTime: 60_000,
+  });
+  const listId = `secciones-${proyectoId ?? "nuevo"}`;
+  return (
+    <div className="space-y-2">
+      <Label>Sección *</Label>
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Escribe o elige la sección" list={listId} />
+      <datalist id={listId}>
+        {(sugerencias ?? []).map((s) => <option key={s} value={s} />)}
+      </datalist>
+    </div>
+  );
+}
+
+/** Devuelve la sección normalizada, o null si falta (para validar). */
+function seccionValida(v: string): string | null {
+  const s = v.trim().replace(/\s+/g, " ");
+  return s.length >= 2 ? s : null;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -132,7 +170,7 @@ function CertificaERPApp({ onClose, linkedProject }: { onClose: () => void; link
   // al entrar a una incidencia y volver — de lo contrario ProyectoView se
   // desmonta al navegar y los filtros se perdían.
   const [incidenciasFiltros, setIncidenciasFiltrosState] = useState<IncidenciasFiltros>({
-    estado: "todos", tipo: "todos", verArchivadas: false, fechaDesde: "", fechaHasta: "",
+    estado: "todos", tipo: "todos", seccion: SECCION_TODAS, verArchivadas: false, fechaDesde: "", fechaHasta: "",
   });
   const setIncidenciasFiltros = (patch: Partial<IncidenciasFiltros>) =>
     setIncidenciasFiltrosState((prev) => ({ ...prev, ...patch }));
@@ -542,7 +580,84 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
 type ProyectoFull = { id: string; nombre: string; descripcion: string | null; compania_id: string; compania: { nombre: string; slug: string } | null; };
 type IncRow = { id: string; numero: number; titulo: string; created_by: string | null; modulo: string | null; prioridad: Prioridad; estado: Estado; tipo: Tipo; sistema_nombre: string | null; responsable: string | null; fecha: string; fecha_completado: string | null; };
 
-type IncidenciasFiltros = { estado: Estado | "todos"; tipo: Tipo | "todos"; verArchivadas: boolean; fechaDesde: string; fechaHasta: string };
+type IncidenciasFiltros = { estado: Estado | "todos"; tipo: Tipo | "todos"; seccion: string; verArchivadas: boolean; fechaDesde: string; fechaHasta: string };
+
+// Filtro por sección. La sección es texto libre, así que se agrupa sin
+// distinguir mayúsculas, espacios ni acentos, y además se juntan las que solo
+// difieren por un error de escritura pequeño ("Requision", "Requisicion" y
+// "Requisición" son la misma sección).
+const SECCION_TODAS = "__todas__";
+const SECCION_SIN = "__sin__";
+const normalizarSeccion = (s: string | null | undefined) => (s ?? "").trim().replace(/\s+/g, " ");
+const sinAcentos = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+const seccionBase = (s: string | null | undefined) => sinAcentos(normalizarSeccion(s)).toLowerCase() || SECCION_SIN;
+
+function distanciaEdicion(a: string, b: string): number {
+  if (a === b) return 0;
+  const prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j];
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = tmp;
+    }
+  }
+  return prev[b.length];
+}
+
+// Tolerancia: 1 letra en palabras cortas, ~20% en las largas. Las de menos
+// de 5 letras solo se agrupan si son idénticas (evita juntar siglas).
+const casiIguales = (a: string, b: string) => {
+  const len = Math.max(a.length, b.length);
+  if (Math.min(a.length, b.length) < 5) return a === b;
+  return distanciaEdicion(a, b) <= Math.max(1, Math.floor(len * 0.2));
+};
+
+/**
+ * Agrupa los nombres de sección escritos de distintas formas. Devuelve la
+ * clave de grupo de cada nombre y el nombre a mostrar por grupo (se prefiere
+ * el que lleva acentos, luego el más usado).
+ */
+function agruparSecciones(valores: (string | null | undefined)[]) {
+  const conteo = new Map<string, Map<string, number>>(); // base -> etiqueta original -> veces
+  valores.forEach((v) => {
+    const base = seccionBase(v);
+    if (base === SECCION_SIN) return;
+    const label = normalizarSeccion(v);
+    const m = conteo.get(base) ?? new Map<string, number>();
+    m.set(label, (m.get(label) ?? 0) + 1);
+    conteo.set(base, m);
+  });
+  const total = (base: string) => Array.from(conteo.get(base)!.values()).reduce((a, b) => a + b, 0);
+  const bases = Array.from(conteo.keys()).sort((a, b) => total(b) - total(a) || a.localeCompare(b));
+  const grupoDe = new Map<string, string>(); // base -> base canónica
+  const canonicas: string[] = [];
+  bases.forEach((b) => {
+    const destino = canonicas.find((c) => casiIguales(c, b));
+    if (destino) grupoDe.set(b, destino);
+    else { canonicas.push(b); grupoDe.set(b, b); }
+  });
+  const etiquetas = new Map<string, string>();
+  canonicas.forEach((c) => {
+    const candidatas: [string, number][] = [];
+    bases.filter((b) => grupoDe.get(b) === c).forEach((b) => conteo.get(b)!.forEach((n, l) => candidatas.push([l, n])));
+    candidatas.sort((x, y) => {
+      const ax = Number(sinAcentos(x[0]) !== x[0]), ay = Number(sinAcentos(y[0]) !== y[0]);
+      return ay - ax || y[1] - x[1] || x[0].localeCompare(y[0], "es");
+    });
+    etiquetas.set(c, candidatas[0][0]);
+  });
+  return {
+    keyOf: (v: string | null | undefined) => {
+      const base = seccionBase(v);
+      return base === SECCION_SIN ? SECCION_SIN : grupoDe.get(base) ?? base;
+    },
+    labelOf: (key: string) => (key === SECCION_SIN ? "Sin sección" : etiquetas.get(key) ?? key),
+    etiquetas: canonicas.map((c) => etiquetas.get(c)!).sort((a, b) => a.localeCompare(b, "es")),
+  };
+}
 
 // Las incidencias "resuelto" se ocultan del listado por defecto pasados estos
 // días desde que se solventaron (fecha_completado, que ya llena solo un
@@ -623,7 +738,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
   proyectoId: string; proyectoNombre: string; navigate: (v: CertView) => void;
   filtros: IncidenciasFiltros; setFiltros: (patch: Partial<IncidenciasFiltros>) => void;
 }) {
-  const { estado: estadoFilter, tipo: tipoFilter, verArchivadas, fechaDesde, fechaHasta } = filtros;
+  const { estado: estadoFilter, tipo: tipoFilter, seccion: seccionFilter, verArchivadas, fechaDesde, fechaHasta } = filtros;
   const qc = useQueryClient();
   const { user } = useAuth();
   const [editingInc, setEditingInc] = useState<IncRow | null>(null);
@@ -730,17 +845,42 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
     return base;
   }, [incidenciasVisibles]);
 
+  // Secciones presentes en el proyecto, con su conteo (respeta los filtros de
+  // tipo/estado para que el número coincida con lo que se verá).
+  // Los grupos se calculan con todas las secciones del proyecto (no solo las
+  // visibles con los filtros actuales) para que no cambien al filtrar.
+  const secciones = useMemo(
+    () => agruparSecciones([...(incidencias ?? []).map((r) => r.modulo), ...(certIncidencias ?? []).map((c) => c.modulo)]),
+    [incidencias, certIncidencias],
+  );
+
+  const seccionOptions = useMemo(() => {
+    const map = new Map<string, number>();
+    incidenciasVisibles.forEach((r) => {
+      if (estadoFilter !== "todos" && r.estado !== estadoFilter) return;
+      if (tipoFilter !== "todos" && r.tipo !== tipoFilter) return;
+      const key = secciones.keyOf(r.modulo);
+      map.set(key, (map.get(key) ?? 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([key, count]) => ({ key, label: secciones.labelOf(key), count }))
+      .sort((a, b) => (a.key === SECCION_SIN ? 1 : b.key === SECCION_SIN ? -1 : a.label.localeCompare(b.label, "es")));
+  }, [incidenciasVisibles, estadoFilter, tipoFilter, secciones]);
+
   const incidenciasFiltradas = useMemo(() => incidenciasVisibles.filter((r) => {
     if (estadoFilter !== "todos" && r.estado !== estadoFilter) return false;
     if (tipoFilter !== "todos" && r.tipo !== tipoFilter) return false;
+    if (seccionFilter !== SECCION_TODAS && secciones.keyOf(r.modulo) !== seccionFilter) return false;
     return true;
-  }), [incidenciasVisibles, estadoFilter, tipoFilter]);
+  }), [incidenciasVisibles, estadoFilter, tipoFilter, seccionFilter, secciones]);
 
   // Las incidencias detectadas en certificación son siempre tipo "incidencia"
   // (nunca requerimiento) y aún no tienen un estado pendiente/en curso/resuelto
   // propio (ni fecha_completado), así que solo se muestran en "Todos" y sin
   // filtro de rango activo.
-  const certIncidenciasFiltradas = estadoFilter === "todos" && tipoFilter !== "requerimiento" && !fechaDesde && !fechaHasta ? (certIncidencias ?? []) : [];
+  const certIncidenciasFiltradas = estadoFilter === "todos" && tipoFilter !== "requerimiento" && !fechaDesde && !fechaHasta
+    ? (certIncidencias ?? []).filter((c) => seccionFilter === SECCION_TODAS || secciones.keyOf(c.modulo) === seccionFilter)
+    : [];
 
   const exportar = async () => {
     // Exporta exactamente lo que se ve en pantalla — si hay un filtro de
@@ -849,7 +989,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
       ["Campo", "Valores permitidos / formato"],
       ["Título", "Obligatorio. Resumen breve de la incidencia"],
       ["Descripción", "Obligatorio. Detalle completo"],
-      ["Sección", "Texto libre (ej. Nómina, Ventas, Compras, Inventario, Contabilidad)"],
+      ["Sección", "Obligatorio. Sección del sistema donde ocurre (ej. Nómina, Requisición, Vacantes). Usa siempre el mismo nombre para cada sección"],
       ["Prioridad", "Baja | Media | Alta"],
       ["Estado", "Pendiente | En curso | Solventado"],
       ["Sistema", "Nombre del sistema donde ocurrió"],
@@ -905,6 +1045,17 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
       if (rows.length === 0) { toast.error("El archivo está vacío"); return; }
       const norm = (s: unknown) => String(s ?? "").trim();
       const today = format(new Date(), "yyyy-MM-dd");
+      // La sección es obligatoria: si alguna fila con título no la trae, no se
+      // importa nada y se indica qué filas corregir (fila 1 = encabezados).
+      const filasSinSeccion = rows
+        .map((r, i) => ({ fila: i + 2, tit: norm(r["Título"] ?? r["Titulo"]), sec: norm(r["Sección"] ?? r["Seccion"] ?? r["Módulo"] ?? r["Modulo"]) }))
+        .filter((x) => x.tit && !seccionValida(x.sec))
+        .map((x) => x.fila);
+      if (filasSinSeccion.length > 0) {
+        const lista = filasSinSeccion.slice(0, 10).join(", ") + (filasSinSeccion.length > 10 ? "…" : "");
+        toast.error(`La sección es obligatoria. Complétala en la(s) fila(s): ${lista}. No se importó nada.`);
+        return;
+      }
       const payload = rows
         .map((r) => {
           const tit = norm(r["Título"] ?? r["Titulo"]);
@@ -914,7 +1065,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
             proyecto_id: proyectoId,
             titulo: tit,
             descripcion: desc || tit,
-            modulo: moduloFromLabel(norm(r["Sección"] ?? r["Seccion"] ?? r["Módulo"] ?? r["Modulo"])),
+            modulo: seccionValida(moduloFromLabel(norm(r["Sección"] ?? r["Seccion"] ?? r["Módulo"] ?? r["Modulo"])) ?? ""),
             prioridad: prioridadFromLabel(norm(r["Prioridad"])),
             estado: estadoIncFromLabel(norm(r["Estado"])),
             sistema_nombre: norm(r["Sistema"]) || null,
@@ -1004,6 +1155,13 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
             {ESTADOS.map((e) => <SelectItem key={e} value={e}>{ESTADO_LABEL[e]} ({estadoCounts[e]})</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={seccionFilter} onValueChange={(v) => setFiltros({ seccion: v })}>
+          <SelectTrigger className="h-8 w-52 text-xs"><SelectValue placeholder="Todas las secciones" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SECCION_TODAS}>Todas las secciones</SelectItem>
+            {seccionOptions.map((o) => <SelectItem key={o.key} value={o.key}>{o.label} ({o.count})</SelectItem>)}
+          </SelectContent>
+        </Select>
         {archivadasCount > 0 && (
           <button
             type="button"
@@ -1035,7 +1193,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
       {incidenciasFiltradas.length === 0 && certIncidenciasFiltradas.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <ListChecks className="h-8 w-8 text-muted-foreground" />
-          {estadoFilter === "todos" && tipoFilter === "todos" ? (
+          {estadoFilter === "todos" && tipoFilter === "todos" && seccionFilter === SECCION_TODAS ? (
             <>
               <div className="font-medium">Sin incidencias ni requerimientos en este proyecto</div>
               <Button size="sm" onClick={() => navigate({ name: "nueva", proyectoId })}><Plus className="h-4 w-4" /> Registrar el primero</Button>
@@ -1044,6 +1202,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
             <div className="font-medium">
               No hay {tipoFilter !== "todos" ? TIPO_LABEL[tipoFilter].toLowerCase() + "s" : "registros"}
               {estadoFilter !== "todos" ? ` en estado "${ESTADO_LABEL[estadoFilter]}"` : ""}
+              {seccionFilter !== SECCION_TODAS ? ` en la sección "${seccionOptions.find((o) => o.key === seccionFilter)?.label ?? ""}"` : ""}
             </div>
           )}
         </Card>
@@ -1269,6 +1428,8 @@ function IncidenciaFormDialog({
     if (form.titulo.trim().length < 3) { toast.error("Título mínimo 3 caracteres"); return; }
     if (form.descripcion.trim().length < 5) { toast.error("Descripción mínimo 5 caracteres"); return; }
     if (form.sistema_nombre.trim().length < 2) { toast.error("Indica el sistema"); return; }
+    const seccion = seccionValida(form.modulo);
+    if (!seccion) { toast.error("Indica la sección"); return; }
     if (form.responsable.trim().length < 2) { toast.error("Indica el responsable técnico"); return; }
     setSubmitting(true);
     try {
@@ -1276,7 +1437,7 @@ function IncidenciaFormDialog({
         titulo: form.titulo.trim(),
         descripcion: form.descripcion.trim(),
         sistema_nombre: form.sistema_nombre.trim(),
-        modulo: form.modulo,
+        modulo: seccion,
         prioridad: form.prioridad,
         tipo: form.tipo,
         responsable: form.responsable.trim(),
@@ -1344,9 +1505,7 @@ function IncidenciaFormDialog({
           <div className="space-y-2"><Label>Título *</Label><Input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} /></div>
           <div className="space-y-2"><Label>Descripción *</Label><Textarea rows={4} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} /></div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Sección</Label>
-              <Input value={form.modulo} onChange={(e) => setForm({ ...form, modulo: e.target.value })} placeholder="Escribe la sección" />
-            </div>
+            <SeccionInput proyectoId={proyectoId} value={form.modulo} onChange={(v) => setForm({ ...form, modulo: v })} />
             <div className="space-y-2"><Label>Prioridad *</Label>
               <Select value={form.prioridad} onValueChange={(v) => setForm({ ...form, prioridad: v as Prioridad })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -2330,10 +2489,12 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
   const guardarEdicion = async () => {
     if (!inc || !form) return;
     if (!form.titulo.trim() || !form.descripcion.trim()) { toast.error("Título y descripción son obligatorios"); return; }
+    const seccion = seccionValida(form.modulo);
+    if (!seccion) { toast.error("Indica la sección"); return; }
     setSaving(true);
     const { data: updated, error } = await supabase.from("incidencias").update({
       titulo: form.titulo.trim(), descripcion: form.descripcion.trim(),
-      modulo: form.modulo, prioridad: form.prioridad, tipo: form.tipo, fecha: form.fecha,
+      modulo: seccion, prioridad: form.prioridad, tipo: form.tipo, fecha: form.fecha,
       codigo_transaccion: form.codigo_transaccion.trim() || null,
       nombre_transaccion: form.nombre_transaccion.trim() || null,
       responsable: form.responsable.trim() || null,
@@ -2555,9 +2716,7 @@ function IncidenciaDetail({ id, navigate }: { id: string; navigate: (v: CertView
                   <SelectContent>{TIPOS.map((t) => <SelectItem key={t} value={t}>{TIPO_LABEL[t]}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2"><Label>Sección</Label>
-                <Input value={form.modulo} onChange={(e) => setForm({ ...form, modulo: e.target.value })} placeholder="Escribe la sección" />
-              </div>
+              <SeccionInput proyectoId={inc.proyecto_id} value={form.modulo} onChange={(v) => setForm({ ...form, modulo: v })} />
               <div className="space-y-2"><Label>Prioridad</Label>
                 <Select value={form.prioridad} onValueChange={(v) => setForm({ ...form, prioridad: v as Prioridad })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -2689,6 +2848,8 @@ function NuevaIncidencia({ proyectoId, tipoInicial, navigate }: { proyectoId?: s
     if (form.sistema_nombre.trim().length < 2) { toast.error("Indica el sistema"); return; }
     if (form.titulo.trim().length < 3) { toast.error("Título mínimo 3 caracteres"); return; }
     if (form.descripcion.trim().length < 5) { toast.error("Descripción mínimo 5 caracteres"); return; }
+    const seccion = seccionValida(form.modulo);
+    if (!seccion) { toast.error("Indica la sección"); return; }
     if (form.responsable.trim().length < 2) { toast.error("Indica el responsable técnico"); return; }
 
     setSubmitting(true);
@@ -2696,7 +2857,7 @@ function NuevaIncidencia({ proyectoId, tipoInicial, navigate }: { proyectoId?: s
       const { data: inc, error: insErr } = await supabase.from("incidencias").insert({
         proyecto_id: form.proyecto_id, sistema_nombre: form.sistema_nombre,
         titulo: form.titulo, descripcion: form.descripcion,
-        modulo: form.modulo, prioridad: form.prioridad, tipo: form.tipo,
+        modulo: seccion, prioridad: form.prioridad, tipo: form.tipo,
         codigo_transaccion: form.codigo_transaccion || null,
         nombre_transaccion: form.nombre_transaccion || null,
         responsable: form.responsable, responsable_funcional: form.responsable_funcional || null,
@@ -2774,9 +2935,7 @@ function NuevaIncidencia({ proyectoId, tipoInicial, navigate }: { proyectoId?: s
           <div className="space-y-2"><Label>Descripción *</Label><Textarea rows={5} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} /></div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Sección</Label>
-              <Input value={form.modulo} onChange={(e) => setForm({ ...form, modulo: e.target.value })} placeholder="Escribe la sección" />
-            </div>
+            <SeccionInput proyectoId={form.proyecto_id} value={form.modulo} onChange={(v) => setForm({ ...form, modulo: v })} />
             <div className="space-y-2"><Label>Prioridad *</Label>
               <Select value={form.prioridad} onValueChange={(v) => setForm({ ...form, prioridad: v as Prioridad })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
