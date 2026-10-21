@@ -21,7 +21,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -170,7 +170,7 @@ function CertificaERPApp({ onClose, linkedProject }: { onClose: () => void; link
   // al entrar a una incidencia y volver — de lo contrario ProyectoView se
   // desmonta al navegar y los filtros se perdían.
   const [incidenciasFiltros, setIncidenciasFiltrosState] = useState<IncidenciasFiltros>({
-    estado: "todos", tipo: "todos", seccion: SECCION_TODAS, verArchivadas: false, fechaDesde: "", fechaHasta: "",
+    estados: [], tipo: "todos", seccion: SECCION_TODAS, verArchivadas: false, fechaDesde: "", fechaHasta: "",
   });
   const setIncidenciasFiltros = (patch: Partial<IncidenciasFiltros>) =>
     setIncidenciasFiltrosState((prev) => ({ ...prev, ...patch }));
@@ -578,9 +578,10 @@ function CompaniaView({ slug, navigate }: { slug: string; navigate: (v: CertView
 
 /* ============================ PROYECTO VIEW ============================ */
 type ProyectoFull = { id: string; nombre: string; descripcion: string | null; compania_id: string; compania: { nombre: string; slug: string } | null; };
-type IncRow = { id: string; numero: number; titulo: string; created_by: string | null; modulo: string | null; prioridad: Prioridad; estado: Estado; tipo: Tipo; sistema_nombre: string | null; responsable: string | null; fecha: string; fecha_completado: string | null; };
+type IncRow = { id: string; numero: number; titulo: string; descripcion: string | null; created_by: string | null; modulo: string | null; prioridad: Prioridad; estado: Estado; tipo: Tipo; sistema_nombre: string | null; responsable: string | null; fecha: string; fecha_completado: string | null; };
 
-type IncidenciasFiltros = { estado: Estado | "todos"; tipo: Tipo | "todos"; seccion: string; verArchivadas: boolean; fechaDesde: string; fechaHasta: string };
+// estados: selección múltiple; vacío = todos los estados.
+type IncidenciasFiltros = { estados: Estado[]; tipo: Tipo | "todos"; seccion: string; verArchivadas: boolean; fechaDesde: string; fechaHasta: string };
 
 // Filtro por sección. La sección es texto libre, así que se agrupa sin
 // distinguir mayúsculas, espacios ni acentos, y además se juntan las que solo
@@ -738,7 +739,15 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
   proyectoId: string; proyectoNombre: string; navigate: (v: CertView) => void;
   filtros: IncidenciasFiltros; setFiltros: (patch: Partial<IncidenciasFiltros>) => void;
 }) {
-  const { estado: estadoFilter, tipo: tipoFilter, seccion: seccionFilter, verArchivadas, fechaDesde, fechaHasta } = filtros;
+  const { estados: estadosFilter, tipo: tipoFilter, seccion: seccionFilter, verArchivadas, fechaDesde, fechaHasta } = filtros;
+  const hayFiltroEstado = estadosFilter.length > 0;
+  const pasaEstado = (e: Estado) => !hayFiltroEstado || estadosFilter.includes(e);
+  const estadosTexto = estadosFilter.map((e) => ESTADO_LABEL[e]).join(", ");
+  const toggleEstado = (e: Estado) => {
+    const next = estadosFilter.includes(e) ? estadosFilter.filter((x) => x !== e) : [...estadosFilter, e];
+    // Marcar los tres equivale a "Todos".
+    setFiltros({ estados: next.length === ESTADOS.length ? [] : ESTADOS.filter((x) => next.includes(x)) });
+  };
   const qc = useQueryClient();
   const { user } = useAuth();
   const [editingInc, setEditingInc] = useState<IncRow | null>(null);
@@ -751,7 +760,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
     queryKey: ["cert-proyecto-incidencias", proyectoId],
     queryFn: async () => {
       const { data, error } = await supabase.from("incidencias")
-        .select("id, numero, titulo, modulo, prioridad, estado, tipo, sistema_nombre, responsable, fecha, fecha_completado, test_caso_id, created_by")
+        .select("id, numero, titulo, descripcion, modulo, prioridad, estado, tipo, sistema_nombre, responsable, fecha, fecha_completado, test_caso_id, created_by")
         .eq("proyecto_id", proyectoId).order("numero", { ascending: false });
       if (error) throw error;
       return (data ?? []) as (IncRow & { test_caso_id: string | null })[];
@@ -857,7 +866,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
   const seccionOptions = useMemo(() => {
     const map = new Map<string, number>();
     incidenciasVisibles.forEach((r) => {
-      if (estadoFilter !== "todos" && r.estado !== estadoFilter) return;
+      if (!pasaEstado(r.estado)) return;
       if (tipoFilter !== "todos" && r.tipo !== tipoFilter) return;
       const key = secciones.keyOf(r.modulo);
       map.set(key, (map.get(key) ?? 0) + 1);
@@ -865,20 +874,22 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
     return Array.from(map.entries())
       .map(([key, count]) => ({ key, label: secciones.labelOf(key), count }))
       .sort((a, b) => (a.key === SECCION_SIN ? 1 : b.key === SECCION_SIN ? -1 : a.label.localeCompare(b.label, "es")));
-  }, [incidenciasVisibles, estadoFilter, tipoFilter, secciones]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incidenciasVisibles, estadosFilter, tipoFilter, secciones]);
 
   const incidenciasFiltradas = useMemo(() => incidenciasVisibles.filter((r) => {
-    if (estadoFilter !== "todos" && r.estado !== estadoFilter) return false;
+    if (!pasaEstado(r.estado)) return false;
     if (tipoFilter !== "todos" && r.tipo !== tipoFilter) return false;
     if (seccionFilter !== SECCION_TODAS && secciones.keyOf(r.modulo) !== seccionFilter) return false;
     return true;
-  }), [incidenciasVisibles, estadoFilter, tipoFilter, seccionFilter, secciones]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [incidenciasVisibles, estadosFilter, tipoFilter, seccionFilter, secciones]);
 
   // Las incidencias detectadas en certificación son siempre tipo "incidencia"
   // (nunca requerimiento) y aún no tienen un estado pendiente/en curso/resuelto
   // propio (ni fecha_completado), así que solo se muestran en "Todos" y sin
   // filtro de rango activo.
-  const certIncidenciasFiltradas = estadoFilter === "todos" && tipoFilter !== "requerimiento" && !fechaDesde && !fechaHasta
+  const certIncidenciasFiltradas = !hayFiltroEstado && tipoFilter !== "requerimiento" && !fechaDesde && !fechaHasta
     ? (certIncidencias ?? []).filter((c) => seccionFilter === SECCION_TODAS || secciones.keyOf(c.modulo) === seccionFilter)
     : [];
 
@@ -887,7 +898,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
     // estado activo (Pendiente/En curso/Solventado), solo esas se incluyen.
     const totalReal = incidenciasFiltradas.length;
     const totalCert = certIncidenciasFiltradas.length;
-    if (totalReal === 0 && totalCert === 0) { toast.info(estadoFilter === "todos" ? "No hay incidencias" : `No hay incidencias en estado "${ESTADO_LABEL[estadoFilter]}"`); return; }
+    if (totalReal === 0 && totalCert === 0) { toast.info(!hayFiltroEstado ? "No hay incidencias" : `No hay incidencias en estado "${estadosTexto}"`); return; }
     const { exportIncidenciasPDF } = await import("@/lib/pdfExport");
     const rows = [
       ...incidenciasFiltradas.map((r) => ({
@@ -914,27 +925,27 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
       })),
     ];
     await exportIncidenciasPDF(proyectoNombre || "Proyecto", rows);
-    toast.success(`Exportadas ${rows.length} incidencias${estadoFilter === "todos" ? "" : ` (estado "${ESTADO_LABEL[estadoFilter]}")`}`);
+    toast.success(`Exportadas ${rows.length} incidencias${!hayFiltroEstado ? "" : ` (estado "${estadosTexto}")`}`);
   };
 
   // Misma selección que el PDF (lo que se ve en pantalla con los filtros
-  // activos), pero en Excel y con todas las columnas de la tabla.
+  // activos), pero en Excel e incluyendo la descripción de cada registro.
   const exportarExcel = async () => {
     const totalReal = incidenciasFiltradas.length;
     const totalCert = certIncidenciasFiltradas.length;
-    if (totalReal === 0 && totalCert === 0) { toast.info(estadoFilter === "todos" ? "No hay incidencias" : `No hay incidencias en estado "${ESTADO_LABEL[estadoFilter]}"`); return; }
+    if (totalReal === 0 && totalCert === 0) { toast.info(!hayFiltroEstado ? "No hay incidencias" : `No hay incidencias en estado "${estadosTexto}"`); return; }
     const XLSX = await import("xlsx");
+    // La sección sale con el nombre agrupado (el mismo que en el filtro), así
+    // "Requision" y "Requisición" quedan iguales y se pueden filtrar en Excel.
+    const seccionExport = (m: string | null | undefined) => (seccionBase(m) === SECCION_SIN ? "" : secciones.labelOf(secciones.keyOf(m)));
     const rows = [
       ...incidenciasFiltradas.map((r) => ({
         "N°": `#${r.numero}`,
         "Título": r.titulo,
-        "Sistema": r.sistema_nombre ?? "",
-        "Sección": r.modulo ?? "",
+        "Descripción": r.descripcion ?? "",
+        "Sección": seccionExport(r.modulo),
         "Tipo": TIPO_LABEL[r.tipo],
         "Estado": ESTADO_LABEL[r.estado],
-        "Archivada": esIncidenciaArchivada(r) ? "Sí" : "No",
-        "Prioridad": PRIORIDAD_LABEL[r.prioridad],
-        "Origen": "Manual",
         "Responsable": r.responsable ?? "",
         "Creado por": (r.created_by && nombrePorUsuario.get(r.created_by)) || "",
         "Fecha": r.fecha,
@@ -943,13 +954,10 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
       ...certIncidenciasFiltradas.map((c) => ({
         "N°": `C#${c.numero}`,
         "Título": c.titulo,
-        "Sistema": c.entorno ?? "",
-        "Sección": c.modulo ?? "",
+        "Descripción": c.resultado_obtenido || c.resultado_esperado || "",
+        "Sección": seccionExport(c.modulo),
         "Tipo": TIPO_LABEL.incidencia,
         "Estado": "Incidencia",
-        "Archivada": "No",
-        "Prioridad": "",
-        "Origen": `Certificación · ${c.script_nombre}`,
         "Responsable": c.responsable ?? "",
         "Creado por": "",
         "Fecha": format(new Date(c.created_at), "yyyy-MM-dd"),
@@ -957,12 +965,12 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
       })),
     ];
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [8, 45, 24, 22, 14, 12, 10, 10, 28, 24, 22, 12, 16].map((wch) => ({ wch }));
+    ws["!cols"] = [8, 45, 70, 24, 14, 12, 24, 22, 12, 16].map((wch) => ({ wch }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Incidencias");
     const nombre = (proyectoNombre || "Proyecto").replace(/[\\/:*?"<>|]+/g, "").trim().replace(/\s+/g, "_");
     XLSX.writeFile(wb, `Incidencias_${nombre}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
-    toast.success(`Exportadas ${rows.length} incidencias a Excel${estadoFilter === "todos" ? "" : ` (estado "${ESTADO_LABEL[estadoFilter]}")`}`);
+    toast.success(`Exportadas ${rows.length} incidencias a Excel${!hayFiltroEstado ? "" : ` (estado "${estadosTexto}")`}`);
   };
 
 
@@ -1148,13 +1156,43 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
             {TIPOS.map((t) => <SelectItem key={t} value={t}>{TIPO_LABEL[t]} ({tipoCounts[t]})</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={estadoFilter} onValueChange={(v) => setFiltros({ estado: v as Estado | "todos" })}>
-          <SelectTrigger className="h-8 w-44 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos ({incidenciasVisibles.length})</SelectItem>
-            {ESTADOS.map((e) => <SelectItem key={e} value={e}>{ESTADO_LABEL[e]} ({estadoCounts[e]})</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {/* Estado: selección múltiple (sin marcar ninguno = todos). */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="h-8 w-44 justify-between px-3 text-xs font-normal">
+              <span className="truncate">
+                {!hayFiltroEstado
+                  ? `Todos (${incidenciasVisibles.length})`
+                  : estadosFilter.length === 1
+                    ? `${ESTADO_LABEL[estadosFilter[0]]} (${estadoCounts[estadosFilter[0]]})`
+                    : `${estadosTexto} (${estadosFilter.reduce((n, e) => n + estadoCounts[e], 0)})`}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuCheckboxItem
+              checked={!hayFiltroEstado}
+              onCheckedChange={() => setFiltros({ estados: [] })}
+              onSelect={(e) => e.preventDefault()}
+              className="text-xs"
+            >
+              Todos ({incidenciasVisibles.length})
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
+            {ESTADOS.map((e) => (
+              <DropdownMenuCheckboxItem
+                key={e}
+                checked={estadosFilter.includes(e)}
+                onCheckedChange={() => toggleEstado(e)}
+                onSelect={(ev) => ev.preventDefault()}
+                className="text-xs"
+              >
+                {ESTADO_LABEL[e]} ({estadoCounts[e]})
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Select value={seccionFilter} onValueChange={(v) => setFiltros({ seccion: v })}>
           <SelectTrigger className="h-8 w-52 text-xs"><SelectValue placeholder="Todas las secciones" /></SelectTrigger>
           <SelectContent>
@@ -1193,7 +1231,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
       {incidenciasFiltradas.length === 0 && certIncidenciasFiltradas.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <ListChecks className="h-8 w-8 text-muted-foreground" />
-          {estadoFilter === "todos" && tipoFilter === "todos" && seccionFilter === SECCION_TODAS ? (
+          {!hayFiltroEstado && tipoFilter === "todos" && seccionFilter === SECCION_TODAS ? (
             <>
               <div className="font-medium">Sin incidencias ni requerimientos en este proyecto</div>
               <Button size="sm" onClick={() => navigate({ name: "nueva", proyectoId })}><Plus className="h-4 w-4" /> Registrar el primero</Button>
@@ -1201,7 +1239,7 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
           ) : (
             <div className="font-medium">
               No hay {tipoFilter !== "todos" ? TIPO_LABEL[tipoFilter].toLowerCase() + "s" : "registros"}
-              {estadoFilter !== "todos" ? ` en estado "${ESTADO_LABEL[estadoFilter]}"` : ""}
+              {hayFiltroEstado ? ` en estado "${estadosTexto}"` : ""}
               {seccionFilter !== SECCION_TODAS ? ` en la sección "${seccionOptions.find((o) => o.key === seccionFilter)?.label ?? ""}"` : ""}
             </div>
           )}
