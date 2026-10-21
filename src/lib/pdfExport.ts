@@ -242,16 +242,19 @@ export async function exportCertificacionPDF(
   doc.save(`certificacion_${safe(projectName)}_${safe(scriptName)}_${new Date().toISOString().slice(0,10)}.pdf`);
 }
 
+// Mismas columnas que la exportación a Excel de CertificaERP.
 export interface IncidenciaRow {
   numero: number | string;
   titulo: string;
-  sistema?: string | null;
+  descripcion?: string | null;
   modulo?: string | null;
+  /** "Incidencia" | "Requerimiento" */
+  tipo: string;
   estado: string;
-  prioridad?: string | null;
   responsable?: string | null;
-  origen?: string | null;
+  creadoPor?: string | null;
   fecha?: string | null;
+  fechaSolventado?: string | null;
 }
 
 export async function exportIncidenciasPDF(
@@ -267,32 +270,36 @@ export async function exportIncidenciasPDF(
   const rows = incidencias.map(i => [
     typeof i.numero === 'number' ? `#${i.numero}` : String(i.numero),
     i.titulo,
-    i.sistema || '-',
+    i.descripcion || '-',
     i.modulo || '-',
+    i.tipo,
     i.estado,
-    i.prioridad || '-',
     i.responsable || '-',
-    i.origen || 'Incidencia',
+    i.creadoPor || '-',
     i.fecha || '-',
+    i.fechaSolventado || '-',
   ]);
 
+  // A4 horizontal: 277 mm útiles con márgenes de 10 mm. La descripción es la
+  // columna más ancha porque suele ser el texto más largo.
   autoTable(doc, {
     startY: 34,
-    head: [['ID', 'Título', 'Sistema', 'Módulo', 'Estado', 'Prioridad', 'Responsable', 'Origen', 'Fecha']],
+    head: [['N°', 'Título', 'Descripción', 'Sección', 'Tipo', 'Estado', 'Responsable', 'Creado por', 'Fecha', 'Fecha solventado']],
     body: rows,
-    styles: { fontSize: 8.5, cellPadding: 2.2, overflow: 'linebreak', valign: 'top' },
+    styles: { fontSize: 7.5, cellPadding: 1.8, overflow: 'linebreak', valign: 'top' },
     headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: 16, halign: 'center' },
-      1: { cellWidth: 60, fontStyle: 'bold' },
-      2: { cellWidth: 32 },
-      3: { cellWidth: 28 },
-      4: { cellWidth: 24, halign: 'center' },
-      5: { cellWidth: 22, halign: 'center' },
-      6: { cellWidth: 32 },
-      7: { cellWidth: 34 },
-      8: { cellWidth: 24 },
+      0: { cellWidth: 14, halign: 'center' },
+      1: { cellWidth: 40, fontStyle: 'bold' },
+      2: { cellWidth: 72 },
+      3: { cellWidth: 26 },
+      4: { cellWidth: 22, halign: 'center' },
+      5: { cellWidth: 20, halign: 'center' },
+      6: { cellWidth: 26 },
+      7: { cellWidth: 24 },
+      8: { cellWidth: 16 },
+      9: { cellWidth: 17 },
     },
     margin: { left: PDF_MARGIN, right: PDF_MARGIN },
   });
@@ -301,7 +308,7 @@ export async function exportIncidenciasPDF(
   // El listado mezcla Incidencias y Requerimientos (y lo detectado en
   // Certificación, que siempre cuenta como Incidencia) — un solo "Total de
   // incidencias" con el conteo de filas mezcladas era engañoso.
-  const totalRequerimientos = incidencias.filter((i) => i.origen === 'Requerimiento').length;
+  const totalRequerimientos = incidencias.filter((i) => i.tipo === 'Requerimiento').length;
   const totalIncidencias = incidencias.length - totalRequerimientos;
   doc.setFontSize(9);
   doc.setTextColor(80);

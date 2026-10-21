@@ -900,28 +900,32 @@ function IncidenciasTab({ proyectoId, proyectoNombre, navigate, filtros, setFilt
     const totalCert = certIncidenciasFiltradas.length;
     if (totalReal === 0 && totalCert === 0) { toast.info(!hayFiltroEstado ? "No hay incidencias" : `No hay incidencias en estado "${estadosTexto}"`); return; }
     const { exportIncidenciasPDF } = await import("@/lib/pdfExport");
+    // Mismas columnas que el Excel (sección con el nombre agrupado).
+    const seccionExport = (m: string | null | undefined) => (seccionBase(m) === SECCION_SIN ? "" : secciones.labelOf(secciones.keyOf(m)));
     const rows = [
       ...incidenciasFiltradas.map((r) => ({
         numero: r.numero,
         titulo: r.titulo,
-        sistema: r.sistema_nombre,
-        modulo: r.modulo || "-",
+        descripcion: r.descripcion,
+        modulo: seccionExport(r.modulo),
+        tipo: TIPO_LABEL[r.tipo],
         estado: ESTADO_LABEL[r.estado],
-        prioridad: PRIORIDAD_LABEL[r.prioridad],
         responsable: r.responsable,
-        origen: TIPO_LABEL[r.tipo],
+        creadoPor: (r.created_by && nombrePorUsuario.get(r.created_by)) || null,
         fecha: r.fecha,
+        fechaSolventado: r.fecha_completado ? r.fecha_completado.slice(0, 10) : null,
       })),
       ...certIncidenciasFiltradas.map((c) => ({
         numero: `C#${c.numero}`,
         titulo: c.titulo,
-        sistema: c.entorno,
-        modulo: c.modulo ?? "-",
+        descripcion: c.resultado_obtenido || c.resultado_esperado || null,
+        modulo: seccionExport(c.modulo),
+        tipo: TIPO_LABEL.incidencia,
         estado: "Incidencia",
-        prioridad: null,
         responsable: c.responsable,
-        origen: `Certificación · ${c.script_nombre}`,
+        creadoPor: null,
         fecha: format(new Date(c.created_at), "yyyy-MM-dd"),
+        fechaSolventado: null,
       })),
     ];
     await exportIncidenciasPDF(proyectoNombre || "Proyecto", rows);
