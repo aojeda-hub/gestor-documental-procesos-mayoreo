@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
@@ -56,6 +56,7 @@ const STATUS_META: Record<PhaseStatus, { label: string; cls: string; icon: any }
 
 export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName, projectPhase, projectStartDate, projectEndDate, baselineCapturedAt, onTasksChange, canEdit = false }: Props) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const isViewer = !canEdit;
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [tasks, setTasks] = useState<TaskWithAssignee[]>([]);
@@ -82,8 +83,12 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
   const [dependenciesDialogOpen, setDependenciesDialogOpen] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
 
+  // "Cargando..." solo en la primera carga del panel. Las recargas tras una
+  // acción (avance, peso, etc.) se hacen en segundo plano sin vaciar la tabla,
+  // para no perder la posición ni cerrar lo que el usuario tenga abierto.
+  const hasLoadedRef = useRef(false);
   const fetchData = async () => {
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     try {
       let { data: ph, error: e1 } = await supabase
         .from('project_phases').select('*').eq('project_id', projectId).order('order_index');
@@ -160,11 +165,14 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Al abrir el panel (o cambiar de proyecto) sí se muestra la carga inicial.
+    hasLoadedRef.current = false;
     if (open && projectId) fetchData();
     if (!open) setSelectedPhaseId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -261,35 +269,48 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
     onTasksChange();
   };
 
+  // Asignar responsables: el cambio se ve al instante y solo se guarda ese
+  // dato. Antes se recargaba todo el panel (fases, tareas, usuarios,
+  // checklist), lo que mostraba "Cargando...", cerraba el selector y llevaba
+  // la tabla arriba en cada clic. Si el guardado falla, se revierte.
+  const setTaskAssignees = (taskId: string, ids: string[]) =>
+    setAssigneesByTask(prev => ({ ...prev, [taskId]: ids }));
+
   const toggleAssignee = async (task: TaskWithAssignee, userId: string) => {
     if (!canEditPhase(selectedPhase)) return;
     const current = assigneesByTask[task.id] || [];
     const isAssigned = current.includes(userId);
+    setTaskAssignees(task.id, isAssigned ? current.filter(id => id !== userId) : [...current, userId]);
+    let error: { message: string } | null = null;
     if (isAssigned) {
-      const { error } = await (supabase as any)
+      ({ error } = await (supabase as any)
         .from('project_task_assignees')
         .delete()
         .eq('task_id', task.id)
-        .eq('user_id', userId);
-      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+        .eq('user_id', userId));
     } else {
-      const actor = (await supabase.auth.getUser()).data.user?.id;
-      const { error } = await (supabase as any)
+      ({ error } = await (supabase as any)
         .from('project_task_assignees')
-        .insert({ task_id: task.id, user_id: userId, assigned_by: actor });
-      if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+        .insert({ task_id: task.id, user_id: userId, assigned_by: user?.id ?? null }));
     }
-    fetchData();
+    if (error) {
+      setTaskAssignees(task.id, current);
+      toast({ title: 'No se pudo actualizar el responsable', description: error.message, variant: 'destructive' });
+    }
   };
 
   const clearAssignees = async (task: TaskWithAssignee) => {
     if (!canEditPhase(selectedPhase)) return;
+    const current = assigneesByTask[task.id] || [];
+    setTaskAssignees(task.id, []);
     const { error } = await (supabase as any)
       .from('project_task_assignees')
       .delete()
       .eq('task_id', task.id);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    fetchData();
+    if (error) {
+      setTaskAssignees(task.id, current);
+      toast({ title: 'No se pudieron quitar los responsables', description: error.message, variant: 'destructive' });
+    }
   };
 
   const openEdit = (task: TaskWithAssignee) => {
@@ -432,7 +453,7 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col">
+      <DialogContent className="w-[96vw] max-w-7xl max-h-[92vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span>Fases del proyecto: {projectName}</span>
@@ -451,8 +472,9 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
           </DialogTitle>
         </DialogHeader>
 
-        {/* Stepper */}
-        <div className="flex items-center gap-1 overflow-x-auto py-3 px-1">
+        {/* Stepper: las fases se reparten el ancho disponible (sin barra de
+            desplazamiento propia). */}
+        <div className="flex items-center gap-1 py-3 px-1">
           {phases.map((p, idx) => {
             const meta = STATUS_META[p.status];
             const Icon = meta.icon;
@@ -465,16 +487,17 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
             const isGateComplete = phaseChecklist.length > 0 && chkCompleted === phaseChecklist.length;
 
             return (
-              <div key={p.id} className="flex items-center">
+              <div key={p.id} className="flex flex-1 min-w-0 items-center">
                 <button
                   onClick={() => setSelectedPhaseId(p.id)}
-                  className={`group flex flex-col items-start gap-1 rounded-lg border px-3 py-2 text-left transition min-w-[170px] ${meta.cls} ${
+                  title={`${idx + 1}. ${p.name}`}
+                  className={`group flex flex-1 min-w-0 flex-col items-start gap-1 rounded-lg border px-3 py-2 text-left transition ${meta.cls} ${
                     isSel ? 'ring-2 ring-primary/60 shadow-sm' : 'opacity-90 hover:opacity-100'
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 text-xs font-semibold">
-                    <Icon className="h-3.5 w-3.5" />
-                    <span>{idx + 1}. {p.name}</span>
+                  <div className="flex w-full min-w-0 items-center gap-1.5 text-xs font-semibold">
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{idx + 1}. {p.name}</span>
                   </div>
                   <div className="text-[10px] uppercase tracking-wide opacity-70">{meta.label}</div>
                   
@@ -642,18 +665,23 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                 </div>
               )}
 
-              <div className="border rounded-md overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-muted/50">
+              {/* Sin scroll propio: la tabla usa todo el ancho de la ventana con
+                  columnas de ancho fijo (la de Tarea toma el resto y ajusta el
+                  texto en varias líneas), y la lista se desplaza con el scroll
+                  general del panel. Se usa <table> directo porque <Table>
+                  agrega su propio contenedor con barras de desplazamiento. */}
+              <div className="border rounded-md">
+                <table className="w-full table-fixed caption-bottom text-sm">
+                  <TableHeader className="sticky top-0 z-10 bg-muted shadow-[0_1px_0_hsl(var(--border))]">
                     <TableRow>
                       <TableHead className="w-[40px]"></TableHead>
                       <TableHead>Tarea</TableHead>
-                      <TableHead className="w-[160px]">Responsable</TableHead>
-                      <TableHead className="w-[100px]">Inicio</TableHead>
-                      <TableHead className="w-[100px]">Fin</TableHead>
-                      <TableHead className="w-[70px] text-center">Peso</TableHead>
-                      <TableHead className="w-[120px]">Avance</TableHead>
-                      <TableHead className="w-[120px]"></TableHead>
+                      <TableHead className="w-[200px]">Responsable</TableHead>
+                      <TableHead className="w-[96px]">Inicio</TableHead>
+                      <TableHead className="w-[96px]">Fin</TableHead>
+                      <TableHead className="w-[60px] text-center">Peso</TableHead>
+                      <TableHead className="w-[110px]">Avance</TableHead>
+                      <TableHead className="w-[90px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -687,8 +715,8 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                             : <Circle className="h-5 w-5 text-muted-foreground" />}
                         </TableCell>
                         <TableCell className={task.progress_percent === 100 ? 'line-through text-muted-foreground' : ''}>
-                          <div className="flex items-center gap-2">
-                            <span>{task.name}</span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="min-w-0 break-words">{task.name}</span>
 
                             {/* Critical Path Indicator */}
                             {cpInfo?.isCritical && (
@@ -889,7 +917,7 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                       );
                     })}
                   </TableBody>
-                </Table>
+                </table>
               </div>
             </>
           )}
