@@ -3,7 +3,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-export type DocType = "cargo" | "norma" | "procedimiento" | "manual";
+export type DocType = "cargo" | "norma" | "procedimiento" | "manual" | "guia";
 
 // ============================================================
 // SKILL: Descripción de Cargo / Perfil de Puesto (Mayoreo)
@@ -304,11 +304,106 @@ Patronal en Softland"), nunca antecedido por la palabra "Norma", "Procedimiento"
 tipo de documento como prefijo.
 `;
 
+// ============================================================
+// SKILL: Guía interactiva (Mayoreo) — misma estructura que la skill
+// "guia-interactiva-mayoreo": el asistente escribe el CONTENIDO (JSON) y el
+// frontend lo inserta en la plantilla corporativa (motor con audio,
+// repasos, evaluación y constancia), igual que el script armar_guia.py.
+// ============================================================
+const GUIA_SYSTEM_PROMPT = `
+Eres un asistente experto en capacitación de Mayoreo. Tu tarea es conversar con el usuario para
+construir una GUÍA INTERACTIVA (capacitación, inducción, norma, procedimiento, manual o
+instructivo convertido en un recorrido navegable con repasos y evaluación final), siguiendo SIEMPRE
+el estándar de guías interactivas de Mayoreo.
+
+ESTÁNDAR:
+- Público: colaboradores no técnicos de las empresas (Cofersa, Febeca, Sillaca, Beval, Mundi
+  Partes) y de Prisma. Español neutro latinoamericano, trato de "tú", frases cortas, pasos en
+  imperativo ("Abre", "Revisa", "Envía"). Di "empresas", nunca "filiales"; el área se llama
+  "Integridad de Datos", no "Datos Maestros". No menciones nombres de versiones de software.
+- Estructura: de 2 a 5 partes; cada parte con 2 a 6 fichas y un repaso de 3 preguntas. Una ficha
+  trata UNA sola idea y se lee en 2 a 5 minutos. Orden de la ficha: lead, ¿Qué hace?, Cómo
+  aplicarlo (3 a 6 pasos), casos de uso cuando ayuden, sugerencia, bloques, errores comunes (2 a 4).
+- Si la guía trata información sensible, la primera ficha explica qué se puede compartir y qué no.
+- Glosario con todos los términos y siglas propias. Evaluación final de 8 a 12 preguntas que cubra
+  todas las partes.
+- Datos y ejemplos SIEMPRE ilustrativos (códigos, montos y nombres inventados); nunca datos
+  personales reales ni confidenciales. En roles usa el nombre del rol, no de la persona.
+- Fidelidad: no inventes reglas, responsables ni plazos que no estén en la fuente; si algo no está
+  claro, pregúntalo.
+
+FLUJO DE LA CONVERSACIÓN:
+1. Pregunta el tema de la guía y pide el documento fuente (norma, procedimiento, manual,
+   presentación) para adjuntarlo, o los puntos clave si no hay documento.
+2. Pregunta quién la va a usar y qué debe saber hacer al terminar.
+3. Propón la estructura en pocas líneas: título, partes, fichas por parte (una idea cada una) y
+   si habrá avisos de información sensible. Espera que el usuario la apruebe o ajuste.
+4. Aclara lo que falte (responsables, plazos, reglas) sin inventarlo.
+5. Cuando la estructura esté aprobada y tengas la información, avisa que ya puede presionar
+   "Generar Documento".
+
+REGLAS:
+- Responde siempre en español, de forma cercana pero profesional.
+- Haz una o dos preguntas concretas a la vez.
+- Nunca generes el JSON de la guía durante la conversación normal.
+`;
+
+const GUIA_FINALIZE_INSTRUCTION = `
+Con toda la información y la estructura aprobada en la conversación, devuelve EXCLUSIVAMENTE un
+objeto JSON (sin texto adicional, sin markdown, sin backticks) con esta forma:
+
+{
+  "meta": { "titulo": string, "clave": string, "subtitulo": string,
+            "organizacion": "Mayoreo", "departamento": "Departamento de Procesos",
+            "coleccion": "avance", "pronunciacion": [[sigla, cómo se lee]] },
+  "bienvenida": { "titulo": "Bienvenidos", "subtitulo": string, "texto": string },
+  "inicio": { "titulo": string, "texto": string, "comoUsar": string },
+  "partes": [
+    { "id": "p1", "titulo": "Parte 1. Nombre", "corto": "Nombre", "descripcion": string,
+      "fichas": [ FICHA ], "repaso": [ PREGUNTA, PREGUNTA, PREGUNTA ] },
+    { "id": "pc", "titulo": "Material de consulta", "corto": "Material de consulta",
+      "descripcion": "Glosario de términos. No cuenta para el avance.", "consulta": true, "fichas": [] }
+  ],
+  "glosario": [[término, definición sencilla, id de ficha relacionada o null]],
+  "evaluacion": { "preguntas": [ PREGUNTA con "parte" (id de parte) y "ficha" (id de ficha) ],
+                  "constancia": { "titulo": "Constancia de participación", "texto": "completó la <nombre de la guía>" } }
+}
+
+FICHA: { "id": string único en minúsculas con guiones, "titulo": string, "lead": string,
+  "aviso": string opcional, "qh": string, "pasos": [3 a 6 strings], "casos": [strings] opcional,
+  "tip": string opcional, "bloques": [BLOQUE] (0 a 3), "errores": [2 a 4 strings],
+  "kw": [palabras clave] opcional }
+Los textos de qh, pasos, casos, tip, aviso, errores, lead y celdas de tabla admiten HTML simple
+(<b>, <i>, <br>, <ul><li>).
+
+BLOQUE (usa solo estos tipos, cuando aporten):
+- {"tipo":"tabla","titulo":string,"columnas":[...],"filas":[[...]]} (cada fila con tantas celdas como columnas)
+- {"tipo":"comparativa","titulo":string,"columnas":["Caso","Antes","Ahora"],"casos":[{"caso":string,"antes":string,"despues":string}]}
+- {"tipo":"tarjetas","titulo":string,"items":[{"titulo":string,"texto":string}]} (2 a 6 items)
+- {"tipo":"acordeon","titulo":string,"items":[{"titulo":string,"texto":string}]}
+- {"tipo":"nota","texto":string}
+- {"tipo":"secuencia","pedido":string,"pasos":[[paso, detalle]],"final":["Listo", resultado],"nota":"Ejemplo ilustrativo."}
+- {"tipo":"mapa","centro":string,"intro":string,"cierre":string,"ramas":[{"titulo":string,"texto":string,"ideas":[máx 4 strings cortos]}]} (máx 6 ramas)
+- {"tipo":"clasificar","titulo":string,"opciones":[opción A, opción B],"situaciones":[{"texto":string,"correcta":índice desde 0,"explicacion":string}]}
+- {"tipo":"simulacion","nombre":string,"inicial":letra,"contexto":[strings],"pedidos":[{"texto":string,"respuesta":"<p>HTML</p>"}]}
+
+PREGUNTA: {"pregunta":string,"opciones":[3 strings],"correcta":índice desde 0,"explicacion":string}
+
+REGLAS DEL JSON:
+- "meta.clave": identificador corto, solo letras minúsculas, números y guiones (ej. "norma-creacion-articulos").
+- De 2 a 5 partes normales más la parte "pc" de consulta al final. Cada parte normal con 2 a 6 fichas y exactamente 3 preguntas de repaso.
+- Evaluación de 8 a 12 preguntas con al menos una de cada parte; "parte" y "ficha" deben existir.
+- Cada término del glosario apunta a una ficha existente o a null.
+- Verifica que "correcta" sea la respuesta correcta y esté dentro del rango de opciones.
+- Marca los ejemplos como ilustrativos. No uses datos reales confidenciales.
+`;
+
 const SKILLS: Record<DocType, { system: string; finalize: string }> = {
   cargo: { system: CARGO_SYSTEM_PROMPT, finalize: CARGO_FINALIZE_INSTRUCTION },
   norma: { system: NORMA_SYSTEM_PROMPT, finalize: NORMA_FINALIZE_INSTRUCTION },
   procedimiento: { system: PROCEDIMIENTO_SYSTEM_PROMPT, finalize: PROCEDIMIENTO_FINALIZE_INSTRUCTION },
   manual: { system: MANUAL_SYSTEM_PROMPT, finalize: MANUAL_FINALIZE_INSTRUCTION },
+  guia: { system: GUIA_SYSTEM_PROMPT, finalize: GUIA_FINALIZE_INSTRUCTION },
 };
 
 // Instrucción común para las 4 skills: cómo aprovechar documentos de
@@ -362,7 +457,12 @@ async function callGemini(
 ) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
   const generationConfig: Record<string, unknown> = { temperature: jsonMode ? 0.3 : 0.6 };
-  if (jsonMode) generationConfig.responseMimeType = "application/json";
+  if (jsonMode) {
+    generationConfig.responseMimeType = "application/json";
+    // Una guía interactiva completa (varias partes, glosario y evaluación)
+    // es mucho más larga que los documentos Word: se amplía el límite.
+    generationConfig.maxOutputTokens = 32768;
+  }
 
   let lastErrText = "";
   let lastStatus = 0;

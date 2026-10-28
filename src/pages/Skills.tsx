@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Bot, User, Send, Loader2, Wand2, FileText, Download, RotateCcw,
-  IdCard, Gavel, ListChecks, BookOpen, Paperclip, X, FileImage, File as FileIcon,
+  IdCard, Gavel, ListChecks, BookOpen, Paperclip, X, FileImage, File as FileIcon, GraduationCap, ExternalLink, AlertTriangle,
   type LucideIcon,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -18,11 +18,13 @@ import { buildCargoDocxBlob, getCompetencias, type CargoData, type NivelCompeten
 import { buildNormaDocxBlob, type NormaData } from '@/lib/normaDocx';
 import { buildProcedimientoDocxBlob, type ProcedimientoData } from '@/lib/procedimientoDocx';
 import { buildManualDocxBlob, type ManualData } from '@/lib/manualDocx';
+import { parseGuiaData, validarGuia, armarGuiaHtml, resumenGuia, type GuiaContenido } from '@/lib/guiaInteractiva';
 import { processAttachment, ACCEPTED_ATTACHMENT_EXTENSIONS, type PendingAttachment } from '@/lib/skillAttachments';
 import { loadSkillState, saveSkillState } from '@/lib/skillSessionStore';
 import { useAuth } from '@/hooks/useAuth';
 
-type DocType = 'cargo' | 'norma' | 'procedimiento' | 'manual';
+type DocType = 'cargo' | 'norma' | 'procedimiento' | 'manual' | 'guia';
+type SkillResult = CargoData | NormaData | ProcedimientoData | ManualData | GuiaContenido;
 
 interface MessageAttachment {
   name: string;
@@ -45,6 +47,7 @@ const DOC_TYPE_INFO: Record<DocType, { label: string; description: string; icon:
   norma: { label: 'Norma', description: 'Objetivo, responsabilidades y reglas.', icon: Gavel },
   procedimiento: { label: 'Procedimiento', description: 'Subprocesos con pasos por cargo.', icon: ListChecks },
   manual: { label: 'Manual', description: 'Guía de uso de una herramienta.', icon: BookOpen },
+  guia: { label: 'Guía interactiva', description: 'Capacitación navegable con repasos y evaluación.', icon: GraduationCap },
 };
 
 const WELCOME_MESSAGES: Record<DocType, string> = {
@@ -52,6 +55,7 @@ const WELCOME_MESSAGES: Record<DocType, string> = {
   norma: '¡Hola! Vamos a construir juntos una Norma siguiendo la plantilla corporativa de Mayoreo. Para empezar, ¿sobre qué tema trata la norma que quieres documentar?',
   procedimiento: '¡Hola! Vamos a construir juntos un Procedimiento siguiendo la plantilla corporativa de Mayoreo. Para empezar, ¿qué proceso quieres documentar?',
   manual: '¡Hola! Vamos a construir juntos un Manual de usuario siguiendo la plantilla corporativa de Mayoreo. Para empezar, ¿qué herramienta o proceso quieres documentar?',
+  guia: '¡Hola! Vamos a crear juntos una Guía interactiva de Mayoreo: un recorrido navegable con audio, repasos, evaluación y constancia. Para empezar, ¿sobre qué tema es la guía? Si tienes la norma, procedimiento o manual de base, adjúntalo con el clip.',
 };
 
 const FILENAME_PREFIX: Record<DocType, string> = {
@@ -59,6 +63,7 @@ const FILENAME_PREFIX: Record<DocType, string> = {
   norma: 'Norma',
   procedimiento: 'Procedimiento',
   manual: 'Manual',
+  guia: 'Guia_interactiva',
 };
 
 function welcomeMessage(docType: DocType): ChatMessage {
@@ -179,7 +184,7 @@ function parseManualData(raw: string): ManualData {
 // en el navegador por usuario (ver lib/skillSessionStore).
 type SkillSession = {
   messages: ChatMessage[];
-  resultData: CargoData | NormaData | ProcedimientoData | ManualData | null;
+  resultData: SkillResult | null;
   input: string;
   pendingFiles: PendingAttachment[];
 };
@@ -210,7 +215,7 @@ export default function Skills() {
   const [messages, setMessages] = useState<ChatMessage[]>(() => sessionFrom(initial, initial.lastDocType).messages);
   const [input, setInput] = useState(() => sessionFrom(initial, initial.lastDocType).input);
   const [loading, setLoading] = useState(false);
-  const [resultData, setResultData] = useState<CargoData | NormaData | ProcedimientoData | ManualData | null>(() => sessionFrom(initial, initial.lastDocType).resultData);
+  const [resultData, setResultData] = useState<SkillResult | null>(() => sessionFrom(initial, initial.lastDocType).resultData);
   const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>(() => sessionFrom(initial, initial.lastDocType).pendingFiles);
@@ -359,6 +364,21 @@ export default function Skills() {
     setGenerating(true);
     try {
       const raw = await callAssistant(messages, 'finalize');
+      if (docType === 'guia') {
+        // Mismas validaciones que el script de la skill: si hay errores, la
+        // guía no se arma; los avisos (estándar) se informan sin bloquear.
+        const guia = parseGuiaData(raw);
+        const { errores, avisos } = validarGuia(guia);
+        if (errores.length > 0) throw new Error(`La guía tiene errores y no se armó: ${errores.slice(0, 3).join(' ')} Pide al asistente que lo corrija y vuelve a generar.`);
+        setResultData(guia);
+        toast({
+          title: 'Guía generada',
+          description: avisos.length > 0
+            ? `Revisa la vista previa. ${avisos.length} punto(s) no siguen el estándar.`
+            : 'Revisa la vista previa, ábrela y descárgala.',
+        });
+        return;
+      }
       const data = docType === 'cargo' ? parseCargoData(raw)
         : docType === 'norma' ? parseNormaData(raw)
         : docType === 'procedimiento' ? parseProcedimientoData(raw)
@@ -382,6 +402,12 @@ export default function Skills() {
     if (!resultData) return;
     setDownloading(true);
     try {
+      if (docType === 'guia') {
+        const guia = resultData as GuiaContenido;
+        const blob = new Blob([armarGuiaHtml(guia)], { type: 'text/html;charset=utf-8' });
+        saveAs(blob, `${guia.meta.clave || FILENAME_PREFIX.guia}.html`);
+        return;
+      }
       const blob = docType === 'cargo' ? await buildCargoDocxBlob(resultData as CargoData)
         : docType === 'norma' ? await buildNormaDocxBlob(resultData as NormaData)
         : docType === 'procedimiento' ? await buildProcedimientoDocxBlob(resultData as ProcedimientoData)
@@ -551,7 +577,7 @@ export default function Skills() {
             </div>
             {resultData && (
               <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleDownload} disabled={downloading}>
-                <Download className="h-3.5 w-3.5" /> {downloading ? 'Generando Word...' : 'Descargar Word (.docx)'}
+                <Download className="h-3.5 w-3.5" /> {docType === 'guia' ? 'Descargar guía (.html)' : downloading ? 'Generando Word...' : 'Descargar Word (.docx)'}
               </Button>
             )}
           </div>
@@ -568,6 +594,8 @@ export default function Skills() {
               <NormaPreview data={resultData as NormaData} />
             ) : docType === 'procedimiento' ? (
               <ProcedimientoPreview data={resultData as ProcedimientoData} />
+            ) : docType === 'guia' ? (
+              <GuiaPreview data={resultData as GuiaContenido} />
             ) : (
               <ManualPreview data={resultData as ManualData} />
             )}
@@ -872,6 +900,52 @@ function ManualPreview({ data }: { data: ManualData }) {
       <PreviewSection title="Documentos de Referencia">
         <DocumentosReferenciaPreview rows={data.documentos_referencia} />
       </PreviewSection>
+    </div>
+  );
+}
+
+// Vista previa de una guía interactiva: resumen de su estructura y botón para
+// abrirla completa (en otra pestaña) con el mismo motor que se descarga.
+function GuiaPreview({ data }: { data: GuiaContenido }) {
+  const r = resumenGuia(data);
+  const { avisos } = validarGuia(data);
+  const abrir = () => {
+    const url = URL.createObjectURL(new Blob([armarGuiaHtml(data)], { type: 'text/html;charset=utf-8' }));
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="text-center space-y-1">
+        <h2 className="text-lg font-bold text-indigo-900">{data.meta.titulo}</h2>
+        {data.meta.subtitulo && <p className="text-muted-foreground">{data.meta.subtitulo}</p>}
+        <p className="text-xs text-muted-foreground">
+          {r.partes.length} partes · {r.totalFichas} fichas · {r.preguntasEvaluacion} preguntas de evaluación · {r.terminosGlosario} términos de glosario
+        </p>
+      </div>
+      <Button className="w-full gap-2" onClick={abrir}>
+        <ExternalLink className="h-4 w-4" /> Abrir la guía completa
+      </Button>
+      {avisos.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
+          <div className="flex items-center gap-1.5 font-semibold"><AlertTriangle className="h-3.5 w-3.5" /> Puntos que no siguen el estándar</div>
+          <ul className="list-disc pl-5">{avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>
+          <p>Puedes pedirle al asistente que los ajuste y volver a generar.</p>
+        </div>
+      )}
+      <div className="space-y-3">
+        {r.partes.map((p, i) => (
+          <PreviewSection key={i} title={p.titulo}>
+            <ol className="list-decimal pl-5 space-y-0.5 text-muted-foreground">
+              {p.fichas.map((f, j) => <li key={j}>{f}</li>)}
+            </ol>
+          </PreviewSection>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Al abrirla o descargarla obtienes la guía con audio en español (en Chrome o Edge), subtítulos, repasos, evaluación y constancia.
+        Revisa el contenido con el dueño del proceso antes de difundirla.
+      </p>
     </div>
   );
 }
