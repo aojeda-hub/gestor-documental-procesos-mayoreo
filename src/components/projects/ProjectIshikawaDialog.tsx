@@ -36,18 +36,23 @@ interface Props {
   canEdit: boolean;
 }
 
-// Geometría del diagrama: el ancho es fijo (viewBox 1200 x alto variable), el
-// alto se calcula según cuántas causas tenga la rama más larga, para que las
-// causas nunca queden más juntas que STEP px entre sí (si no, el texto de
-// varias líneas termina montándose una encima de otra).
-const W = 1200;
-const ATTACH_X = [250, 480, 710];
-const BOX_DX = 55;
-const BOX_W = 150, BOX_H = 44;
-const STEP = 50; // separación mínima entre causas consecutivas de una misma espina
-const ARM_BASE = 50; // distancia de la espina central a la primera causa
-const MARGIN_OUTER = 60; // margen entre la última causa y la caja de categoría
-const MARGIN_EDGE = 70; // margen entre la caja de categoría y el borde del lienzo
+// Geometría del diagrama (estilo espina de pescado clásico): cada categoría
+// tiene una espina diagonal que va desde su caja hasta la espina central, y
+// cada causa se escribe a la IZQUIERDA de su espina, unida a un punto sobre
+// ella con una línea punteada horizontal. El ancho es fijo (viewBox W) y el
+// alto crece según la rama con más causas, para que nunca se monten.
+const W = 1500;
+const SPINE_X0 = 30; // inicio de la espina central (cola)
+const HEAD_X = 1250, HEAD_W = 240, HEAD_H = 120; // caja del problema (cabeza)
+const ATTACH_X = [490, 840, 1190]; // dónde cada espina toca la espina central
+const BONE_DX = 170; // cuánto se desplaza la espina hacia la izquierda hasta su caja
+const BOX_W = 180, BOX_H = 46;
+const STEP = 82; // separación vertical entre causas de una misma espina
+const ARM_BASE = 70; // distancia de la espina central a la causa más cercana
+const MARGIN_OUTER = 55; // de la causa más lejana a la caja de categoría
+const MARGIN_EDGE = 40; // de la caja de categoría al borde del lienzo
+const LEADER = 60; // largo de la línea punteada entre el punto y el texto
+const TEXT_W = 240; // ancho del bloque de texto de cada causa
 
 function pct(x: number, total: number) { return `${(x / total) * 100}%`; }
 
@@ -119,25 +124,28 @@ export function ProjectIshikawaDialog({ open, onOpenChange, projectId, projectNa
 
     const maxCount = (list: typeof CATEGORIAS) =>
       Math.max(1, ...list.map(cat => (porCategoria.get(cat.key) || []).length));
-    const armLen = (count: number) => ARM_BASE + count * STEP + MARGIN_OUTER;
+    // Distancia vertical de la espina central al extremo de la espina (donde
+    // va la caja de categoría): igual para las tres de un mismo lado, para que
+    // las cajas queden alineadas.
+    const armLen = (count: number) => ARM_BASE + (count - 1) * STEP + MARGIN_OUTER + BOX_H / 2;
 
     const topArm = armLen(maxCount(top));
     const bottomArm = armLen(maxCount(bottom));
-    const spineY = MARGIN_EDGE + topArm;
-    const height = spineY + bottomArm + MARGIN_EDGE;
+    const spineY = MARGIN_EDGE + BOX_H / 2 + topArm;
+    const height = spineY + bottomArm + BOX_H / 2 + MARGIN_EDGE;
 
     const build = (list: typeof CATEGORIAS, dir: 1 | -1, arm: number) => list.map((cat, i) => {
       const attachX = ATTACH_X[i];
-      const boxX = attachX - BOX_DX;
+      const boxX = attachX - BONE_DX;
       const boxY = spineY + dir * arm;
-      const dx = boxX - attachX;
-      const dy = boxY - spineY;
-      const boneLen = Math.hypot(dx, dy) || 1;
+      // x de la espina a una distancia vertical v de la espina central
+      const xAt = (v: number) => attachX - (v / arm) * BONE_DX;
       const items = porCategoria.get(cat.key) || [];
+      // La primera causa queda cerca de la caja y la última cerca de la espina
+      // central, como se lee el diagrama.
       const points = items.map((causa, idx) => {
-        const dist = ARM_BASE + idx * STEP;
-        const t = dist / boneLen;
-        return { causa, x: attachX + t * dx, y: spineY + t * dy };
+        const v = ARM_BASE + (items.length - 1 - idx) * STEP;
+        return { causa, x: xAt(v), y: spineY + dir * v };
       });
       return { cat, attachX, boxX, boxY, points };
     });
@@ -149,7 +157,7 @@ export function ProjectIshikawaDialog({ open, onOpenChange, projectId, projectNa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] max-w-7xl max-h-[92vh] overflow-y-auto">
         <DialogHeader className="flex flex-row items-center justify-between space-y-0 pr-8">
           <div>
             <DialogTitle className="flex items-center gap-2"><Fish className="h-5 w-5" /> Análisis de Ishikawa</DialogTitle>
@@ -223,16 +231,23 @@ export function ProjectIshikawaDialog({ open, onOpenChange, projectId, projectNa
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <div className="relative w-full min-w-[900px]" style={{ aspectRatio: `${W}/${H}` }}>
+          <div className="overflow-x-auto rounded-md border bg-white">
+            <div className="relative w-full min-w-[1150px] text-slate-900" style={{ aspectRatio: `${W}/${H}` }}>
               <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full">
-                <line x1={20} y1={spineY} x2={880} y2={spineY} stroke="currentColor" className="text-slate-400" strokeWidth={2} />
-                <polygon points={`20,${spineY} 0,${spineY - 14} 0,${spineY + 14}`} className="fill-slate-400" />
+                {/* Espina central: de la cola (círculo) a la cabeza (problema) */}
+                <line x1={SPINE_X0} y1={spineY} x2={HEAD_X} y2={spineY} stroke="#1e293b" strokeWidth={2.5} />
+                <circle cx={SPINE_X0} cy={spineY} r={7} fill="white" stroke="#1e293b" strokeWidth={2} />
                 {nodes.map(g => (
                   <g key={g.cat.key}>
-                    <line x1={g.attachX} y1={spineY} x2={g.boxX} y2={g.boxY} stroke="currentColor" className="text-slate-400" strokeWidth={1.5} />
+                    {/* Espina de la categoría */}
+                    <line x1={g.attachX} y1={spineY} x2={g.boxX} y2={g.boxY} stroke="#475569" strokeWidth={1.75} strokeDasharray="2 3" />
+                    <circle cx={g.attachX} cy={spineY} r={6} fill="white" stroke="#1e293b" strokeWidth={2} />
+                    {/* Cada causa: punto sobre la espina y línea punteada hacia su texto */}
                     {g.points.map(p => (
-                      <circle key={p.causa.id} cx={p.x} cy={p.y} r={3} className="fill-slate-500" />
+                      <g key={p.causa.id}>
+                        <line x1={p.x - LEADER} y1={p.y} x2={p.x} y2={p.y} stroke="#475569" strokeWidth={1.25} strokeDasharray="2 2" />
+                        <circle cx={p.x} cy={p.y} r={4.5} fill="#0f172a" />
+                      </g>
                     ))}
                   </g>
                 ))}
@@ -240,40 +255,46 @@ export function ProjectIshikawaDialog({ open, onOpenChange, projectId, projectNa
 
               {/* Caja del problema (efecto) */}
               <div
-                className="absolute flex items-center justify-center rounded-md bg-slate-800 p-3 text-center text-xs font-medium text-white shadow-md"
+                className="absolute flex items-center justify-center bg-slate-800 p-3 text-center text-xs font-medium leading-snug text-white shadow-md"
                 style={{
-                  left: pct(900, W), top: pct(spineY - 60, H),
-                  width: pct(250, W), height: pct(120, H),
+                  left: pct(HEAD_X, W), top: pct(spineY - HEAD_H / 2, H),
+                  width: pct(HEAD_W, W), height: pct(HEAD_H, H),
                 }}
               >
                 {problema || 'Sin problema/objetivo definido todavía.'}
               </div>
 
-              {/* Cajas de categoría */}
+              {/* Cajas de categoría (forma inclinada) */}
               {nodes.map(g => (
                 <div
                   key={g.cat.key}
-                  className="absolute flex items-center justify-center rounded-md border bg-background px-2 text-center text-xs font-semibold shadow-sm"
+                  className="absolute flex items-center justify-center"
                   style={{
                     left: pct(g.boxX - BOX_W / 2, W), top: pct(g.boxY - BOX_H / 2, H),
                     width: pct(BOX_W, W), height: pct(BOX_H, H),
                   }}
                 >
-                  {g.cat.label}
+                  <div className="absolute inset-0 -skew-x-12 border border-slate-800 bg-white" />
+                  <span className="relative text-xs font-medium">{g.cat.label}</span>
                 </div>
               ))}
 
-              {/* Texto de cada causa */}
+              {/* Texto de cada causa: a la izquierda de su espina, alineado a la
+                  derecha contra la línea punteada. Máximo 4 líneas (el texto
+                  completo se ve al pasar el mouse) para que no se monten. */}
               {nodes.flatMap(g => g.points.map(p => (
                 <div
                   key={p.causa.id}
-                  className="absolute w-36 -translate-x-1/2 -translate-y-1/2 text-center text-[10px] leading-tight text-muted-foreground"
+                  title={p.causa.texto}
+                  className="absolute flex items-center justify-end"
                   style={{
-                    left: pct(p.x, W),
-                    top: pct(g.cat.side === 'top' ? p.y - 14 : p.y + 14, H),
+                    left: pct(p.x - LEADER - 6 - TEXT_W, W),
+                    top: pct(p.y - STEP / 2, H),
+                    width: pct(TEXT_W, W),
+                    height: pct(STEP, H),
                   }}
                 >
-                  {p.causa.texto}
+                  <span className="line-clamp-4 text-right text-[11px] leading-tight">{p.causa.texto}</span>
                 </div>
               )))}
             </div>
