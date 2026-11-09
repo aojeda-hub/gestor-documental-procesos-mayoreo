@@ -12,13 +12,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
   Tag, Calendar, CheckSquare, Users, Paperclip, MapPin, StickyNote,
-  Plus, Trash2, X, Download, Send, Link2, Loader2, Layout, ExternalLink,
+  Plus, Trash2, X, Send, Link2, Loader2, Layout, Eye,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { AttachmentPreviewDialog } from '@/components/common/AttachmentPreviewDialog';
 
 interface Props {
   seguimientoId: string;
@@ -31,6 +32,10 @@ const COLORS = ['#ef4444', '#f59e0b', '#eab308', '#10b981', '#06b6d4', '#3b82f6'
 
 const sanitize = (n: string) => n.replace(/[^a-zA-Z0-9._-]/g, '_');
 
+// Ruta de un archivo en una computadora (file:///C:/..., C:\..., \\servidor\...):
+// el navegador no la abre desde una página web y solo existe en ese equipo.
+const esRutaLocal = (s: string) => /^file:/i.test(s) || /^[a-z]:[\\/]/i.test(s) || /^\\\\/.test(s);
+
 export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onChanged }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -40,6 +45,7 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
   const [checklists, setChecklists] = useState<any[]>([]);
   const [items, setItems] = useState<Record<string, any[]>>({});
   const [adjuntos, setAdjuntos] = useState<any[]>([]);
+  const [previewAdj, setPreviewAdj] = useState<any | null>(null);
   const [etiquetas, setEtiquetas] = useState<any[]>([]);
   const [misEtiquetas, setMisEtiquetas] = useState<any[]>([]);
   const [miembros, setMiembros] = useState<any[]>([]);
@@ -260,20 +266,50 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
   };
   const addLink = async () => {
     if (!user || !newLink.trim()) return;
+    // Solo enlaces web. Una ruta de la computadora (file:///C:/..., C:\...,
+    // \\servidor\...) no se puede abrir desde el navegador ni la ven los demás:
+    // ese archivo hay que subirlo con "Elegir archivo".
+    const raw = newLink.trim();
+    if (esRutaLocal(raw)) {
+      toast({
+        title: 'Ese enlace es un archivo de tu computadora',
+        description: 'Los demás no pueden verlo y el navegador no lo abre. Súbelo con "Elegir archivo".',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const enlace = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
     const { error } = await supabase.from('seguimiento_adjuntos' as any).insert({
       seguimiento_id: seguimientoId, user_id: user.id,
-      nombre: newLinkName.trim() || newLink.trim(),
-      enlace: newLink.trim(),
+      nombre: newLinkName.trim() || raw,
+      enlace,
     });
     if (error) return notify(error);
     setNewLink(''); setNewLinkName('');
     loadAll(true);
   };
-  const downloadAdj = async (a: any) => {
-    if (a.enlace) { window.open(a.enlace, '_blank'); return; }
-    const { data, error } = await supabase.storage.from('seguimiento-adjuntos').createSignedUrl(a.storage_path, 60);
-    if (error) return notify(error);
-    window.open(data.signedUrl, '_blank');
+  // Ver un adjunto: los enlaces web se abren en otra pestaña; los archivos
+  // subidos se muestran en pantalla con el visor del sistema (imágenes, PDF,
+  // Excel, Word y texto), sin descargarlos.
+  const verAdj = async (a: any) => {
+    if (a.enlace) {
+      if (esRutaLocal(a.enlace)) {
+        toast({
+          title: 'No se puede abrir este adjunto',
+          description: 'Apunta a un archivo de la computadora de quien lo agregó. Elimínalo y sube el archivo con "Elegir archivo".',
+          variant: 'destructive',
+        });
+        return;
+      }
+      window.open(a.enlace, '_blank', 'noopener');
+      return;
+    }
+    setPreviewAdj(a);
+  };
+  const cargarAdjunto = async (a: any): Promise<Blob> => {
+    const { data, error } = await supabase.storage.from('seguimiento-adjuntos').download(a.storage_path);
+    if (error || !data) throw new Error(error?.message || 'No se pudo cargar el archivo.');
+    return data;
   };
   const delAdj = async (a: any) => {
     if (!confirm('¿Eliminar adjunto?')) return;
@@ -657,17 +693,25 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
               <div className="space-y-2">
                 <div className="flex items-center gap-2 font-medium text-sm"><Paperclip className="h-4 w-4" />Adjuntos</div>
                 <div className="space-y-1">
-                  {adjuntos.map(a => (
+                  {adjuntos.map(a => {
+                    const local = !!a.enlace && esRutaLocal(a.enlace);
+                    return (
                     <Card key={a.id} className="p-2 flex items-center gap-2 group">
                       {a.enlace ? <Link2 className="h-4 w-4 text-blue-400" /> : <Paperclip className="h-4 w-4 text-muted-foreground" />}
-                      <span className="text-sm flex-1 truncate">{a.nombre}</span>
-                      <span className="text-[11px] text-muted-foreground">{format(new Date(a.created_at), "d MMM", { locale: es })}</span>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" title={a.enlace ? "Abrir enlace" : "Descargar"} onClick={() => downloadAdj(a)}>
-                        {a.enlace ? <ExternalLink className="h-3 w-3" /> : <Download className="h-3 w-3" />}
+                      <span className="text-sm flex-1 min-w-0 truncate" title={a.enlace || a.nombre}>{a.nombre}</span>
+                      {local && (
+                        <span className="text-[11px] text-amber-700 shrink-0" title="Apunta a un archivo de una computadora: súbelo con «Elegir archivo»">
+                          Archivo local, no disponible
+                        </span>
+                      )}
+                      <span className="text-[11px] text-muted-foreground shrink-0">{format(new Date(a.created_at), "d MMM", { locale: es })}</span>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver" aria-label={`Ver ${a.nombre}`} onClick={() => verAdj(a)}>
+                        <Eye className="h-3.5 w-3.5" />
                       </Button>
                       <Button size="icon" variant="ghost" className="h-7 w-7 text-rose-400 opacity-0 group-hover:opacity-100" onClick={() => delAdj(a)}><Trash2 className="h-3 w-3" /></Button>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -695,6 +739,15 @@ export function SeguimientoCardDialog({ seguimientoId, open, onOpenChange, onCha
           </>
         )}
       </DialogContent>
+      {previewAdj && (
+        <AttachmentPreviewDialog
+          open={!!previewAdj}
+          onOpenChange={(o) => { if (!o) setPreviewAdj(null); }}
+          nombre={previewAdj.nombre}
+          mimeType={previewAdj.tipo_mime}
+          loadBlob={() => cargarAdjunto(previewAdj)}
+        />
+      )}
     </Dialog>
   );
 }
