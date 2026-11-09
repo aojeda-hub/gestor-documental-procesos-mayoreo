@@ -10,7 +10,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { SILO_LABELS } from '@/types/database';
 import type { Project, ProjectEstado, SiloType, ObjetivoEstrategico } from '@/types/database';
-import { ensureProjectChecklist } from '@/lib/phaseGateDefaults';
 
 interface ProjectFormDialogProps {
   open: boolean;
@@ -102,11 +101,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
       if (project) {
         ({ error } = await supabase.from('projects').update(payload).eq('id', project.id));
       } else {
-        const { data: newProj, error: insErr } = await supabase.from('projects').insert({ ...payload, created_by: user?.id }).select().single();
-        error = insErr;
-        if (newProj?.id) {
-          await ensureProjectChecklist(newProj.id);
-        }
+        ({ error } = await supabase.from('projects').insert({ ...payload, created_by: user?.id }));
       }
 
       if (error) throw error;
@@ -222,27 +217,14 @@ export function ProjectFormDialog({ open, onOpenChange, project, onSave }: Proje
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="responsible">Responsable</Label>
-              <Input 
-                id="responsible" 
-                value={form.responsible} 
-                onChange={e => setField('responsible', e.target.value)} 
-                placeholder="Nombre del responsable"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Prioridad</Label>
-              <Select value={form.priority} onValueChange={v => setField('priority', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Baja">Baja</SelectItem>
-                  <SelectItem value="Media">Media</SelectItem>
-                  <SelectItem value="Alta">Alta</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="responsible">Líder del proyecto</Label>
+            <Input
+              id="responsible"
+              value={form.responsible}
+              onChange={e => setField('responsible', e.target.value)}
+              placeholder="Nombre del líder del proyecto"
+            />
           </div>
 
           <div className="space-y-2">

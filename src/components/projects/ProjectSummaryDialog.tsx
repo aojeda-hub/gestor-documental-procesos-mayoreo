@@ -62,14 +62,6 @@ export function ProjectSummaryDialog({ open, onOpenChange, project }: ProjectSum
             <Badge variant="outline" className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider bg-slate-50 dark:bg-slate-900">
               Silo: {SILO_LABELS[project.silo]}
             </Badge>
-            {project.priority && (
-              <Badge 
-                variant={project.priority === 'Alta' ? 'destructive' : project.priority === 'Media' ? 'secondary' : 'outline'}
-                className="px-2 py-0.5 text-[10px] font-bold"
-              >
-                Prioridad: {project.priority}
-              </Badge>
-            )}
           </div>
           <DialogTitle className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
             {project.name}
@@ -77,7 +69,7 @@ export function ProjectSummaryDialog({ open, onOpenChange, project }: ProjectSum
           {project.responsible && (
             <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-1">
               <User className="h-4 w-4 text-slate-400" />
-              <span>Responsable: <strong className="font-semibold text-slate-700 dark:text-slate-350">{project.responsible}</strong></span>
+              <span>Líder del proyecto: <strong className="font-semibold text-slate-700 dark:text-slate-350">{project.responsible}</strong></span>
             </div>
           )}
         </DialogHeader>

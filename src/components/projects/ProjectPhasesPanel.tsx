@@ -11,17 +11,15 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Plus, Trash2, CheckCircle2, Circle, Lock, PlayCircle, ChevronRight, Pencil, UserPlus, User as UserIcon, Check, ClipboardCheck, AlertTriangle, ShieldAlert, Flag, GitBranch, Zap, CalendarRange,
+  Plus, Trash2, CheckCircle2, Circle, Lock, PlayCircle, ChevronRight, Pencil, UserPlus, User as UserIcon, Check, AlertTriangle, ShieldAlert, Flag, GitBranch, Zap, CalendarRange,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import type { ProjectTask, ProjectPhase, PhaseStatus, PhaseGateItem, ProyectoRiesgo, ProjectMilestone, TaskDependency } from '@/types/database';
-import { ensureProjectChecklist } from '@/lib/phaseGateDefaults';
+import type { ProjectTask, ProjectPhase, PhaseStatus, ProyectoRiesgo, ProjectMilestone, TaskDependency } from '@/types/database';
 import { calcularNivelRiesgo, NIVEL_META } from '@/lib/riskUtils';
 import { ensureProjectMilestones } from '@/lib/milestoneDefaults';
 import { getBlockingDependencies } from '@/lib/dependencyUtils';
 import { calculateCriticalPath } from '@/lib/criticalPathUtils';
-import { PhaseGateModal } from './PhaseGateModal';
 import { ProjectRisksDialog } from './ProjectRisksDialog';
 import { ProjectMilestonesDialog } from './ProjectMilestonesDialog';
 import { ProjectDependenciesDialog } from './ProjectDependenciesDialog';
@@ -61,7 +59,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [tasks, setTasks] = useState<TaskWithAssignee[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
-  const [checklistItems, setChecklistItems] = useState<PhaseGateItem[]>([]);
   const [riesgosList, setRiesgosList] = useState<ProyectoRiesgo[]>([]);
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
   const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
@@ -69,22 +66,19 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
   const [loading, setLoading] = useState(false);
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
   const [newTaskName, setNewTaskName] = useState('');
-  const [newTaskWeight, setNewTaskWeight] = useState(1);
   const [newTaskStart, setNewTaskStart] = useState('');
   const [newTaskEnd, setNewTaskEnd] = useState('');
   const [editTask, setEditTask] = useState<TaskWithAssignee | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', weight: 1, start_date: '', end_date: '' });
+  const [editForm, setEditForm] = useState({ name: '', start_date: '', end_date: '' });
 
   // Modals State
-  const [phaseGateModalOpen, setPhaseGateModalOpen] = useState(false);
-  const [phaseGateTargetPhase, setPhaseGateTargetPhase] = useState<string>('Alineación');
   const [risksDialogOpen, setRisksDialogOpen] = useState(false);
   const [milestonesDialogOpen, setMilestonesDialogOpen] = useState(false);
   const [dependenciesDialogOpen, setDependenciesDialogOpen] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
 
   // "Cargando..." solo en la primera carga del panel. Las recargas tras una
-  // acción (avance, peso, etc.) se hacen en segundo plano sin vaciar la tabla,
+  // acción (avance, responsables, etc.) se hacen en segundo plano sin vaciar la tabla,
   // para no perder la posición ni cerrar lo que el usuario tenga abierto.
   const hasLoadedRef = useRef(false);
   const fetchData = async () => {
@@ -138,10 +132,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
         setAssigneesByTask({});
       }
 
-      // Fetch or seed Phase Gate checklist items
-      const chk = await ensureProjectChecklist(projectId);
-      setChecklistItems(chk);
-
       // Fetch Riesgos
       const { data: rData } = await supabase
         .from('riesgos')
@@ -184,20 +174,14 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
     [tasks, selectedPhaseId]
   );
 
-  const calcPhaseProgress = (phaseId: string) => {
-    const ts = tasks.filter(t => t.phase_id === phaseId);
-    const w = ts.reduce((s, t) => s + Number(t.weight), 0);
-    if (w === 0) return null;
-    const wp = ts.reduce((s, t) => s + Number(t.weight) * Number(t.progress_percent ?? 0), 0);
-    return wp / w;
-  };
+  // Avance = promedio simple del avance de las tareas: todas valen igual
+  // (se retiró el "peso" de las tareas para que el módulo sea más sencillo).
+  const promedioAvance = (ts: ProjectTask[]) =>
+    ts.length === 0 ? null : ts.reduce((s, t) => s + Number(t.progress_percent ?? 0), 0) / ts.length;
 
-  const projectProgress = useMemo(() => {
-    const w = tasks.reduce((s, t) => s + Number(t.weight), 0);
-    if (w === 0) return null;
-    const wp = tasks.reduce((s, t) => s + Number(t.weight) * Number(t.progress_percent ?? 0), 0);
-    return wp / w;
-  }, [tasks]);
+  const calcPhaseProgress = (phaseId: string) => promedioAvance(tasks.filter(t => t.phase_id === phaseId));
+
+  const projectProgress = useMemo(() => promedioAvance(tasks), [tasks]);
 
   const activeRisksCount = riesgosList.filter(r => r.estado === 'Activo').length;
   const pendingMilestonesCount = milestones.filter(m => !m.completado).length;
@@ -221,14 +205,14 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
         phase_id: selectedPhase.id,
         phase: selectedPhase.name,
         name: newTaskName.trim(),
-        weight: newTaskWeight,
+        weight: 1,
         status: 'Pendiente',
         progress_percent: 0,
         start_date: newTaskStart || null,
         end_date: newTaskEnd || null,
       });
       if (error) throw error;
-      setNewTaskName(''); setNewTaskWeight(1); setNewTaskStart(''); setNewTaskEnd('');
+      setNewTaskName(''); setNewTaskStart(''); setNewTaskEnd('');
       fetchData();
       onTasksChange();
     } catch (err: any) {
@@ -317,7 +301,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
     setEditTask(task);
     setEditForm({
       name: task.name,
-      weight: Number(task.weight) || 1,
       start_date: task.start_date || '',
       end_date: task.end_date || '',
     });
@@ -327,7 +310,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
     if (!editTask) return;
     const { error } = await supabase.from('project_tasks').update({
       name: editForm.name.trim(),
-      weight: editForm.weight,
       start_date: editForm.start_date || null,
       end_date: editForm.end_date || null,
     }).eq('id', editTask.id);
@@ -344,23 +326,9 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
   };
 
   // ============================================================
-  // PHASE GATE LOGIC
+  // CERRAR FASE: basta con que todas sus tareas estén al 100%.
+  // (El checklist Phase Gate se retiró para simplificar el módulo.)
   // ============================================================
-  const verificarPhaseGate = (faseNombre: string): { ok: boolean; pendingItems: PhaseGateItem[]; total: number } => {
-    const phaseChecklist = checklistItems.filter(item => item.fase === faseNombre);
-    const pendingItems = phaseChecklist.filter(item => !item.completado);
-    return {
-      ok: phaseChecklist.length > 0 && pendingItems.length === 0,
-      pendingItems,
-      total: phaseChecklist.length,
-    };
-  };
-
-  const abrirModalChecklist = (faseNombre: string) => {
-    setPhaseGateTargetPhase(faseNombre);
-    setPhaseGateModalOpen(true);
-  };
-
   const cerrarFase = async (faseNombre: string) => {
     const targetPhaseObj = phases.find(p => p.name === faseNombre);
     if (!targetPhaseObj) return;
@@ -378,14 +346,13 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
       return;
     }
 
-    // 2. Verify Phase Gate checklist
-    const { ok: isGateOk } = verificarPhaseGate(faseNombre);
-    if (!isGateOk) {
-      abrirModalChecklist(faseNombre);
-      return;
-    }
+    const nextName = phases.find(p => p.order_index === targetPhaseObj.order_index + 1)?.name;
+    const aviso = phaseTasksList.length === 0
+      ? `La fase "${faseNombre}" no tiene tareas. ¿Cerrarla de todas formas?`
+      : `¿Cerrar la fase "${faseNombre}"?`;
+    if (!window.confirm(`${aviso} ${nextName ? `Se activará la fase "${nextName}".` : 'Es la última fase: el proyecto quedará Completado.'}`)) return;
 
-    // 3. Mark current phase as completed and unlock next phase
+    // 2. Mark current phase as completed and unlock next phase
     try {
       const nowIso = new Date().toISOString();
       const currentIdx = targetPhaseObj.order_index;
@@ -443,7 +410,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
         });
       }
 
-      setPhaseGateModalOpen(false);
       await fetchData();
       onTasksChange();
     } catch (err: any) {
@@ -481,10 +447,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
             const isSel = p.id === selectedPhaseId;
             const pct = calcPhaseProgress(p.id);
 
-            // Phase Gate Status
-            const phaseChecklist = checklistItems.filter(i => i.fase === p.name);
-            const chkCompleted = phaseChecklist.filter(i => i.completado).length;
-            const isGateComplete = phaseChecklist.length > 0 && chkCompleted === phaseChecklist.length;
 
             return (
               <div key={p.id} className="flex flex-1 min-w-0 items-center">
@@ -509,18 +471,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                     </div>
                   </div>
 
-                  {/* Phase Gate Badge */}
-                  <div className="w-full border-t pt-1 mt-0.5">
-                    {isGateComplete ? (
-                      <span className="text-[10px] text-emerald-700 font-medium flex items-center gap-1">
-                        📋 Checklist: ✅ OK (5/5)
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-amber-700 font-medium flex items-center gap-1">
-                        📋 Checklist: ⚠️ {chkCompleted}/5
-                      </span>
-                    )}
-                  </div>
                 </button>
                 {idx < phases.length - 1 && (
                   <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground shrink-0" />
@@ -555,7 +505,7 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                   <p className="text-xs text-muted-foreground">
                     {selectedPhase.status === 'completada'
                       ? `Completada${selectedPhase.actual_end ? ' el ' + new Date(selectedPhase.actual_end).toLocaleDateString() : ''} — solo lectura`
-                      : 'Fase activa — requiere completar checklist para avanzar'}
+                      : 'Fase activa — ciérrala cuando todas sus tareas estén al 100%'}
                   </p>
                 </div>
 
@@ -616,15 +566,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                     <span>Cronograma</span>
                   </Button>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => abrirModalChecklist(selectedPhase.name)}
-                    className="gap-1.5 text-xs border-amber-300 bg-amber-500/10 text-amber-900 dark:text-amber-300 hover:bg-amber-500/20"
-                  >
-                    <ClipboardCheck className="h-4 w-4 text-amber-600" />
-                    <span>Ver Checklist Phase Gate</span>
-                  </Button>
 
                   {canEditPhase(selectedPhase) && (
                     <Button
@@ -641,13 +582,9 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
 
               {canEditPhase(selectedPhase) && (
                 <div className="grid grid-cols-12 gap-2 items-end bg-muted/30 p-3 rounded-lg border">
-                  <div className="col-span-4 space-y-1">
+                  <div className="col-span-6 space-y-1">
                     <Label className="text-xs">Nueva tarea</Label>
-                    <Input value={newTaskName} onChange={e => setNewTaskName(e.target.value)} placeholder="Descripción..." />
-                  </div>
-                  <div className="col-span-2 space-y-1">
-                    <Label className="text-xs">Peso</Label>
-                    <Input type="number" min={1} value={newTaskWeight} onChange={e => setNewTaskWeight(Number(e.target.value))} />
+                    <Input value={newTaskName} onChange={e => setNewTaskName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addTask(); }} placeholder="Descripción..." />
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label className="text-xs">Inicio</Label>
@@ -679,7 +616,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                       <TableHead className="w-[200px]">Responsable</TableHead>
                       <TableHead className="w-[96px]">Inicio</TableHead>
                       <TableHead className="w-[96px]">Fin</TableHead>
-                      <TableHead className="w-[60px] text-center">Peso</TableHead>
                       <TableHead className="w-[110px]">Avance</TableHead>
                       <TableHead className="w-[90px]"></TableHead>
                     </TableRow>
@@ -888,7 +824,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
                         </TableCell>
                         <TableCell className="text-[11px] whitespace-nowrap">{task.start_date || '-'}</TableCell>
                         <TableCell className="text-[11px] whitespace-nowrap">{task.end_date || '-'}</TableCell>
-                        <TableCell className="text-center">{task.weight}</TableCell>
                         <TableCell>
                           <Select
                             value={String(task.progress_percent ?? 0)}
@@ -939,11 +874,7 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
               <Label className="text-xs">Nombre</Label>
               <Input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">Peso</Label>
-                <Input type="number" min={1} value={editForm.weight} onChange={e => setEditForm(f => ({ ...f, weight: Number(e.target.value) }))} />
-              </div>
+            <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Inicio</Label>
                 <Input type="date" value={editForm.start_date} onChange={e => setEditForm(f => ({ ...f, start_date: e.target.value }))} />
@@ -960,26 +891,6 @@ export function ProjectPhasesPanel({ open, onOpenChange, projectId, projectName,
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Phase Gate Modal */}
-      <PhaseGateModal
-        open={phaseGateModalOpen}
-        onOpenChange={setPhaseGateModalOpen}
-        projectId={projectId}
-        projectName={projectName}
-        fase={phaseGateTargetPhase}
-        items={checklistItems}
-        allTasksCompleted={
-          (() => {
-            const ph = phases.find(p => p.name === phaseGateTargetPhase);
-            if (!ph) return false;
-            const phTasks = tasks.filter(t => t.phase_id === ph.id);
-            return phTasks.length > 0 && phTasks.every(t => (t.progress_percent ?? 0) === 100);
-          })()
-        }
-        onItemUpdated={fetchData}
-        onConfirmClosePhase={() => cerrarFase(phaseGateTargetPhase)}
-      />
 
       {/* Project Risks Dialog */}
       <ProjectRisksDialog

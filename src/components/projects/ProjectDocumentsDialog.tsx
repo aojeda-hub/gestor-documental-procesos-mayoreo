@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, Download, Trash2, Loader2 } from 'lucide-react';
+import { Upload, FileText, Eye, Trash2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Doc {
@@ -89,7 +89,9 @@ export function ProjectDocumentsDialog({ open, onOpenChange, projectId, projectN
     }
   };
 
-  const handleDownload = async (doc: Doc) => {
+  // Abre el documento en otra pestaña para verlo (imágenes y PDF se muestran
+  // en el navegador; otros formatos, como Word o Excel, el navegador los descarga).
+  const handleView = async (doc: Doc) => {
     const { data, error } = await supabase.storage
       .from('project-documents')
       .createSignedUrl(doc.file_path, 60);
@@ -159,8 +161,8 @@ export function ProjectDocumentsDialog({ open, onOpenChange, projectId, projectN
                       {formatSize(d.file_size)} · {format(new Date(d.created_at), 'd MMM yyyy, HH:mm')}
                     </div>
                   </div>
-                  <Button size="icon" variant="ghost" onClick={() => handleDownload(d)} title="Descargar">
-                    <Download className="h-4 w-4" />
+                  <Button size="icon" variant="ghost" onClick={() => handleView(d)} title="Ver documento" aria-label={`Ver ${d.name}`}>
+                    <Eye className="h-4 w-4" />
                   </Button>
                   {canEdit && (
                     <Button

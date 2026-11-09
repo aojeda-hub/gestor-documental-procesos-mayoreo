@@ -118,7 +118,7 @@ export function ProjectKickoffDialog({ open, onOpenChange, project, onSave, canE
       head: [['Información del Proyecto', '']],
       body: [
         ['Nombre:', project.name],
-        ['Responsable:', project.responsible || '-'],
+        ['Líder del proyecto:', project.responsible || '-'],
         ['Fechas:', `${project.start_date || '-'} a ${project.end_date || '-'}`],
         ['Silo:', project.silo],
       ],

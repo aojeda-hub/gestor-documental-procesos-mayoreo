@@ -158,13 +158,14 @@ export default function Projects() {
 
       const projectsWithProgress = (projectsData || []).map(project => {
         const projectTasks = (tasksData || []).filter(t => t.project_id === project.id);
-        const totalWeight = projectTasks.reduce((sum, t) => sum + Number(t.weight), 0);
-        const weightedProgress = projectTasks.reduce((sum, t) => {
+        // Avance real = promedio simple de las tareas (todas valen igual; el
+        // "peso" de las tareas se retiró para simplificar el módulo).
+        const sumaAvance = projectTasks.reduce((sum, t) => {
           const pct = t.status === 'Completada' ? 100 : Number((t as any).progress_percent ?? 0);
-          return sum + Number(t.weight) * pct;
+          return sum + pct;
         }, 0);
 
-        const actual_progress: number | null = totalWeight > 0 ? weightedProgress / totalWeight : null;
+        const actual_progress: number | null = projectTasks.length > 0 ? sumaAvance / projectTasks.length : null;
 
         let planned_progress: number | null = null;
         if (project.start_date && project.end_date) {
