@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, Eye, Trash2, Loader2 } from 'lucide-react';
+import { Upload, FileText, Eye, Download, Trash2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Doc {
@@ -102,6 +102,20 @@ export function ProjectDocumentsDialog({ open, onOpenChange, projectId, projectN
     window.open(data.signedUrl, '_blank');
   };
 
+  // A diferencia de "Ver" (que abre el archivo para visualizarlo), esto fuerza
+  // la descarga con el nombre original, vía el Content-Disposition que arma
+  // Supabase Storage cuando se pide `download` en la URL firmada.
+  const handleDownload = async (doc: Doc) => {
+    const { data, error } = await supabase.storage
+      .from('project-documents')
+      .createSignedUrl(doc.file_path, 60, { download: doc.name });
+    if (error || !data) {
+      toast({ title: 'Error', description: error?.message || 'No se pudo descargar', variant: 'destructive' });
+      return;
+    }
+    window.open(data.signedUrl, '_blank');
+  };
+
   const handleDelete = async (doc: Doc) => {
     if (!confirm(`¿Eliminar "${doc.name}"?`)) return;
     await supabase.storage.from('project-documents').remove([doc.file_path]);
@@ -116,7 +130,7 @@ export function ProjectDocumentsDialog({ open, onOpenChange, projectId, projectN
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Documentos de soporte — {projectName}</DialogTitle>
         </DialogHeader>
@@ -155,26 +169,31 @@ export function ProjectDocumentsDialog({ open, onOpenChange, projectId, projectN
                   className="flex items-center gap-3 p-3 rounded-md border hover:border-primary/50 transition-colors"
                 >
                   <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{d.name}</div>
+                  <div className="flex-1 min-w-0 pr-2">
+                    <div className="text-sm font-medium truncate" title={d.name}>{d.name}</div>
                     <div className="text-xs text-muted-foreground">
                       {formatSize(d.file_size)} · {format(new Date(d.created_at), 'd MMM yyyy, HH:mm')}
                     </div>
                   </div>
-                  <Button size="icon" variant="ghost" onClick={() => handleView(d)} title="Ver documento" aria-label={`Ver ${d.name}`}>
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  {canEdit && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-rose-500"
-                      onClick={() => handleDelete(d)}
-                      title="Eliminar"
-                    >
-                      <Trash2 className="h-4 w-4" />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button size="icon" variant="ghost" onClick={() => handleView(d)} title="Ver documento" aria-label={`Ver ${d.name}`}>
+                      <Eye className="h-4 w-4" />
                     </Button>
-                  )}
+                    <Button size="icon" variant="ghost" onClick={() => handleDownload(d)} title="Descargar documento" aria-label={`Descargar ${d.name}`}>
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    {canEdit && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-rose-500"
+                        onClick={() => handleDelete(d)}
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))
             )}
