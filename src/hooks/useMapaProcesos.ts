@@ -7,7 +7,7 @@ export type MapaDoc = Pick<
   | 'id' | 'title' | 'doc_type' | 'silo' | 'estatus' | 'confidential' | 'drive_link' | 'updated_at'
   | 'subarea' | 'macroproceso_codigo' | 'macroproceso' | 'mapeo_sistemico'
   | 'proceso_codigo' | 'proceso' | 'subproceso_codigo' | 'subproceso'
-  | 'documento_codigo' | 'codigo' | 'fecha_actualizacion' | 'observaciones'
+  | 'documento_codigo' | 'codigo' | 'fecha_actualizacion' | 'observaciones' | 'orden_hoja'
 >;
 
 export type MapaDocPatch = Partial<Omit<MapaDoc, 'id' | 'codigo' | 'updated_at'>>;
@@ -22,7 +22,7 @@ export interface EstatusHistorial {
 
 const COLS =
   'id, title, doc_type, silo, estatus, confidential, drive_link, updated_at, subarea, macroproceso_codigo, macroproceso, ' +
-  'mapeo_sistemico, proceso_codigo, proceso, subproceso_codigo, subproceso, documento_codigo, codigo, fecha_actualizacion, observaciones';
+  'mapeo_sistemico, proceso_codigo, proceso, subproceso_codigo, subproceso, documento_codigo, codigo, fecha_actualizacion, observaciones, orden_hoja';
 
 const KEY = ['mapa-docs'];
 const PAGE = 1000;

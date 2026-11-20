@@ -25,6 +25,8 @@ interface Node {
   level: Level;
   label: string;
   sortKey: string;
+  /** Menor orden_hoja entre los documentos del nodo: posición en la hoja de origen. */
+  minOrden: number;
   counts: EstatusCounts;
   children: Node[];
   docs: MapaDoc[];
@@ -74,10 +76,11 @@ function build(docs: MapaDoc[], depth: number, parentKey: string, parentLoc: Par
       const key = `${parentKey}/${id}`;
       const location = { ...parentLoc, ...g.loc };
       const isLeaf = depth === LEVELS.length - 1;
+      const minOrden = Math.min(...g.docs.map((d) => d.orden_hoja ?? Infinity));
       return {
-        key, level, label: g.label, sortKey: g.sort, counts: countEstatus(g.docs), location,
+        key, level, label: g.label, sortKey: g.sort, minOrden, counts: countEstatus(g.docs), location,
         children: isLeaf ? [] : build(g.docs, depth + 1, key, location, ordenMap),
-        docs: isLeaf ? [...g.docs].sort((a, b) => naturalCompare(a.documento_codigo, b.documento_codigo) || naturalCompare(a.title, b.title)) : [],
+        docs: isLeaf ? [...g.docs].sort((a, b) => ((a.orden_hoja ?? Infinity) - (b.orden_hoja ?? Infinity)) || naturalCompare(a.documento_codigo, b.documento_codigo) || naturalCompare(a.title, b.title)) : [],
       };
     })
     .sort((a, b) => {
@@ -86,7 +89,8 @@ function build(docs: MapaDoc[], depth: number, parentKey: string, parentLoc: Par
       if (oa != null && ob != null) return oa - ob;
       if (oa != null) return -1;
       if (ob != null) return 1;
-      return naturalCompare(a.sortKey, b.sortKey);
+      // Sin orden manual: respeta el orden en que aparece el grupo en la hoja de origen.
+      return (a.minOrden - b.minOrden) || naturalCompare(a.sortKey, b.sortKey);
     });
 }
 

@@ -97,6 +97,8 @@ export interface Document {
   codigo?: string | null;
   fecha_actualizacion?: string | null;
   observaciones?: string | null;
+  /** Fila de origen en la hoja del Mapa de Procesos (para ordenar igual que allí). */
+  orden_hoja?: number | null;
   // Clasificación de Descripciones de Cargo (doc_type === 'descripcion_cargo')
   departamento?: string | null;
   cargo?: string | null;

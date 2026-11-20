@@ -621,6 +621,7 @@ export type Database = {
           macroproceso_codigo: string | null
           mapeo_sistemico: string | null
           observaciones: string | null
+          orden_hoja: number | null
           proceso: string | null
           proceso_codigo: string | null
           subarea: string | null
@@ -647,6 +648,7 @@ export type Database = {
           macroproceso_codigo?: string | null
           mapeo_sistemico?: string | null
           observaciones?: string | null
+          orden_hoja?: number | null
           proceso?: string | null
           proceso_codigo?: string | null
           subarea?: string | null
@@ -673,6 +675,7 @@ export type Database = {
           macroproceso_codigo?: string | null
           mapeo_sistemico?: string | null
           observaciones?: string | null
+          orden_hoja?: number | null
           proceso?: string | null
           proceso_codigo?: string | null
           subarea?: string | null

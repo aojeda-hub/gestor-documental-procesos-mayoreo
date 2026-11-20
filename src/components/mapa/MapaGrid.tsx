@@ -18,8 +18,17 @@ import { ESTATUS_FLOW, TIPO_LABEL, fmtFecha, isRevisionVencida, joinCodigo, natu
 
 type SortKey = 'codigo' | 'silo' | 'macroproceso' | 'proceso' | 'subproceso' | 'tipo' | 'title' | 'estatus' | 'fecha';
 
+// Orden "natural": por silo, y dentro de cada silo en el mismo orden en que
+// aparecen los documentos en la hoja del Mapa de Procesos (agrupados por
+// macroproceso/proceso/subproceso como allí), en vez de un orden alfabético
+// por código — los códigos de proceso/subproceso se reutilizan entre
+// macroprocesos distintos, así que alfabéticamente se mezclan documentos
+// que no tienen nada que ver entre sí.
 const SORTERS: Record<SortKey, (a: MapaDoc, b: MapaDoc) => number> = {
-  codigo: (a, b) => naturalCompare(a.codigo, b.codigo) || naturalCompare(a.title, b.title),
+  codigo: (a, b) =>
+    naturalCompare(SILO_LABELS[a.silo], SILO_LABELS[b.silo]) ||
+    ((a.orden_hoja ?? Infinity) - (b.orden_hoja ?? Infinity)) ||
+    naturalCompare(a.codigo, b.codigo) || naturalCompare(a.title, b.title),
   silo: (a, b) => naturalCompare(SILO_LABELS[a.silo], SILO_LABELS[b.silo]),
   macroproceso: (a, b) => naturalCompare(a.macroproceso_codigo, b.macroproceso_codigo) || naturalCompare(a.macroproceso, b.macroproceso),
   proceso: (a, b) => naturalCompare(a.proceso_codigo, b.proceso_codigo) || naturalCompare(a.proceso, b.proceso),
