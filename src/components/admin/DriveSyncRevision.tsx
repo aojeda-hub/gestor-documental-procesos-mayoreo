@@ -62,6 +62,14 @@ const MOTIVOS: Record<Motivo, { label: string; ayuda: string }> = {
   },
 };
 
+interface Movimiento {
+  id: string;
+  estado: 'pendiente' | 'error';
+  detalle: string | null;
+  solicitado_at: string;
+  document: { title: string } | null;
+}
+
 type AccionOtros = 'desvincular' | 'desincorporar' | 'eliminar';
 
 const ACCION_OTROS: Record<AccionOtros, string> = {
@@ -95,8 +103,26 @@ export default function DriveSyncRevision() {
   // Acción destructiva (eliminar duplicados) esperando confirmación del diálogo.
   const [confirmar, setConfirmar] = useState<{ mensaje: string; run: () => void } | null>(null);
 
+  // Movimientos app -> Drive pendientes o con error (los "hecho" no necesitan atención).
+  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
+  const cargarMovimientos = async () => {
+    const { data } = await db
+      .from('drive_movimientos')
+      .select('id, estado, detalle, solicitado_at, document:documents(title)')
+      .in('estado', ['pendiente', 'error'])
+      .order('solicitado_at', { ascending: false })
+      .limit(50);
+    setMovimientos((data || []) as Movimiento[]);
+  };
+  const descartarMovimiento = async (id: string) => {
+    const { error } = await db.from('drive_movimientos').delete().eq('id', id);
+    if (error) toast({ title: 'No se pudo descartar', description: error.message, variant: 'destructive' });
+    else setMovimientos((prev) => prev.filter((m) => m.id !== id));
+  };
+
   const cargar = async () => {
     setLoading(true);
+    cargarMovimientos();
     const { data, error } = await db
       .from('drive_sync_revision')
       .select('*')
@@ -251,6 +277,30 @@ export default function DriveSyncRevision() {
           Actualizar
         </Button>
       </div>
+
+      {movimientos.length > 0 && (
+        <Card className="p-4 space-y-2">
+          <div>
+            <p className="font-medium">Movimientos en Drive</p>
+            <p className="text-sm text-muted-foreground">
+              Archivos que se mueven de carpeta porque cambió su tipo, silo o confidencialidad en la app.
+              Los pendientes se procesan en la próxima corrida (cada 5 minutos).
+            </p>
+          </div>
+          {movimientos.map((m) => (
+            <div key={m.id} className="flex flex-wrap items-center gap-2 border-t pt-2 text-sm">
+              <Badge variant={m.estado === 'error' ? 'destructive' : 'secondary'}>
+                {m.estado === 'error' ? 'Error' : 'Pendiente'}
+              </Badge>
+              <span className="font-medium flex-1 min-w-0 break-words">{m.document?.title ?? '(documento eliminado)'}</span>
+              {m.detalle && <span className="text-xs text-muted-foreground break-all w-full sm:w-auto">{m.detalle}</span>}
+              {m.estado === 'error' && (
+                <Button variant="ghost" size="sm" onClick={() => descartarMovimiento(m.id)}>Descartar</Button>
+              )}
+            </div>
+          ))}
+        </Card>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant={filtro === 'todos' ? 'default' : 'outline'} onClick={() => setFiltro('todos')}>

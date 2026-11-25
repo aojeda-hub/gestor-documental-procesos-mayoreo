@@ -210,8 +210,48 @@ Deno.serve(async (req) => {
     if (req.method !== "POST") return json({ error: "usar POST con el snapshot de la unidad" }, 405);
 
     const url = new URL(req.url);
-    const apply = url.searchParams.get("mode") === "apply";
+    const mode = url.searchParams.get("mode");
+    const apply = mode === "apply";
     const forzarEliminaciones = url.searchParams.get("forzar_eliminaciones") === "true";
+
+    // --- App -> Drive: movimientos de archivos pedidos desde la app ---------
+    // El Apps Script pide los pendientes, mueve los archivos y reporta.
+    if (mode === "movimientos") {
+      const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      const { data, error } = await sb.from("drive_movimientos")
+        .select("id, drive_file_id, document:documents(id, title, empresa, silo, doc_type, subarea, confidential, drive_file_id)")
+        .eq("estado", "pendiente")
+        .order("solicitado_at")
+        .limit(100);
+      if (error) throw error;
+      // Lo que vale es el estado ACTUAL del documento (pudo cambiar de nuevo).
+      const movimientos = (data || [])
+        .filter((m: any) => m.document && m.document.drive_file_id === m.drive_file_id)
+        .map((m: any) => ({
+          id: m.id, drive_file_id: m.drive_file_id, title: m.document.title,
+          empresa: m.document.empresa, silo: m.document.silo, doc_type: m.document.doc_type,
+          subarea: m.document.subarea, confidential: m.document.confidential,
+        }));
+      // Pendientes cuyo documento ya no apunta a ese archivo: se descartan.
+      const huerfanos = (data || []).filter((m: any) => !m.document || m.document.drive_file_id !== m.drive_file_id).map((m: any) => m.id);
+      if (huerfanos.length) {
+        await sb.from("drive_movimientos").update({ estado: "sin_cambio", detalle: "el documento ya no apunta a ese archivo", procesado_at: new Date().toISOString() }).in("id", huerfanos);
+      }
+      return json({ ok: true, movimientos });
+    }
+    if (mode === "movimientos_resultado") {
+      const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      const { resultados } = await req.json() as { resultados?: { id: string; estado: string; detalle?: string }[] };
+      const permitidos = new Set(["hecho", "sin_cambio", "error"]);
+      for (const r of resultados || []) {
+        if (!permitidos.has(r.estado)) continue;
+        const { error } = await sb.from("drive_movimientos")
+          .update({ estado: r.estado, detalle: r.detalle ?? null, procesado_at: new Date().toISOString() })
+          .eq("id", r.id).eq("estado", "pendiente");
+        if (error) throw error;
+      }
+      return json({ ok: true, registrados: (resultados || []).length });
+    }
 
     const body = await req.json() as { completo?: boolean; archivos?: ArchivoDrive[] };
     const archivos = body.archivos || [];

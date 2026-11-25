@@ -322,7 +322,14 @@ export default function Documents() {
           url_word: urlWord, url_pdf: urlPdf, url_file: urlFile, is_current: true,
         } as any);
       }
-      toast({ title: 'Cambios guardados' });
+      // Si cambió tipo, silo o confidencialidad de un documento con archivo en Drive,
+      // la base anota el movimiento y el Apps Script lo ejecuta en su próxima corrida.
+      const conArchivo = !!(selectedDoc as Document & { drive_visto_at?: string | null }).drive_visto_at;
+      const seMueve = conArchivo && (
+        formType !== selectedDoc.doc_type || formSilo !== selectedDoc.silo || formConfidential !== selectedDoc.confidential);
+      toast(seMueve
+        ? { title: 'Cambios guardados', description: 'El archivo se moverá en Drive a la carpeta que corresponde en los próximos 5 minutos.' }
+        : { title: 'Cambios guardados' });
       setShowDetailsDialog(false);
       fetchDocs();
     } catch (err: any) {
