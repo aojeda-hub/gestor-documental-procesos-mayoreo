@@ -24,8 +24,11 @@
 //     archivo se renombra o se mueve en Drive, eso se refleja en la app.
 //   - Los documentos del Mapa de Procesos (con macroproceso_codigo) nunca
 //     cambian de título/silo/tipo por esta vía: los gobierna el Sheet.
-//   - Archivo que desaparece de la unidad -> estatus "desincorporado". Si de
-//     golpe desaparecen demasiados, no se aplica (probable error de lectura).
+//   - Archivo que desaparece de la unidad -> estatus "desincorporado" (salvo
+//     documentos del Mapa: solo se anota). Si de golpe desaparecen demasiados o
+//     una carpeta entera, no se aplica (probable error o carpeta movida).
+//   - Puede recibir archivos de varias unidades (el Apps Script antepone a la
+//     ruta la empresa cuando la unidad no la tiene, p. ej. la restringida de Personal).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -38,6 +41,9 @@ const CARPETAS_EXCLUIDAS = new Set([
   "capsulas de conocimiento", "logos", "actividades pasantes", "pruebas", "indice",
   "ejercicios practicos asesores de procesos", "presentaciones dm proyectos",
   "formatos antiguos",
+  // Copias PDF de las normas restringidas: el archivo principal es el original de
+  // la unidad "Documentación restringida Personal".
+  "normas restringidas personal pdf",
 ]);
 
 const MIME_PERMITIDOS = new Set([
@@ -367,13 +373,27 @@ Deno.serve(async (req) => {
     // 4. Archivos que ya no están en la unidad.
     const eliminados = existing.filter((d) =>
       d.drive_file_id && d.drive_visto_at && !d.drive_eliminado_at && !idsEnUnidad.has(d.drive_file_id));
-    let eliminacionesBloqueadas = false;
-    if (body.completo !== true || (eliminados.length > MAX_ELIMINACIONES && !forzarEliminaciones)) {
-      eliminacionesBloqueadas = eliminados.length > 0;
-    } else {
+    // Freno: una carpeta entera que desaparece de golpe suele ser una carpeta
+    // movida o borrada por error, no documentos que se dieron de baja.
+    const porCarpeta: Record<string, number> = {};
+    for (const d of eliminados) porCarpeta[d.drive_path || "?"] = (porCarpeta[d.drive_path || "?"] || 0) + 1;
+    const carpetasCompletas = Object.entries(porCarpeta)
+      .filter(([ruta, n]) => n > 5 && !mapeados.some((m) => m.drive_path === ruta))
+      .map(([ruta, n]) => `${ruta} (${n})`);
+    let eliminacionesBloqueadas: string | null = null;
+    if (eliminados.length > 0) {
+      if (body.completo !== true) eliminacionesBloqueadas = "snapshot incompleto";
+      else if (!forzarEliminaciones && eliminados.length > MAX_ELIMINACIONES)
+        eliminacionesBloqueadas = `más de ${MAX_ELIMINACIONES} de golpe; revisar y reenviar con ?forzar_eliminaciones=true`;
+      else if (!forzarEliminaciones && carpetasCompletas.length > 0)
+        eliminacionesBloqueadas = `desapareció la carpeta completa ${carpetasCompletas.join(", ")}; revisar y reenviar con ?forzar_eliminaciones=true`;
+    }
+    if (!eliminacionesBloqueadas) {
       for (const d of eliminados) {
         const patch: Record<string, unknown> = { drive_eliminado_at: ahora };
-        if (d.estatus !== "desincorporado") patch.estatus = "desincorporado";
+        // El estatus de los documentos del Mapa de Procesos lo gobierna el Sheet:
+        // aquí solo se anota que su archivo ya no está.
+        if (!d.macroproceso_codigo && d.estatus !== "desincorporado") patch.estatus = "desincorporado";
         toUpdate.push({ id: d.id, patch, tipo: "desincorporado", title: d.title });
       }
     }
@@ -394,9 +414,7 @@ Deno.serve(async (req) => {
       se_actualizan: conteo("actualizado"),
       se_desincorporan: conteo("desincorporado"),
       eliminaciones_detectadas: eliminados.length,
-      eliminaciones_bloqueadas: eliminacionesBloqueadas
-        ? (body.completo !== true ? "snapshot incompleto" : `más de ${MAX_ELIMINACIONES} de golpe; revisar y reenviar con ?forzar_eliminaciones=true`)
-        : null,
+      eliminaciones_bloqueadas: eliminacionesBloqueadas,
       se_cambian_de_silo: toUpdate.filter((u) => "silo" in u.patch).length,
       se_limpia_extension_del_titulo: toUpdate.filter((u) => "title" in u.patch && u.tipo !== "actualizado").length,
       mapa_con_silo_distinto_a_drive: siloDistintoMapa.length,

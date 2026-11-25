@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,12 @@ import DocumentPreviewDialog from '@/components/documents/DocumentPreviewDialog'
 import { organizarSiloPersonal, ClassificationReport } from '@/utils/personalSiloOrganizer';
 import { DC_DEPARTAMENTOS } from '@/components/documents/DescripcionesCargo';
 import { PERSONAL_SILO_LIST } from '@/data/personalSiloList';
+
+/** ID del archivo de Drive a partir de su enlace (/d/<id>/ o ?id=<id>), o null. */
+function driveFileIdDeLink(link: string): string | null {
+  const m = (link || '').match(/(?:\/d\/|[?&]id=)([a-zA-Z0-9_-]{20,})/);
+  return m ? m[1] : null;
+}
 
 export default function Documents() {
   const [activeEmpresa, setActiveEmpresa] = useState<EmpresaType>('mayoreo');
@@ -144,10 +151,24 @@ export default function Documents() {
 
   useEffect(() => { fetchDocs(); }, []);
 
+  // Documentos es el espejo de Google Drive: por defecto solo se ve lo que tiene
+  // archivo en las unidades sincronizadas. Las entradas del Mapa de Procesos sin
+  // archivo siguen en el módulo Mapa; el resto se puede ver con el interruptor.
+  const [soloDrive, setSoloDrive] = usePersistedState<boolean>('documentos.soloDrive', true);
+  const UN_DIA = 24 * 60 * 60 * 1000;
+  const tieneArchivoEnDrive = (d: Document) => {
+    const x = d as Document & { drive_visto_at?: string | null; drive_eliminado_at?: string | null };
+    return !!x.drive_visto_at && !x.drive_eliminado_at;
+  };
+  // Recién creado desde la app: se muestra mientras la sincronización lo vincula a su archivo.
+  const recienCreadoEnApp = (d: Document) =>
+    !!d.created_by && Date.now() - new Date(d.created_at).getTime() < UN_DIA;
+
   // Filter docs by active empresa and confidentiality
 
   const empresaDocs = docs.filter(d => {
     if (d.empresa !== activeEmpresa) return false;
+    if (soloDrive && !tieneArchivoEnDrive(d) && !recienCreadoEnApp(d)) return false;
     if (d.confidential) {
       return canSeeConfidential(d.silo);
     }
@@ -204,6 +225,8 @@ export default function Documents() {
       created_by: user?.id,
       empresa: activeEmpresa,
       drive_link: vDriveUrl.trim() || null,
+      // Con el ID del archivo, la sincronización lo reconoce aunque el título difiera.
+      drive_file_id: driveFileIdDeLink(vDriveUrl),
       departamento: finalDepartamento,
       cargo: finalCargo,
     } as any).select().single();
@@ -269,6 +292,8 @@ export default function Documents() {
       const finalCargo = formType === 'descripcion_cargo' ? (formCargo || '').trim() || null : null;
       const { data: updated, error: updError } = await supabase.from('documents').update({
         title: formTitle, doc_type: formType, silo: formSilo, confidential: formConfidential, estatus: formEstatus, drive_link: vDriveUrl.trim() || null,
+        ...(driveFileIdDeLink(vDriveUrl) && driveFileIdDeLink(vDriveUrl) !== driveFileIdDeLink(selectedDoc.drive_link || '')
+          ? { drive_file_id: driveFileIdDeLink(vDriveUrl), drive_visto_at: null } : {}),
         departamento: finalDepartamento, cargo: finalCargo,
       } as any).eq('id', selectedDoc.id).select('id');
       if (updError) throw updError;
@@ -573,7 +598,13 @@ export default function Documents() {
                 </Button>
               </>
             )}
-            <div className="relative flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 ml-auto">
+              <Switch id="solo-drive" checked={!soloDrive} onCheckedChange={(v) => setSoloDrive(!v)} />
+              <Label htmlFor="solo-drive" className="text-sm text-muted-foreground cursor-pointer">
+                Mostrar documentos sin archivo en Drive
+              </Label>
+            </div>
+            <div className="relative flex items-center gap-2">
               <div className="relative">
                 <Input
                   value={search}

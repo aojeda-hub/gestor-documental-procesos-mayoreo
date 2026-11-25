@@ -21,8 +21,22 @@
  */
 
 var WEBHOOK_URL = 'https://qtxfokwwwfmovicdbtre.supabase.co/functions/v1/sync-drive';
-var DRIVE_ID = '0AIvHaBFZ0NhWUk9PVA'; // Unidad compartida "Documentación"
 var MINUTOS = 5;
+
+/**
+ * Unidades que se sincronizan.
+ *   driveId:  la unidad compartida.
+ *   carpeta:  (opcional) solo los archivos dentro de esta carpeta.
+ *   prefijo:  carpetas que se anteponen a la ruta, para unidades que no empiezan
+ *             por la empresa (la función espera Empresa / Silo / ... / archivo).
+ * Si una unidad no se puede leer, la corrida completa se cancela (así nunca se
+ * manda una foto incompleta que haría parecer borrados sus documentos).
+ */
+var FUENTES = [
+  { nombre: 'Documentación', driveId: '0AIvHaBFZ0NhWUk9PVA', prefijo: [] },
+  { nombre: 'Documentación restringida Personal — Normas Restringidas',
+    driveId: '0AAUTKEi_tJKyUk9PVA', carpeta: '1xG5H3h-JLXvwfxmJn_Zg3MR525vza-EM', prefijo: ['Mayoreo'] },
+];
 
 /** Solo muestra qué haría. No escribe nada en la app. */
 function previsualizar() {
@@ -100,14 +114,22 @@ function desinstalarTrigger() {
 
 // ---------------------------------------------------------------------------
 
-/** Lista todos los archivos no borrados de la unidad, con su ruta de carpetas. */
+/** Lista los archivos no borrados de todas las FUENTES, con su ruta de carpetas. */
 function tomarFoto_() {
+  var archivos = [];
+  FUENTES.forEach(function (fuente) {
+    archivos = archivos.concat(fotoDeUnidad_(fuente));
+  });
+  return archivos;
+}
+
+function fotoDeUnidad_(fuente) {
   var items = [];
   var token = null;
   do {
     var resp = Drive.Files.list({
       corpora: 'drive',
-      driveId: DRIVE_ID,
+      driveId: fuente.driveId,
       includeItemsFromAllDrives: true,
       supportsAllDrives: true,
       q: 'trashed = false',
@@ -129,29 +151,34 @@ function tomarFoto_() {
   var archivos = [];
   items.forEach(function (f) {
     if (f.mimeType === 'application/vnd.google-apps.folder') return;
+    var r = ruta_(f.parents ? f.parents[0] : null, carpetas, fuente.driveId);
+    // Con "carpeta", solo entra lo que cuelga de ella.
+    if (fuente.carpeta && (!r || r.ids.indexOf(fuente.carpeta) === -1)) return;
     archivos.push({
       id: f.id,
       name: f.name,
       mimeType: f.mimeType,
       modifiedTime: f.modifiedTime,
       webViewLink: f.webViewLink,
-      path: ruta_(f.parents ? f.parents[0] : null, carpetas),
+      path: r ? fuente.prefijo.concat(r.nombres) : null,
     });
   });
   return archivos;
 }
 
-/** Nombres de carpeta desde la raíz de la unidad hasta el archivo; null si no se puede armar. */
-function ruta_(parentId, carpetas) {
-  var path = [];
+/** Carpetas desde la raíz de la unidad hasta el archivo (nombres e ids); null si no se puede armar. */
+function ruta_(parentId, carpetas, driveId) {
+  var nombres = [];
+  var ids = [];
   var guard = 0;
-  while (parentId && parentId !== DRIVE_ID) {
+  while (parentId && parentId !== driveId) {
     var c = carpetas[parentId];
     if (!c || guard++ > 30) return null;
-    path.unshift(c.name);
+    nombres.unshift(c.name);
+    ids.unshift(parentId);
     parentId = c.parent;
   }
-  return path;
+  return { nombres: nombres, ids: ids };
 }
 
 /** Huella de la foto para no llamar a la app si nada cambió. */
