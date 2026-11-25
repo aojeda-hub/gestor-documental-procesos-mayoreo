@@ -8,3 +8,7 @@ verify_jwt = true
 
 [functions.generate-skill-document]
 verify_jwt = true
+
+# Autenticada con el header x-sync-secret (DRIVE_SYNC_SECRET), la llama un Apps Script.
+[functions.sync-drive]
+verify_jwt = false

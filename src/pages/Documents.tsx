@@ -110,11 +110,25 @@ export default function Documents() {
 
   const fetchDocs = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('documents')
-      .select('*, document_versions(url_word, url_pdf, url_file, is_current)')
-      .order('updated_at', { ascending: false });
-    const docsWithUrls = (data || []).map((doc: any) => {
+    // PostgREST devuelve máximo 1000 filas por petición: sin paginar, la app
+    // dejaba de ver los documentos más antiguos (conteos bajos, cargos "No subido").
+    const PAGE = 1000;
+    const data: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error } = await supabase
+        .from('documents')
+        .select('*, document_versions(url_word, url_pdf, url_file, is_current)')
+        .order('updated_at', { ascending: false })
+        .order('id') // desempate estable entre páginas
+        .range(from, from + PAGE - 1);
+      if (error) {
+        toast({ title: 'Error al cargar documentos', description: error.message, variant: 'destructive' });
+        break;
+      }
+      data.push(...(page || []));
+      if (!page || page.length < PAGE) break;
+    }
+    const docsWithUrls = data.map((doc: any) => {
       const cv = doc.document_versions?.find((v: any) => v.is_current);
       return {
         ...doc,

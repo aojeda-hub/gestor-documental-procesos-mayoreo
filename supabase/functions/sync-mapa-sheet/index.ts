@@ -340,6 +340,31 @@ Deno.serve(async (req) => {
       existing.map((d) => [keyOf(d.silo, d.macroproceso_codigo, d.proceso_codigo, d.subproceso_codigo, d.documento_codigo, d.title), d]),
     );
 
+    // Modo de diagnóstico de "huérfanos": a diferencia de orden_hoja (que se
+    // graba una vez y queda pegado aunque la fila deje de existir en la hoja),
+    // esto compara la clave EXACTA de cada documento existente contra el parseo
+    // de la hoja de AHORA MISMO. Si la clave no aparece, ese documento ya no
+    // corresponde a nada vigente (le cambiaron el código/macroproceso en la
+    // hoja en algún sync anterior, o se eliminó de la hoja). Solo reporta.
+    if (new URL(req.url).searchParams.get("mode") === "huerfanos") {
+      const huerfanos = existing.filter((d) =>
+        !parsedByKey.has(keyOf(d.silo, d.macroproceso_codigo, d.proceso_codigo, d.subproceso_codigo, d.documento_codigo, d.title))
+      );
+      const porSilo: Record<string, number> = {};
+      for (const d of huerfanos) porSilo[d.silo] = (porSilo[d.silo] || 0) + 1;
+      return new Response(JSON.stringify({
+        ok: true,
+        total_existentes: existing.length,
+        total_huerfanos: huerfanos.length,
+        huerfanos_por_silo: porSilo,
+        huerfanos: huerfanos.map((d) => ({
+          id: d.id, silo: d.silo, macroproceso_codigo: d.macroproceso_codigo, macroproceso: d.macroproceso,
+          proceso_codigo: d.proceso_codigo, proceso: d.proceso, subproceso_codigo: d.subproceso_codigo, subproceso: d.subproceso,
+          documento_codigo: d.documento_codigo, title: d.title, created_at: d.created_at,
+        })),
+      }), { headers: { "Content-Type": "application/json" } });
+    }
+
     // Modo de previsualización: calcula qué se crearía/actualizaría sin escribir nada.
     // Pensado para validar una fuente (gid) nueva antes de confiarle la sincronización real.
     if (new URL(req.url).searchParams.get("mode") === "preview") {

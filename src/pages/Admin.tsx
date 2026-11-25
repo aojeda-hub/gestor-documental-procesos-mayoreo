@@ -12,6 +12,7 @@ import { Plus, ExternalLink, Pencil, Trash2, Loader2, Sparkles, ShieldCheck } fr
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import Users from '@/pages/Users';
+import DriveSyncRevision from '@/components/admin/DriveSyncRevision';
 import { z } from 'zod';
 
 interface Desarrollo {
@@ -214,7 +215,7 @@ export default function Admin() {
         </div>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Administración</h1>
-          <p className="text-sm text-muted-foreground">Gestión de usuarios y desarrollos del sistema.</p>
+          <p className="text-sm text-muted-foreground">Gestión de usuarios, desarrollos y sincronización con Drive.</p>
         </div>
       </div>
 
@@ -222,12 +223,16 @@ export default function Admin() {
         <TabsList>
           <TabsTrigger value="usuarios">Administración de usuarios</TabsTrigger>
           <TabsTrigger value="desarrollos">Desarrollos a la medida</TabsTrigger>
+          <TabsTrigger value="drive">Sincronización Drive</TabsTrigger>
         </TabsList>
         <TabsContent value="usuarios" className="space-y-4">
           <Users />
         </TabsContent>
         <TabsContent value="desarrollos" className="space-y-4">
           <DesarrollosAdmin />
+        </TabsContent>
+        <TabsContent value="drive" className="space-y-4">
+          <DriveSyncRevision />
         </TabsContent>
       </Tabs>
     </div>
