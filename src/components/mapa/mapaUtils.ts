@@ -1,12 +1,12 @@
 import { differenceInDays, format, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
-import { DOCUMENT_ESTATUS_LABELS, DOCUMENT_ESTATUS_OPTIONS, SILO_LABELS } from '@/types/database';
+import { DOCUMENT_ESTATUS_LABELS, SILO_LABELS } from '@/types/database';
 import type { DocType, DocumentEstatus } from '@/types/database';
 import type { MapaDoc } from '@/hooks/useMapaProcesos';
 
 /** Orden del flujo de vida de un documento (para barras y leyendas). */
 export const ESTATUS_FLOW: DocumentEstatus[] = [
-  'aprobado', 'por_aprobar', 'revision', 'en_construccion', 'creada_ia', 'por_iniciar', 'desactualizado', 'desincorporado',
+  'aprobado', 'revision', 'en_construccion', 'por_iniciar', 'desactualizado', 'desincorporado',
 ];
 
 export const ESTATUS_BAR_COLORS: Record<DocumentEstatus, string> = {
@@ -37,7 +37,8 @@ export const REVISION_DIAS = 365;
 export type EstatusCounts = Record<DocumentEstatus, number>;
 
 export function emptyCounts(): EstatusCounts {
-  return Object.fromEntries(DOCUMENT_ESTATUS_OPTIONS.map(s => [s, 0])) as EstatusCounts;
+  // Incluye los estatus antiguos (por_aprobar, creada_ia) para poder contarlos si aparecen.
+  return Object.fromEntries(Object.keys(DOCUMENT_ESTATUS_LABELS).map(s => [s, 0])) as EstatusCounts;
 }
 
 export function countEstatus(docs: MapaDoc[]): EstatusCounts {

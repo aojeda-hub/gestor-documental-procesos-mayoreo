@@ -152,10 +152,18 @@ function procesarMovimientos_() {
 function moverArchivo_(m, arbol) {
   var archivo = Drive.Files.get(m.drive_file_id, { fields: 'id, name, parents', supportsAllDrives: true });
   var padres = archivo.parents || [];
-  var destino = carpetaDestino_(m, arbol);
+  var restringida = esNormaRestringida_(m);
 
-  // ¿Ya está donde corresponde? (respeta subcarpetas de área, p. ej. "Descripciones de Cargo / DC")
-  if (padres.indexOf(destino.id) !== -1 || yaEstaBien_(padres[0], m, destino, arbol)) {
+  // ¿Ya está donde corresponde? Se revisa ANTES de calcular el destino para no
+  // crear carpetas de más. Respeta subcarpetas (p. ej. "Descripciones de Cargo / DC").
+  if (restringida && padres.indexOf(FUENTES[1].carpeta) !== -1) {
+    return { id: m.id, estado: 'sin_cambio', detalle: 'Normas Restringidas' };
+  }
+  if (!restringida && yaEstaBien_(padres[0], m, arbol)) {
+    return { id: m.id, estado: 'sin_cambio', detalle: rutaDe_(arbol, padres[0]) };
+  }
+  var destino = carpetaDestino_(m, arbol, padres[0]);
+  if (padres.indexOf(destino.id) !== -1) {
     return { id: m.id, estado: 'sin_cambio', detalle: destino.ruta };
   }
   Drive.Files.update({}, m.drive_file_id, null, {
@@ -167,12 +175,45 @@ function moverArchivo_(m, arbol) {
   return { id: m.id, estado: 'hecho', detalle: destino.ruta };
 }
 
+function esNormaRestringida_(m) {
+  return m.confidential && m.silo === 'personal' && m.doc_type === 'norma';
+}
+
+/**
+ * Si el archivo está dentro de una carpeta de tipo (p. ej. ".../Crédito y Cobranzas/Normas")
+ * del mismo silo, devuelve la carpeta que la contiene (el "área" real del archivo).
+ */
+function areaActual_(padreId, m, arbol) {
+  var id = padreId, guard = 0;
+  while (id && arbol.porId[id] && guard++ < 30) {
+    var c = arbol.porId[id];
+    if (tipoDeCarpeta_(c.name)) {
+      var area = arbol.porId[c.parent];
+      return area && siloDeAncestro_(area.id, m, arbol) === m.silo ? area : null;
+    }
+    id = c.parent;
+  }
+  return null;
+}
+
+/** Silo de una carpeta: el de su ancestro que cuelga directamente de la carpeta de empresa. */
+function siloDeAncestro_(id, m, arbol) {
+  var guard = 0;
+  while (id && arbol.porId[id] && guard++ < 30) {
+    var c = arbol.porId[id], padre = arbol.porId[c.parent];
+    if (padre && normalizar_(padre.name) === normalizar_(m.empresa) && padre.parent === arbol.driveId) {
+      return siloDeCarpeta_(c.name);
+    }
+    id = c.parent;
+  }
+  return null;
+}
+
 /** Carpeta destino según empresa / silo / área / tipo / confidencialidad. Crea lo que falte. */
-function carpetaDestino_(m, arbol) {
+function carpetaDestino_(m, arbol, padreActualId) {
   // Normas confidenciales de Personal: unidad restringida.
-  var restringida = FUENTES[1];
-  if (m.confidential && m.silo === 'personal' && m.doc_type === 'norma') {
-    return { id: restringida.carpeta, ruta: 'Documentación restringida Personal / Personal / Normas Restringidas' };
+  if (esNormaRestringida_(m)) {
+    return { id: FUENTES[1].carpeta, ruta: 'Documentación restringida Personal / Personal / Normas Restringidas' };
   }
   var raiz = FUENTES[0].driveId;
   var empresa = hijoQue_(arbol, raiz, function (n) { return normalizar_(n) === normalizar_(m.empresa); });
@@ -181,9 +222,10 @@ function carpetaDestino_(m, arbol) {
   var silo = hijoQue_(arbol, empresa.id, function (n) { return siloDeCarpeta_(n) === m.silo; })
     || crearCarpeta_(arbol, empresa.id, NOMBRE_SILO[m.silo] || m.silo);
 
-  // Área: solo si ya existe esa ruta de carpetas dentro del silo (no se inventan áreas).
-  var base = silo;
-  if (m.subarea) {
+  // Área: primero la carpeta donde ya está el archivo (si es del mismo silo);
+  // si no, la del documento, solo si esa ruta ya existe (no se inventan áreas).
+  var base = areaActual_(padreActualId, m, arbol) || silo;
+  if (base === silo && m.subarea) {
     var actual = silo, ok = true;
     String(m.subarea).split(' / ').forEach(function (parte) {
       if (!ok) return;
@@ -197,10 +239,9 @@ function carpetaDestino_(m, arbol) {
   return { id: tipo.id, ruta: rutaDe_(arbol, tipo.id) };
 }
 
-/** El archivo ya está en una carpeta del tipo correcto dentro del silo destino (y fuera de la restringida). */
-function yaEstaBien_(padreId, m, destino, arbol) {
+/** El archivo ya está en una carpeta del tipo correcto dentro del silo correcto (unidad Documentación). */
+function yaEstaBien_(padreId, m, arbol) {
   if (!padreId || !arbol.porId[padreId]) return false; // está en otra unidad
-  if (destino.id === FUENTES[1].carpeta) return false;
   var tipoOk = false, siloOk = false, id = padreId, guard = 0;
   while (id && arbol.porId[id] && guard++ < 30) {
     var n = arbol.porId[id].name;

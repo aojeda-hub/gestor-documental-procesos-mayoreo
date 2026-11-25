@@ -125,6 +125,75 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
     }
 
+    const modo = new URL(req.url).searchParams.get("mode");
+
+    // ── Espejo app -> Sheet ────────────────────────────────────────────────
+    // El Apps Script del Sheet pide los cambios hechos en la app (tabla
+    // mapa_hoja_cambios), los escribe en la pestaña del silo y reporta el
+    // resultado. Al entregarlos quedan "procesando": una edición nueva en la app
+    // mientras tanto genera otro cambio pendiente aparte, que se aplica después.
+    if (modo === "hoja_pendientes") {
+      const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      const hace10min = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { data, error } = await supabase.from("mapa_hoja_cambios")
+        .select("id, document_id, accion, antes, cambios, estado, solicitado_at")
+        .or(`estado.eq.pendiente,and(estado.eq.procesando,procesado_at.lt.${hace10min})`)
+        .order("solicitado_at", { ascending: true })
+        .limit(100);
+      if (error) throw error;
+      // Un cambio que se reentrega (nunca se confirmó) y otro más nuevo del mismo
+      // documento se combinan en uno: la edición nueva corrige la anterior.
+      let lista = data || [];
+      // Lo mismo con uno que falló: al volver a editar el documento en la app, se
+      // reintenta junto con la edición nueva (que suele ser la corrección).
+      const docsPendientes = lista.filter((c) => c.estado === "pendiente").map((c) => c.document_id);
+      if (docsPendientes.length > 0) {
+        const { data: fallidos, error: ef } = await supabase.from("mapa_hoja_cambios")
+          .select("id, document_id, accion, antes, cambios, estado, solicitado_at")
+          .eq("estado", "error").in("document_id", docsPendientes);
+        if (ef) throw ef;
+        for (const f of fallidos || []) lista.push({ ...f, estado: "procesando" });
+      }
+      const reentregas = new Map(lista.filter((c) => c.estado === "procesando").map((c) => [c.document_id, c]));
+      for (const nuevo of lista.filter((c) => c.estado === "pendiente" && reentregas.has(c.document_id))) {
+        const viejo = reentregas.get(nuevo.document_id)!;
+        viejo.cambios = { ...(viejo.cambios || {}), ...(nuevo.cambios || {}) };
+        if (nuevo.accion === "eliminar") viejo.accion = "eliminar";
+        const { error: eu } = await supabase.from("mapa_hoja_cambios")
+          .update({ cambios: viejo.cambios, accion: viejo.accion }).eq("id", viejo.id);
+        if (eu) throw eu;
+        const { error: ed } = await supabase.from("mapa_hoja_cambios").delete().eq("id", nuevo.id);
+        if (ed) throw ed;
+        lista = lista.filter((c) => c.id !== nuevo.id);
+      }
+      const ids = lista.map((c) => c.id);
+      if (ids.length > 0) {
+        // procesado_at marca cuándo se entregó; si el script se cae, a los 10 min se reentrega.
+        const { error: e2 } = await supabase.from("mapa_hoja_cambios")
+          .update({ estado: "procesando", procesado_at: new Date().toISOString() }).in("id", ids);
+        if (e2) throw e2;
+      }
+      // Los ya entregados antes van primero (son más viejos que cualquier pendiente del mismo documento).
+      const orden = (c: any) => (c.estado === "procesando" ? 0 : 1);
+      const cambios = [...lista].sort((a, b) => orden(a) - orden(b) ||
+        new Date(a.solicitado_at).getTime() - new Date(b.solicitado_at).getTime());
+      return new Response(JSON.stringify({ ok: true, cambios }), { headers: { "Content-Type": "application/json" } });
+    }
+
+    if (modo === "hoja_resultado") {
+      const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      const body = await req.json().catch(() => ({}));
+      const resultados: { id: string; estado: string; detalle?: string }[] = body.resultados || [];
+      for (const r of resultados) {
+        if (!["hecho", "error"].includes(r.estado)) continue;
+        const { error } = await supabase.from("mapa_hoja_cambios")
+          .update({ estado: r.estado, detalle: r.detalle ?? null, procesado_at: new Date().toISOString() })
+          .eq("id", r.id).eq("estado", "procesando");
+        if (error) throw error;
+      }
+      return new Response(JSON.stringify({ ok: true, registrados: resultados.length }), { headers: { "Content-Type": "application/json" } });
+    }
+
     const csvRes = await fetch(CSV_URL, { redirect: "follow" });
     if (!csvRes.ok) {
       return new Response(
@@ -393,11 +462,27 @@ Deno.serve(async (req) => {
       }), { headers: { "Content-Type": "application/json" } });
     }
 
+    // Cambios hechos en la app que todavía no se escribieron en el Sheet: esos
+    // documentos no se tocan (el Sheet aún tiene el valor viejo) y la fila vieja
+    // del Sheet no se registra como documento nuevo (p. ej. tras un cambio de
+    // título o una eliminación en la app). Los que fallaron también quedan
+    // protegidos hasta que un admin los descarte (entonces vuelve a mandar el Sheet).
+    const { data: enCola, error: colaError } = await supabase.from("mapa_hoja_cambios")
+      .select("document_id, antes").in("estado", ["pendiente", "procesando", "error"]);
+    if (colaError) throw colaError;
+    const docsEnCola = new Set((enCola || []).map((c: any) => c.document_id));
+    const clavesEnCola = new Set((enCola || []).filter((c: any) => c.antes).map((c: any) =>
+      keyOf(c.antes.silo, c.antes.macroproceso_codigo, c.antes.proceso_codigo, c.antes.subproceso_codigo, c.antes.documento_codigo, c.antes.title)));
+    let enEspera = 0;
+
     const toInsert: any[] = [];
     const toUpdate: { id: string; patch: Record<string, unknown> }[] = [];
 
     for (const p of parsedByKey.values()) {
-      const match = existingByKey.get(keyOf(p.silo, p.macroproceso_codigo, p.proceso_codigo, p.subproceso_codigo, p.documento_codigo, p.title));
+      const clave = keyOf(p.silo, p.macroproceso_codigo, p.proceso_codigo, p.subproceso_codigo, p.documento_codigo, p.title);
+      const match = existingByKey.get(clave);
+      if (match && docsEnCola.has(match.id)) { enEspera++; continue; }
+      if (!match && clavesEnCola.has(clave)) { enEspera++; continue; }
       if (!match) {
         toInsert.push({
           title: p.title, doc_type: p.doc_type, silo: p.silo, empresa: "mayoreo", confidential: false,
@@ -439,6 +524,7 @@ Deno.serve(async (req) => {
       filas_omitidas: omitidas,
       creados: toInsert.length,
       actualizados: toUpdate.length,
+      en_espera_de_escritura_en_sheet: enEspera,
       silos_no_reconocidos: [...silosNoReconocidos],
     }), { headers: { "Content-Type": "application/json" } });
   } catch (e) {

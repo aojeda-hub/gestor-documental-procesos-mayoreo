@@ -70,6 +70,20 @@ interface Movimiento {
   document: { title: string } | null;
 }
 
+interface CambioHoja {
+  id: string;
+  accion: 'insertar' | 'actualizar' | 'eliminar';
+  estado: 'pendiente' | 'procesando' | 'error';
+  detalle: string | null;
+  antes: { title?: string } | null;
+  cambios: { title?: string } | null;
+  solicitado_at: string;
+}
+
+const ACCION_HOJA: Record<CambioHoja['accion'], string> = {
+  insertar: 'Agregar', actualizar: 'Actualizar', eliminar: 'Eliminar',
+};
+
 type AccionOtros = 'desvincular' | 'desincorporar' | 'eliminar';
 
 const ACCION_OTROS: Record<AccionOtros, string> = {
@@ -120,9 +134,27 @@ export default function DriveSyncRevision() {
     else setMovimientos((prev) => prev.filter((m) => m.id !== id));
   };
 
+  // Cambios del Mapa de Procesos hechos en la app que se escriben en el Google Sheet.
+  const [cambiosHoja, setCambiosHoja] = useState<CambioHoja[]>([]);
+  const cargarCambiosHoja = async () => {
+    const { data } = await db
+      .from('mapa_hoja_cambios')
+      .select('id, accion, estado, detalle, antes, cambios, solicitado_at')
+      .in('estado', ['pendiente', 'procesando', 'error'])
+      .order('solicitado_at', { ascending: false })
+      .limit(50);
+    setCambiosHoja((data || []) as CambioHoja[]);
+  };
+  const descartarCambioHoja = async (id: string) => {
+    const { error } = await db.from('mapa_hoja_cambios').delete().eq('id', id);
+    if (error) toast({ title: 'No se pudo descartar', description: error.message, variant: 'destructive' });
+    else setCambiosHoja((prev) => prev.filter((c) => c.id !== id));
+  };
+
   const cargar = async () => {
     setLoading(true);
     cargarMovimientos();
+    cargarCambiosHoja();
     const { data, error } = await db
       .from('drive_sync_revision')
       .select('*')
@@ -296,6 +328,34 @@ export default function DriveSyncRevision() {
               {m.detalle && <span className="text-xs text-muted-foreground break-all w-full sm:w-auto">{m.detalle}</span>}
               {m.estado === 'error' && (
                 <Button variant="ghost" size="sm" onClick={() => descartarMovimiento(m.id)}>Descartar</Button>
+              )}
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {cambiosHoja.length > 0 && (
+        <Card className="p-4 space-y-2">
+          <div>
+            <p className="font-medium">Cambios al Mapa de Procesos (Google Sheet)</p>
+            <p className="text-sm text-muted-foreground">
+              Lo que se creó, editó o eliminó del Mapa en la app y se escribe en la pestaña del silo del Sheet.
+              Los pendientes se procesan cada minuto. Mientras un cambio tenga error, la app conserva su valor;
+              al descartarlo, vuelve a mandar lo que diga el Sheet.
+            </p>
+          </div>
+          {cambiosHoja.map((c) => (
+            <div key={c.id} className="flex flex-wrap items-center gap-2 border-t pt-2 text-sm">
+              <Badge variant={c.estado === 'error' ? 'destructive' : 'secondary'}>
+                {c.estado === 'error' ? 'Error' : 'Pendiente'}
+              </Badge>
+              <Badge variant="outline">{ACCION_HOJA[c.accion]}</Badge>
+              <span className="font-medium flex-1 min-w-0 break-words">
+                {c.cambios?.title ?? c.antes?.title ?? '(sin título)'}
+              </span>
+              {c.detalle && <span className="text-xs text-muted-foreground break-all w-full sm:w-auto">{c.detalle}</span>}
+              {c.estado === 'error' && (
+                <Button variant="ghost" size="sm" onClick={() => descartarCambioHoja(c.id)}>Descartar</Button>
               )}
             </div>
           ))}

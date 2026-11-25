@@ -14,7 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Upload, Loader2, FileUp, CheckCircle, Eye, Cog } from 'lucide-react';
+import { Plus, FileText, Upload, Loader2, CheckCircle, Eye } from 'lucide-react';
 import ProcessTable from '@/components/ProcessTable';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Document, DocumentVersion, DocType, SiloType, EmpresaType, DocumentEstatus } from '@/types/database';
@@ -22,9 +22,7 @@ import { DOC_TYPE_LABELS, SILO_LABELS, EMPRESA_LABELS, DOCUMENT_ESTATUS_LABELS, 
 import SiloCard from '@/components/documents/SiloCard';
 import SiloUniverse from '@/components/documents/SiloUniverse';
 import DocumentPreviewDialog from '@/components/documents/DocumentPreviewDialog';
-import { organizarSiloPersonal, ClassificationReport } from '@/utils/personalSiloOrganizer';
 import { DC_DEPARTAMENTOS } from '@/components/documents/DescripcionesCargo';
-import { PERSONAL_SILO_LIST } from '@/data/personalSiloList';
 
 /** ID del archivo de Drive a partir de su enlace (/d/<id>/ o ?id=<id>), o null. */
 function driveFileIdDeLink(link: string): string | null {
@@ -98,17 +96,6 @@ export default function Documents() {
   const [editingDocForConfirm, setEditingDocForConfirm] = useState<Document | null>(null);
   const [confirmDesc, setConfirmDesc] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
-
-  // Bulk upload
-  const [showBulkUpload, setShowBulkUpload] = useState(false);
-  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
-  const [bulkSilo, setBulkSilo] = useState<SiloType>('compras');
-  const [bulkType, setBulkType] = useState<DocType>('procedimiento');
-  const [uploadingBulk, setUploadingBulk] = useState(false);
-
-  const [showOrganizer, setShowOrganizer] = useState(false);
-  const [organizerReport, setOrganizerReport] = useState<ClassificationReport | null>(null);
-  const [isOrganizing, setIsOrganizing] = useState(false);
 
   const { canCreateDocuments, canSetConfidential, canSeeConfidential, canEditDocument, canDeleteDocument } = usePermissions();
   const canEdit = canCreateDocuments;
@@ -216,6 +203,29 @@ export default function Documents() {
       finalSilo = 'personal';
     }
 
+    // Documentos es el espejo de Drive: sin archivo en Drive el documento no se
+    // vería (desaparece de la lista a las 24 horas). Por eso el enlace es obligatorio.
+    const driveFileId = driveFileIdDeLink(vDriveUrl);
+    if (!driveFileId) {
+      toast({
+        title: 'Falta el enlace de Drive',
+        description: 'Pega el enlace del archivo en la unidad compartida "Documentación" (botón Compartir > Copiar enlace).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    // Si la sincronización ya registró ese archivo, no se crea un duplicado.
+    const { data: yaExiste } = await supabase.from('documents')
+      .select('id, title').eq('drive_file_id' as never, driveFileId as never).limit(1);
+    if (yaExiste && yaExiste.length > 0) {
+      toast({
+        title: 'Ese archivo ya está registrado',
+        description: `Ya existe como "${(yaExiste[0] as any).title}". Búscalo y edítalo en lugar de crear uno nuevo.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const { data: doc, error } = await supabase.from('documents').insert({
       title: finalTitle,
       doc_type: finalType,
@@ -226,7 +236,7 @@ export default function Documents() {
       empresa: activeEmpresa,
       drive_link: vDriveUrl.trim() || null,
       // Con el ID del archivo, la sincronización lo reconoce aunque el título difiera.
-      drive_file_id: driveFileIdDeLink(vDriveUrl),
+      drive_file_id: driveFileId,
       departamento: finalDepartamento,
       cargo: finalCargo,
     } as any).select().single();
@@ -327,9 +337,14 @@ export default function Documents() {
       const conArchivo = !!(selectedDoc as Document & { drive_visto_at?: string | null }).drive_visto_at;
       const seMueve = conArchivo && (
         formType !== selectedDoc.doc_type || formSilo !== selectedDoc.silo || formConfidential !== selectedDoc.confidential);
-      toast(seMueve
-        ? { title: 'Cambios guardados', description: 'El archivo se moverá en Drive a la carpeta que corresponde en los próximos 5 minutos.' }
-        : { title: 'Cambios guardados' });
+      const enMapa = !!selectedDoc.macroproceso_codigo && (
+        formTitle !== selectedDoc.title || formType !== selectedDoc.doc_type || formSilo !== selectedDoc.silo ||
+        formEstatus !== (selectedDoc as any).estatus);
+      const avisos = [
+        seMueve && 'El archivo se moverá en Drive a la carpeta que corresponde en los próximos 5 minutos.',
+        enMapa && 'El cambio se escribirá en el Mapa de Procesos del Google Sheet en el próximo minuto.',
+      ].filter(Boolean).join(' ');
+      toast(avisos ? { title: 'Cambios guardados', description: avisos } : { title: 'Cambios guardados' });
       setShowDetailsDialog(false);
       fetchDocs();
     } catch (err: any) {
@@ -410,73 +425,6 @@ export default function Documents() {
       setShowConfirmEdit(false); setEditingDocForConfirm(null); fetchDocs();
     } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
     finally { setIsConfirming(false); }
-  };
-
-  const handleBulkUpload = async () => {
-    if (bulkFiles.length === 0) return;
-    setUploadingBulk(true);
-    let ok = 0;
-    try {
-      for (const file of bulkFiles) {
-        const title = file.name.split('.').slice(0, -1).join('.') || file.name;
-        
-        let finalType = bulkType;
-        let finalSilo = bulkSilo;
-        
-        if (/^DC\s*-/i.test(title.trim())) {
-          finalType = 'descripcion_cargo';
-          finalSilo = 'personal';
-        }
-
-        const { data: doc, error: docErr } = await supabase.from('documents').insert({
-          title, 
-          doc_type: finalType, 
-          silo: finalSilo, 
-          confidential: false, 
-          created_by: user?.id, 
-          empresa: activeEmpresa,
-        } as any).select().single();
-        if (docErr) throw docErr;
-        const url = await uploadFile(file, (doc as any).id, 'file');
-        await supabase.from('document_versions').insert({
-          document_id: (doc as any).id, version_number: 1, description: 'Carga masiva',
-          authors: profile?.full_name || '', approver: '', url_word: url, is_current: true,
-        } as any);
-        ok++;
-      }
-      toast({ title: `${ok} documentos cargados` });
-      setShowBulkUpload(false); setBulkFiles([]); fetchDocs();
-    } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
-    finally { setUploadingBulk(false); }
-  };
-
-
-
-  const handleRunDryRun = async () => {
-    setIsOrganizing(true);
-    try {
-      const report = await organizarSiloPersonal(PERSONAL_SILO_LIST, 'dry_run');
-      setOrganizerReport(report);
-      setShowOrganizer(true);
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    } finally {
-      setIsOrganizing(false);
-    }
-  };
-
-  const handleExecuteOrganization = async () => {
-    setIsOrganizing(true);
-    try {
-      await organizarSiloPersonal(PERSONAL_SILO_LIST, 'ejecutar');
-      toast({ title: 'Organización completada', description: 'El silo de personal ha sido re-clasificado.' });
-      setShowOrganizer(false);
-      fetchDocs();
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    } finally {
-      setIsOrganizing(false);
-    }
   };
 
   const handleDownloadDoc = async (doc: Document, fmt: 'pdf' | 'word') => {
@@ -599,9 +547,6 @@ export default function Documents() {
               <>
                 <Button variant="outline" onClick={() => { resetForm(); setShowCreate(true); }}>
                   <Plus className="mr-2 h-4 w-4" /> Nuevo Documento
-                </Button>
-                <Button onClick={() => setShowBulkUpload(true)}>
-                  <FileUp className="mr-2 h-4 w-4" /> Carga Masiva
                 </Button>
               </>
             )}
@@ -769,55 +714,25 @@ export default function Documents() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Enlace Google Drive</Label>
+              <Label>Enlace del archivo en Google Drive <span className="text-destructive">*</span></Label>
               <Input placeholder="https://docs.google.com/document/d/..." value={vDriveUrl} onChange={e => setVDriveUrl(e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                Primero sube el archivo a su carpeta en la unidad compartida "Documentación" (Empresa / Silo / Tipo) y pega aquí su enlace.
+                Si lo subes a la carpeta correcta, la sincronización lo registra sola en unos 5 minutos y no necesitas este formulario.
+              </p>
+              {vDriveUrl.trim() && !driveFileIdDeLink(vDriveUrl) && (
+                <p className="text-xs text-destructive">Ese enlace no parece de un archivo de Google Drive.</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Archivos</Label>
+              <Label>Archivos adicionales (opcional)</Label>
               <div className="grid grid-cols-1 gap-3">
                 <div><span className="text-xs text-muted-foreground">Word (cualquier formato)</span><Input type="file" onChange={e => setWordFile(e.target.files?.[0] || null)} /></div>
                 <div><span className="text-xs text-muted-foreground">PDF (cualquier formato)</span><Input type="file" onChange={e => setPdfFile(e.target.files?.[0] || null)} /></div>
                 <div><span className="text-xs text-muted-foreground">Otro archivo</span><Input type="file" onChange={e => setGenericFile(e.target.files?.[0] || null)} /></div>
               </div>
             </div>
-            <Button className="w-full" onClick={handleCreateDoc} disabled={!formTitle}>Guardar</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Bulk Upload Dialog */}
-      <Dialog open={showBulkUpload} onOpenChange={setShowBulkUpload}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Carga Masiva de Documentos</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select value={bulkType} onValueChange={v => setBulkType(v as DocType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Silo</Label>
-                <Select value={bulkSilo} onValueChange={v => setBulkSilo(v as SiloType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{Object.entries(SILO_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Archivos</Label>
-              <Input type="file" multiple onChange={e => setBulkFiles(Array.from(e.target.files || []))} />
-              {bulkFiles.length > 0 && (
-                <div className="mt-2 max-h-32 overflow-y-auto rounded-md border p-2 text-xs">
-                  {bulkFiles.map((f, i) => <div key={i} className="py-1 border-b last:border-0">{f.name}</div>)}
-                </div>
-              )}
-            </div>
-            <Button className="w-full" onClick={handleBulkUpload} disabled={bulkFiles.length === 0 || uploadingBulk}>
-              {uploadingBulk ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Subiendo...</> : `Cargar ${bulkFiles.length} documentos`}
-            </Button>
+            <Button className="w-full" onClick={handleCreateDoc} disabled={!formTitle || !driveFileIdDeLink(vDriveUrl)}>Guardar</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -956,7 +871,12 @@ export default function Documents() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-            <AlertDialogDescription>Se eliminará "{selectedDoc?.title}" y todas sus versiones.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Se eliminará "{selectedDoc?.title}" y todas sus versiones.
+              {selectedDoc?.macroproceso_codigo && ' También se quitará su fila del Mapa de Procesos en el Google Sheet.'}
+              {(selectedDoc as (Document & { drive_file_id?: string | null }) | null)?.drive_file_id &&
+                ' El archivo se queda en Drive, pero la sincronización ya no lo volverá a registrar.'}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
@@ -1004,92 +924,6 @@ export default function Documents() {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-      {/* Personal Silo Organizer Dialog */}
-      <Dialog open={showOrganizer} onOpenChange={setShowOrganizer}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Cog className="h-5 w-5 text-primary" /> Organizador de Silo Personal
-            </DialogTitle>
-          </DialogHeader>
-          
-          {organizerReport && (
-            <div className="flex-1 overflow-hidden flex flex-col gap-4 mt-2">
-              <div className="grid grid-cols-4 gap-4">
-                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-center">
-                  <div className="text-2xl font-bold text-green-600">{organizerReport.correctos.length}</div>
-                  <div className="text-[10px] text-green-700 uppercase font-semibold">Correctos</div>
-                </div>
-                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
-                  <div className="text-2xl font-bold text-blue-600">{organizerReport.aMover.length}</div>
-                  <div className="text-[10px] text-blue-700 uppercase font-semibold">A Mover</div>
-                </div>
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-center">
-                  <div className="text-2xl font-bold text-red-600">{organizerReport.aEliminar.length}</div>
-                  <div className="text-[10px] text-red-700 uppercase font-semibold">A Eliminar</div>
-                </div>
-                <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20 text-center">
-                  <div className="text-2xl font-bold text-orange-600">{organizerReport.faltantes.length}</div>
-                  <div className="text-[10px] text-orange-700 uppercase font-semibold">Faltantes</div>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-                {organizerReport.aMover.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-bold text-blue-600 border-b pb-1">Documentos a Re-clasificar</h3>
-                    <div className="space-y-1">
-                      {organizerReport.aMover.map((item, idx) => (
-                        <div key={idx} className="text-xs p-2 bg-blue-50 rounded border border-blue-100 flex justify-between items-center">
-                          <span className="font-medium">{item.actual.title}</span>
-                          <span className="text-blue-700 italic font-semibold">{item.accion}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {organizerReport.aEliminar.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-bold text-red-600 border-b pb-1">Documentos a Eliminar (No están en la lista)</h3>
-                    <div className="space-y-1">
-                      {organizerReport.aEliminar.map((doc, idx) => (
-                        <div key={idx} className="text-xs p-2 bg-red-50 rounded border border-red-100">
-                          {doc.title} ({doc.doc_type})
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {organizerReport.faltantes.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-bold text-orange-600 border-b pb-1">Documentos Faltantes (En la lista pero no en el sistema)</h3>
-                    <div className="space-y-1">
-                      {organizerReport.faltantes.map((item, idx) => (
-                        <div key={idx} className="text-xs p-2 bg-orange-50 rounded border border-orange-100 flex justify-between">
-                          <span className="font-medium">{item.nombre}</span>
-                          <span className="text-orange-700 font-semibold">{item.tipo}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-4 border-t flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setShowOrganizer(false)} disabled={isOrganizing}>
-                  Cerrar (Dry Run)
-                </Button>
-                <Button className="flex-1" onClick={handleExecuteOrganization} disabled={isOrganizing || (organizerReport.aMover.length === 0 && organizerReport.aEliminar.length === 0)}>
-                  {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                  Ejecutar Organización
-                </Button>
-              </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </div>

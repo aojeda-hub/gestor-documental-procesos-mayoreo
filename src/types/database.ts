@@ -36,15 +36,16 @@ export type DocumentEstatus =
   | 'creada_ia'
   | 'por_iniciar';
 
+// Estatus que se pueden elegir: los mismos de la lista desplegable del Google
+// Sheet del Mapa de Procesos (la app y el Sheet son espejo). 'por_aprobar' y
+// 'creada_ia' siguen en el tipo solo para mostrar documentos antiguos.
 export const DOCUMENT_ESTATUS_OPTIONS: DocumentEstatus[] = [
   'aprobado',
   'revision',
-  'por_aprobar',
+  'en_construccion',
+  'por_iniciar',
   'desactualizado',
   'desincorporado',
-  'en_construccion',
-  'creada_ia',
-  'por_iniciar',
 ];
 
 export const DOCUMENT_ESTATUS_LABELS: Record<DocumentEstatus, string> = {
@@ -53,7 +54,7 @@ export const DOCUMENT_ESTATUS_LABELS: Record<DocumentEstatus, string> = {
   por_aprobar: 'Por aprobar',
   desactualizado: 'Desactualizado',
   desincorporado: 'Desincorporado',
-  en_construccion: 'En construcción',
+  en_construccion: 'Construcción',
   creada_ia: 'Creada con IA',
   por_iniciar: 'Por iniciar',
 };
