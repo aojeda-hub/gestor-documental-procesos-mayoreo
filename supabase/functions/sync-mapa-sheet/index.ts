@@ -166,6 +166,27 @@ Deno.serve(async (req) => {
         if (ed) throw ed;
         lista = lista.filter((c) => c.id !== nuevo.id);
       }
+      // Se escribe siempre lo que el documento tiene HOY (no el valor de cuando se
+      // pidió el cambio): un reintento nunca puede llevar al Sheet un valor viejo.
+      const docIds = lista.filter((c) => c.accion !== "eliminar").map((c) => c.document_id);
+      if (docIds.length > 0) {
+        const { data: actuales, error: ea } = await supabase.from("documents")
+          .select("id, silo, macroproceso_codigo, macroproceso, mapeo_sistemico, proceso_codigo, proceso, subproceso_codigo, subproceso, documento_codigo, doc_type, title, estatus, fecha_actualizacion, observaciones")
+          .in("id", docIds);
+        if (ea) throw ea;
+        const porId = new Map((actuales || []).map((d: any) => [d.id, d]));
+        for (const c of lista) {
+          const d = porId.get(c.document_id);
+          if (!d || c.accion === "eliminar") continue;
+          const frescos: Record<string, unknown> = {};
+          for (const k of Object.keys(c.cambios || {})) frescos[k] = d[k] ?? null;
+          if (JSON.stringify(frescos) !== JSON.stringify(c.cambios)) {
+            c.cambios = frescos;
+            const { error: eu } = await supabase.from("mapa_hoja_cambios").update({ cambios: frescos }).eq("id", c.id);
+            if (eu) throw eu;
+          }
+        }
+      }
       const ids = lista.map((c) => c.id);
       if (ids.length > 0) {
         // procesado_at marca cuándo se entregó; si el script se cae, a los 10 min se reentrega.
