@@ -12,3 +12,7 @@ verify_jwt = true
 # Autenticada con el header x-sync-secret (DRIVE_SYNC_SECRET), la llama un Apps Script.
 [functions.sync-drive]
 verify_jwt = false
+
+# Autenticada con el header x-sync-secret (NOTIF_EMAIL_SECRET), la llama el Apps Script de correo.
+[functions.notificar-email]
+verify_jwt = false
