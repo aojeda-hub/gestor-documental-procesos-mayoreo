@@ -20,6 +20,13 @@ Deno.serve(async (req) => {
     const modo = new URL(req.url).searchParams.get("mode");
 
     if (modo === "pendientes") {
+      // Primero genera los recordatorios del cronograma que tocan hoy (la
+      // función solo actúa desde las 7:00 a. m. de Caracas y no repite avisos).
+      // Si falla, no se frena el envío de los demás avisos.
+      const rec = await supabase.rpc("cronograma_generar_recordatorios");
+      if (rec.error) console.error("Recordatorios del cronograma: " + rec.error.message);
+      else if (rec.data) console.log("Recordatorios del cronograma generados: " + rec.data);
+
       const { data, error } = await supabase.rpc("notificaciones_email_tomar", { p_limite: 200 });
       if (error) throw error;
       return json({ ok: true, avisos: data || [] });

@@ -22,7 +22,7 @@ import type { SeguimientoBoard, CronogramaProceso, CronogramaActividad, Cronogra
 import { SILO_LABELS } from '@/types/database';
 import type { UserDirectoryEntry } from '@/hooks/useUserDirectory';
 import {
-  computeAvancePorProceso, registrarCambioHistorial, computeFrecuencia, revisarYEnviarRecordatorios,
+  computeAvancePorProceso, registrarCambioHistorial, computeFrecuencia,
   crearSeguimientoDesdeActividad, FRECUENCIA_RECORDATORIO_LABEL, MES_LABELS,
 } from '@/lib/reunionOperativa';
 
@@ -135,22 +135,12 @@ export function CronogramaProcesos({ board, grupoProcesosColumnId, currentMeetin
       const { data } = await supabase.from('cronograma_actividades' as any).select('*').in('proceso_id', procesoIds).order('orden');
       acts = data ?? [];
     }
-    const procesosList = (procs ?? []) as unknown as CronogramaProceso[];
-    let actividadesList = acts as unknown as CronogramaActividad[];
-    setProcesos(procesosList);
-    setActividades(actividadesList);
+    setProcesos((procs ?? []) as unknown as CronogramaProceso[]);
+    setActividades(acts as unknown as CronogramaActividad[]);
     setLoading(false);
-
-    // Revisa recordatorios pendientes cada vez que alguien abre el
-    // cronograma (no requiere infraestructura de servidor: el chequeo ocurre
-    // al cargar la vista). Solo aplica al año en curso: los meses marcados
-    // de un año pasado o futuro no representan el ciclo activo ahora mismo.
-    if (user) {
-      const delAnioActual = actividadesList.filter((a) => a.anio === ANIO_ACTUAL);
-      const actualizadas = await revisarYEnviarRecordatorios(delAnioActual, procesosList, board.id, user.id, grupoProcesosColumnId);
-      actividadesList = actividadesList.map((a) => actualizadas.find((u) => u.id === a.id) ?? a);
-      setActividades(actividadesList);
-    }
+    // Los recordatorios a los responsables ya no se revisan aquí: los genera
+    // el servidor todos los días (función cronograma_generar_recordatorios),
+    // aunque nadie abra el cronograma.
   };
 
   useEffect(() => { loadData(); }, [board.id]);
