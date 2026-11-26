@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Send, X, Bot, User, Loader2, Sparkles, Minus } from 'lucide-react';
+import { MessageCircle, Send, X, Bot, User, Loader2, Sparkles, Minus, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,9 +13,20 @@ interface Message {
   role: 'assistant' | 'user';
   content: string;
   timestamp: Date;
+  /** Accesos directos a la pantalla donde está el dato. */
+  links?: { label: string; path: string }[];
 }
 
+// Preguntas de ejemplo: muestran qué sabe responder con datos del sistema.
+const SUGERENCIAS = [
+  '¿Qué tengo pendiente?',
+  '¿Qué proyectos de mi silo están atrasados?',
+  '¿Qué actividades del cronograma tocan este mes?',
+  '¿Cuántas normas aprobadas hay en Personal?',
+];
+
 export const Chatbot: React.FC = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState('');
@@ -22,7 +34,7 @@ export const Chatbot: React.FC = () => {
     {
       id: '1',
       role: 'assistant',
-      content: '¡Hola! Soy el asistente inteligente de Procesos. ¿En qué puedo ayudarte hoy?',
+      content: 'Hola. Consulto los datos del sistema por ti: tus pendientes, proyectos, cronograma, documentos, Mapa de Procesos, indicadores e incidencias.',
       timestamp: new Date(),
     },
   ]);
@@ -35,13 +47,14 @@ export const Chatbot: React.FC = () => {
     }
   }, [messages, isOpen, isMinimized]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSend = async (texto?: string) => {
+    const pregunta = (texto ?? input).trim();
+    if (!pregunta || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: pregunta,
       timestamp: new Date(),
     };
 
@@ -63,6 +76,7 @@ export const Chatbot: React.FC = () => {
         role: 'assistant',
         content: data.answer,
         timestamp: new Date(),
+        links: Array.isArray(data.links) ? data.links : [],
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -73,7 +87,7 @@ export const Chatbot: React.FC = () => {
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: `Error: ${error.message || 'No se pudo procesar tu solicitud'}. Por favor revisa la consola o el despliegue de la función.`,
+          content: 'No pude responder en este momento. Intenta de nuevo en unos segundos.',
           timestamp: new Date(),
         },
       ]);
@@ -160,12 +174,40 @@ export const Chatbot: React.FC = () => {
                             ? "bg-primary text-primary-foreground rounded-tr-none" 
                             : "bg-muted rounded-tl-none prose prose-sm dark:prose-invert"
                         )}>
-                          {msg.content.split('\n').map((line, i) => (
-                            <p key={i} className={i > 0 ? "mt-2" : ""}>{line}</p>
+                          {msg.content.split('\n').filter(l => l.trim()).map((line, i) => (
+                            <p key={i} className={cn(i > 0 && "mt-1", line.trim().startsWith('- ') && "pl-2")}>{line}</p>
                           ))}
+                          {msg.links && msg.links.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1.5 not-prose">
+                              {msg.links.map((l) => (
+                                <button
+                                  key={l.path + l.label}
+                                  type="button"
+                                  onClick={() => { navigate(l.path); setIsMinimized(true); }}
+                                  className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-background px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+                                >
+                                  {l.label} <ArrowRight className="h-3 w-3" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
+                    {messages.length === 1 && !isLoading && (
+                      <div className="flex flex-col gap-1.5 pl-10">
+                        {SUGERENCIAS.map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => handleSend(s)}
+                            className="rounded-lg border px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {isLoading && (
                       <div className="flex gap-2">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary border border-primary/20">
