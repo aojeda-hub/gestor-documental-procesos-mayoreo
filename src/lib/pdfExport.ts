@@ -71,15 +71,22 @@ export interface ProjectRow {
   end_date?: string | null;
   planned_progress: number | null;
   actual_progress: number | null;
+  /** Estado ya traducido (p. ej. "En progreso"). */
+  estado?: string;
 }
 
-export async function exportProjectsPDF(projects: ProjectRow[], silo: string) {
+/**
+ * @param silo  silo filtrado ('all' = todos)
+ * @param filtros  descripción de los demás filtros activos (estado, búsqueda),
+ *                 para que el PDF diga qué se exportó.
+ */
+export async function exportProjectsPDF(projects: ProjectRow[], silo: string, filtros: string[] = []) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const logo = await getLogoDataUrl();
   const siloLabel = silo === 'all' ? 'Todos los Silos' : SILO_LABELS[silo as SiloType] || silo;
   const today = new Date().toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' });
 
-  header(doc, 'Resumen de Proyectos', `${siloLabel} · ${today}`, logo);
+  header(doc, 'Resumen de Proyectos', [siloLabel, ...filtros, today].join(' · '), logo);
 
   const rows = projects.map(p => {
     const plan = p.planned_progress !== null ? `${p.planned_progress.toFixed(1)}%` : 'N/D';
@@ -89,6 +96,7 @@ export async function exportProjectsPDF(projects: ProjectRow[], silo: string) {
     return [
       p.name,
       SILO_LABELS[p.silo] || p.silo,
+      p.estado || '-',
       p.phase,
       p.start_date || '-',
       p.end_date || '-',
@@ -98,14 +106,14 @@ export async function exportProjectsPDF(projects: ProjectRow[], silo: string) {
 
   autoTable(doc, {
     startY: 34,
-    head: [['Proyecto', 'Silo', 'Fase', 'Inicio', 'Cierre', '% Plan', '% Real', 'Desv.']],
+    head: [['Proyecto', 'Silo', 'Estado', 'Fase', 'Inicio', 'Cierre', '% Plan', '% Real', 'Desv.']],
     body: rows,
     styles: { fontSize: 9, cellPadding: 2.5 },
     headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
       0: { cellWidth: 65, fontStyle: 'bold' },
-      5: { halign: 'center' }, 6: { halign: 'center' }, 7: { halign: 'center' },
+      6: { halign: 'center' }, 7: { halign: 'center' }, 8: { halign: 'center' },
     },
     margin: { left: PDF_MARGIN, right: PDF_MARGIN },
   });

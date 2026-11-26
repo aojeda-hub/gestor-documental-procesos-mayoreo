@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedState } from '@/hooks/usePersistedState';
-import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle, Fish, ClipboardList, MoreVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, ListChecks, ArrowUpDown, CalendarRange, Rocket, FileCheck2, Paperclip, AlertCircle, Fish, ClipboardList, MoreVertical, FileDown, Loader2 } from 'lucide-react';
 import { CertificaERPDialog } from '@/components/certifica-erp/CertificaERPDialog';
 import type { Project, ProjectEstado, ProjectTask, ProjectPhase, SiloType, TaskDependency, ProyectoRiesgo, ProjectMilestone, ObjetivoEstrategico } from '@/types/database';
 import { calculateProjectScheduleVariance, VARIANCE_STATUS_META } from '@/lib/baselineUtils';
@@ -32,7 +32,6 @@ import { ProjectIshikawaDialog } from '@/components/projects/ProjectIshikawaDial
 import { ProjectSeguimientosDialog } from '@/components/projects/ProjectSeguimientosDialog';
 import { ProjectSummaryDialog } from '@/components/projects/ProjectSummaryDialog';
 import { ProjectScheduleDialog } from '@/components/projects/ProjectScheduleDialog';
-import { ExportPDFDialog } from '@/components/ExportPDFDialog';
 import { exportProjectsPDF } from '@/lib/pdfExport';
 
 const ESTADOS: ProjectEstado[] = ['en_progreso', 'completado', 'cancelado', 'detenido'];
@@ -257,6 +256,26 @@ export default function Projects() {
     return true;
   });
 
+  const [exportando, setExportando] = useState(false);
+  const descargarPDF = async () => {
+    setExportando(true);
+    try {
+      const filtros = [
+        filterEstado === 'all' ? 'Todos los estados' : ESTADO_LABEL[filterEstado],
+        ...(search.trim() ? [`Búsqueda: "${search.trim()}"`] : []),
+      ];
+      await exportProjectsPDF(
+        filtered.map(p => ({ ...p, estado: ESTADO_LABEL_SINGULAR[(p.estado || 'en_progreso') as ProjectEstado] })),
+        filterSilo,
+        filtros,
+      );
+    } catch (e) {
+      toast({ title: 'Error al generar PDF', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setExportando(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 justify-between">
@@ -276,14 +295,11 @@ export default function Projects() {
           </Select>
         </div>
         <div className="flex items-center gap-2">
-          <ExportPDFDialog
-            title="Descargar Resumen de Proyectos"
-            description="Selecciona el silo a incluir en el reporte PDF."
-            onExport={async (silo) => {
-              const list = silo === 'all' ? projects : projects.filter(p => p.silo === silo);
-              await exportProjectsPDF(list, silo);
-            }}
-          />
+          {/* Descarga exactamente lo que se ve: silo, búsqueda y estado activos. */}
+          <Button variant="outline" onClick={descargarPDF} disabled={exportando || filtered.length === 0}>
+            {exportando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+            Descargar PDF
+          </Button>
           <Button variant="outline" onClick={() => { setCertificaErpLinkedProject(null); setCertificaErpOpen(true); }}>
             <FileCheck2 className="mr-2 h-4 w-4" /> CertificaERP
           </Button>
