@@ -327,19 +327,19 @@ Deno.serve(async (req) => {
       if (msDb !== new Date(m.file.modifiedTime).getTime()) p.drive_modified_at = m.file.modifiedTime;
       if (d.drive_eliminado_at) p.drive_eliminado_at = null;
       const esMapa = !!d.macroproceso_codigo;
+      // El título de los documentos de Drive es siempre el nombre del archivo
+      // (sin extensión). Los del Mapa de Procesos los manda el Sheet.
+      if (!esMapa && m.title && d.title !== m.title) p.title = m.title;
       if (primeraVez && !esMapa) {
         // Cada documento queda en el silo (y empresa) de su carpeta en Drive.
         if (d.empresa !== m.empresa) p.empresa = m.empresa;
         if (d.silo !== m.silo) p.silo = m.silo;
-        // Títulos cargados a mano con la extensión del archivo ("… .docx").
-        if (EXTENSIONES.test((d.title || "").trim())) p.title = limpiarTitulo(d.title);
       }
       if (primeraVez && esMapa && d.silo !== m.silo) {
         siloDistintoMapa.push({ title: d.title, silo_app: d.silo, silo_drive: m.silo, ruta: m.drive_path });
       }
       if (!primeraVez && !esMapa) {
-        // Renombrado en Drive -> nuevo título. Movido de carpeta -> nueva ubicación.
-        if (d.drive_nombre && d.drive_nombre !== m.title && d.title !== m.title) p.title = m.title;
+        // Movido de carpeta -> nueva ubicación.
         if (d.drive_path && d.drive_path !== m.drive_path) {
           if (d.empresa !== m.empresa) p.empresa = m.empresa;
           if (d.silo !== m.silo) p.silo = m.silo;
